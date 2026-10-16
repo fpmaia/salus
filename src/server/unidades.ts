@@ -8,6 +8,7 @@ import { type ContextoTenant, withTenant } from "../db/tenant";
 import { exigirPermissao } from "../domain/rbac";
 import { SLOTS_PERMITIDOS, type ConfigUnidade } from "../domain/reservas";
 import { dataValida, horaValida, minutosDoDia, timezoneValido } from "../domain/tempo";
+import { exigirLimite } from "./assinatura";
 import { ErroNegocio } from "./erros";
 
 const textoOpcional = (max: number) =>
@@ -68,6 +69,7 @@ export async function criarUnidade(
   return withTenant(
     ctx,
     async (tx) => {
+      await exigirLimite(tx, "unidades");
       const [unidade] = await tx.insert(unidades).values(valores).returning({ id: unidades.id });
       await tx.insert(horariosFuncionamento).values(HORARIO_PADRAO.map((h) => ({ ...h, unidadeId: unidade.id })));
       await registrarAuditoria(tx, { acao: "unidade.criada", entidade: "unidades", entidadeId: unidade.id, dados: valores });
@@ -211,6 +213,7 @@ export async function criarSala(
   return withTenant(
     ctx,
     async (tx) => {
+      await exigirLimite(tx, "salas");
       const [sala] = await tx
         .insert(salas)
         .values({ ...valores, unidadeId })
@@ -235,6 +238,10 @@ export async function atualizarSala(
   await withTenant(
     ctx,
     async (tx) => {
+      if (dados.ativo) {
+        const [atual] = await tx.select({ ativo: salas.ativo }).from(salas).where(eq(salas.id, salaId));
+        if (atual && !atual.ativo) await exigirLimite(tx, "salas");
+      }
       const alteradas = await tx
         .update(salas)
         .set({ ...valores, ativo: dados.ativo })

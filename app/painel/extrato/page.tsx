@@ -3,7 +3,9 @@ import { exigirPermissaoNaPagina } from "@/src/auth/permissao";
 import { obterContextoTenant } from "@/src/auth/sessao";
 import { formatarMoeda } from "@/src/domain/dinheiro";
 import { competenciaAtual, competenciaSchema, extrato } from "@/src/server/financeiro";
+import { listarCobrancas } from "@/src/server/cobrancas";
 import { listarNotas } from "@/src/server/fiscal";
+import { ListaCobrancas } from "../financeiro/cobrancas-ui";
 import { NavCompetencia, rotuloCompetencia, TabelaExtrato } from "../financeiro/componentes";
 
 export default async function MeuExtratoPage({ searchParams }: PageProps<"/painel/extrato">) {
@@ -12,7 +14,7 @@ export default async function MeuExtratoPage({ searchParams }: PageProps<"/paine
   const brutos = await searchParams;
   const informada = typeof brutos.competencia === "string" ? competenciaSchema.safeParse(brutos.competencia) : null;
   const competencia = informada?.success ? informada.data : await competenciaAtual(ctx);
-  const [dados, notas] = await Promise.all([extrato(ctx, { competencia }), listarNotas(ctx, competencia)]);
+  const [dados, notas, cobrancas] = await Promise.all([extrato(ctx, { competencia }), listarNotas(ctx, competencia), listarCobrancas(ctx)]);
   const saldo = dados.saldoFinal;
 
   return (
@@ -43,6 +45,18 @@ export default async function MeuExtratoPage({ searchParams }: PageProps<"/paine
           <TabelaExtrato linhas={dados.linhas} saldoAnterior={dados.saldoAnterior} saldoFinal={dados.saldoFinal} visao="profissional" />
         </CardContent>
       </Card>
+
+      {cobrancas.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Cobranças</CardTitle>
+            <CardDescription>Pague pelo link (PIX, boleto ou cartão). A baixa no extrato é automática.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ListaCobrancas cobrancas={cobrancas} gerenciar={false} />
+          </CardContent>
+        </Card>
+      )}
 
       {notas.length > 0 && (
         <Card>

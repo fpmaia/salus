@@ -12,9 +12,11 @@ import { proximaCompetencia, ROTULOS_MODELO, type Acordo } from "@/src/domain/fi
 import { pode } from "@/src/domain/rbac";
 import { hojeNoFuso } from "@/src/domain/tempo";
 import { competenciaAtual, competenciaSchema, extrato, listarAcordos, listarPagamentos } from "@/src/server/financeiro";
+import { listarCobrancas, obterConfigCobranca } from "@/src/server/cobrancas";
 import { listarNotas } from "@/src/server/fiscal";
 import { formatarDataBr } from "@/src/server/reservas";
 import { criarAcordoAcao, fecharCompetenciaAcao, lancarAjusteAcao, registrarPagamentoAcao } from "../actions";
+import { FormCobranca, ListaCobrancas } from "../cobrancas-ui";
 import { NavCompetencia, rotuloCompetencia, Saldo, TabelaExtrato } from "../componentes";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -58,6 +60,10 @@ export default async function FinanceiroProfissionalPage({ params, searchParams 
     pode(ctx.role, "fiscal.ver") ? listarNotas(ctx, competencia) : Promise.resolve([]),
   ]);
   const notas = todasNotas.filter((n) => n.nota.profissionalId === profissionalId);
+  const gerenciaCobranca = pode(ctx.role, "cobrancas.gerenciar");
+  const [configCobranca, cobrancas] = gerenciaCobranca
+    ? await Promise.all([obterConfigCobranca(ctx), listarCobrancas(ctx, profissionalId)])
+    : [null, []];
   const hoje = hojeNoFuso("America/Sao_Paulo");
   const podeFechar = pode(ctx.role, "financeiro.fechar") && !dados.fechamento?.fechadoEm && proximaCompetencia(competencia) <= atual;
   const c = competencia.slice(0, 7);
@@ -119,6 +125,23 @@ export default async function FinanceiroProfissionalPage({ params, searchParams 
                 </li>
               ))}
             </ul>
+          </CardContent>
+        </Card>
+      )}
+
+      {gerenciaCobranca && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Cobrança via Asaas</CardTitle>
+            <CardDescription>
+              {configCobranca?.ativo
+                ? "Envie PIX/boleto ao profissional; o pagamento confirmado baixa o saldo sozinho."
+                : "Ative a cobrança automática em Financeiro para cobrar por PIX/boleto."}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            {configCobranca?.ativo && <FormCobranca profissionalId={profissionalId} competencia={competencia} valorSugerido={dados.saldoFinal} />}
+            <ListaCobrancas cobrancas={cobrancas} gerenciar />
           </CardContent>
         </Card>
       )}

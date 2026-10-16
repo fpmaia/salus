@@ -15,7 +15,13 @@ import {
   resumoCompetencia,
 } from "@/src/server/financeiro";
 import { listarUnidades } from "@/src/server/unidades";
-import { reprocessarAcao } from "./actions";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { formatarPercentual } from "@/src/domain/dinheiro";
+import { pode } from "@/src/domain/rbac";
+import { obterConfigCobranca } from "@/src/server/cobrancas";
+import { gerarTokenWebhookAcao, reprocessarAcao, salvarConfigCobrancaAcao } from "./actions";
+import { BotaoTokenWebhook } from "./token-webhook";
 import { NavCompetencia, rotuloCompetencia, Saldo } from "./componentes";
 
 export default async function FinanceiroPage({ searchParams }: PageProps<"/painel/financeiro">) {
@@ -32,6 +38,8 @@ export default async function FinanceiroPage({ searchParams }: PageProps<"/paine
     receitaPorUnidade(ctx, competencia),
     unidade ? ocupacaoSalas(ctx, unidade.id, competencia) : Promise.resolve([]),
   ]);
+  const configurar = pode(ctx.role, "tenant.configurar");
+  const configCobranca = configurar ? await obterConfigCobranca(ctx) : null;
   const totalReceita = receita.reduce((acc, r) => acc + r.receitaCentavos, 0);
   const aReceber = resumo.filter((p) => p.saldoAcumulado > 0).reduce((acc, p) => acc + p.saldoAcumulado, 0);
   const aPagar = resumo.filter((p) => p.saldoAcumulado < 0).reduce((acc, p) => acc - p.saldoAcumulado, 0);
@@ -183,6 +191,53 @@ export default async function FinanceiroPage({ searchParams }: PageProps<"/paine
           </CardContent>
         </Card>
       </div>
+      {configurar && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Cobrança automática (Asaas)</CardTitle>
+            <CardDescription>
+              Conta Asaas do próprio espaço para cobrar os profissionais por PIX/boleto. A chave de API é guardada cifrada e
+              nunca é exibida.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            <FormAcao acao={salvarConfigCobrancaAcao} textoBotao="Salvar">
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="cc-ambiente">Ambiente</Label>
+                  <NativeSelect id="cc-ambiente" name="ambiente" defaultValue={configCobranca?.ambiente ?? "simulado"}>
+                    <option value="simulado">Simulado (nada é cobrado)</option>
+                    <option value="sandbox">Sandbox do Asaas (testes)</option>
+                    <option value="producao">Produção</option>
+                  </NativeSelect>
+                </div>
+                <div className="flex flex-col gap-2 sm:col-span-2">
+                  <Label htmlFor="cc-chave">Chave de API {configCobranca?.apiKeyConfigurada && "(configurada — deixe vazio para manter)"}</Label>
+                  <Input id="cc-chave" name="apiKey" type="password" autoComplete="off" placeholder="chave da conta Asaas" />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="cc-dias">Prazo de vencimento (dias)</Label>
+                  <Input id="cc-dias" name="diasVencimento" type="number" min={1} max={60} defaultValue={configCobranca?.diasVencimento ?? 5} />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="cc-multa">Multa por atraso (%)</Label>
+                  <Input id="cc-multa" name="multa" inputMode="decimal" placeholder="padrão da conta" defaultValue={configCobranca?.multaBp ? formatarPercentual(configCobranca.multaBp).replace("%", "") : ""} />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="cc-juros">Juros ao mês (%)</Label>
+                  <Input id="cc-juros" name="juros" inputMode="decimal" placeholder="padrão da conta" defaultValue={configCobranca?.jurosMesBp ? formatarPercentual(configCobranca.jurosMesBp).replace("%", "") : ""} />
+                </div>
+              </div>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" name="ativo" defaultChecked={configCobranca?.ativo ?? false} /> Cobrança automática ativa
+              </label>
+            </FormAcao>
+            {configCobranca && configCobranca.ambiente !== "simulado" && (
+              <BotaoTokenWebhook acao={gerarTokenWebhookAcao} configurado={configCobranca.webhookConfigurado} />
+            )}
+          </CardContent>
+        </Card>
+      )}
     </main>
   );
 }

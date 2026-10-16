@@ -12,6 +12,14 @@ import {
   registrarPagamento,
   reprocessar,
 } from "@/src/server/financeiro";
+import {
+  cancelarCobranca,
+  criarCobrancaProfissional,
+  gerarTokenWebhook,
+  reenviarCobranca,
+  salvarConfigCobranca,
+  simularPagamento,
+} from "@/src/server/cobrancas";
 
 function moeda(formData: FormData, campo: string, obrigatorio = false): number | null {
   const bruto = texto(formData, campo).trim();
@@ -103,5 +111,75 @@ export async function definirValorAcao(agendamentoId: string, _estado: EstadoAca
     const ctx = await obterContextoTenant();
     await definirValorAgendamento(ctx, agendamentoId, moeda(formData, "valor"));
     return "Valor salvo";
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Cobrança automática (Asaas do espaço)
+// ---------------------------------------------------------------------------
+
+export async function salvarConfigCobrancaAcao(_estado: EstadoAcao, formData: FormData) {
+  return executarAcao(async () => {
+    const ctx = await obterContextoTenant();
+    await salvarConfigCobranca(ctx, {
+      ativo: formData.get("ativo") === "on",
+      ambiente: texto(formData, "ambiente") as never,
+      apiKey: texto(formData, "apiKey"),
+      diasVencimento: Number(texto(formData, "diasVencimento") || 5),
+      multaBp: percentual(formData, "multa"),
+      jurosMesBp: percentual(formData, "juros"),
+    });
+    return "Configuração salva";
+  });
+}
+
+export async function gerarTokenWebhookAcao() {
+  return executarAcao(async () => {
+    const ctx = await obterContextoTenant();
+    const { url, token } = await gerarTokenWebhook(ctx);
+    return {
+      erro: null,
+      sucesso: "Cadastre no painel do Asaas (Integrações → Webhooks) com os eventos de cobrança. O token só é exibido agora.",
+      dados: { url, token },
+    };
+  });
+}
+
+export async function criarCobrancaAcao(profissionalId: string, competencia: string, _estado: EstadoAcao, formData: FormData) {
+  return executarAcao(async () => {
+    const ctx = await obterContextoTenant();
+    const cobranca = await criarCobrancaProfissional(ctx, {
+      profissionalId,
+      valorCentavos: moeda(formData, "valor", true)!,
+      vencimento: texto(formData, "vencimento") || undefined,
+      forma: (texto(formData, "forma") || "UNDEFINED") as never,
+      competencia,
+    });
+    if (cobranca.status === "erro") return { erro: `Não foi possível enviar ao Asaas: ${cobranca.ultimoErro}`, sucesso: null };
+    return "Cobrança criada";
+  });
+}
+
+export async function cancelarCobrancaAcao(cobrancaId: string) {
+  return executarAcao(async () => {
+    const ctx = await obterContextoTenant();
+    await cancelarCobranca(ctx, cobrancaId);
+    return "Cobrança cancelada";
+  });
+}
+
+export async function reenviarCobrancaAcao(cobrancaId: string) {
+  return executarAcao(async () => {
+    const ctx = await obterContextoTenant();
+    const c = await reenviarCobranca(ctx, cobrancaId);
+    return c.status === "erro" ? { erro: c.ultimoErro ?? "Falhou de novo", sucesso: null } : "Cobrança enviada";
+  });
+}
+
+export async function simularPagamentoAcao(cobrancaId: string) {
+  return executarAcao(async () => {
+    const ctx = await obterContextoTenant();
+    await simularPagamento(ctx, cobrancaId);
+    return "Pagamento simulado: baixa lançada no extrato";
   });
 }

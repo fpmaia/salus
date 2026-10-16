@@ -513,31 +513,59 @@ export const pagamentoSchema = z.object({
 });
 
 /** Baixa manual: registra o pagamento e o lançamento que abate o saldo. */
+/** Grava o pagamento e o lançamento que abate o saldo (dentro de uma transação de tenant). */
+export async function inserirPagamento(tx: Transaction, dados: z.input<typeof pagamentoSchema>): Promise<{ id: string; lancamentoId: string }> {
+  const p = pagamentoSchema.parse(dados);
+  const [pagamento] = await tx.insert(pagamentos).values(p).returning({ id: pagamentos.id });
+  const deProfissional = p.direcao === "profissional_para_espaco";
+  const competencia = await competenciaAberta(tx, p.profissionalId, competenciaDe(p.data));
+  const [lancamento] = await tx
+    .insert(lancamentos)
+    .values({
+      profissionalId: p.profissionalId,
+      competencia,
+      dataReferencia: p.data,
+      natureza: deProfissional ? "credito" : "debito",
+      tipo: deProfissional ? "pagamento_profissional" : "repasse_profissional",
+      valorCentavos: p.valorCentavos,
+      descricao: `${deProfissional ? "Pagamento recebido" : "Repasse pago"} (${p.forma})${p.observacao ? ` · ${p.observacao}` : ""}`,
+      origem: `pagamento:${pagamento.id}`,
+      idempotencyKey: `pagamento:${pagamento.id}`,
+    })
+    .returning({ id: lancamentos.id });
+  await registrarAuditoria(tx, { acao: "pagamento.registrado", entidade: "pagamentos", entidadeId: pagamento.id, dados: p });
+  return { id: pagamento.id, lancamentoId: lancamento.id };
+}
+
+/** Estorna o lançamento de um pagamento (ex.: estorno/chargeback no Asaas). Idempotente. */
+export async function estornarPagamento(tx: Transaction, pagamentoId: string, motivo: string, data: DataLocal): Promise<void> {
+  const [original] = await tx
+    .select()
+    .from(lancamentos)
+    .where(and(eq(lancamentos.origem, `pagamento:${pagamentoId}`), isNull(lancamentos.estornoDe)));
+  if (!original) return;
+  const competencia = await competenciaAberta(tx, original.profissionalId, competenciaDe(data));
+  await tx
+    .insert(lancamentos)
+    .values({
+      profissionalId: original.profissionalId,
+      competencia,
+      dataReferencia: data,
+      natureza: original.natureza === "debito" ? "credito" : "debito",
+      tipo: original.tipo,
+      valorCentavos: original.valorCentavos,
+      descricao: `Estorno: ${original.descricao} · ${motivo}`,
+      origem: original.origem,
+      estornoDe: original.id,
+      idempotencyKey: `estorno:${original.id}`,
+    })
+    .onConflictDoNothing();
+}
+
+/** Baixa manual: registra o pagamento e o lançamento que abate o saldo. */
 export async function registrarPagamento(ctx: ContextoTenant, dados: z.input<typeof pagamentoSchema>, database?: Database) {
   exigirPermissao(ctx.role, "pagamentos.baixar");
-  const p = pagamentoSchema.parse(dados);
-  return withTenant(
-    ctx,
-    async (tx) => {
-      const [pagamento] = await tx.insert(pagamentos).values(p).returning({ id: pagamentos.id });
-      const deProfissional = p.direcao === "profissional_para_espaco";
-      const competencia = await competenciaAberta(tx, p.profissionalId, competenciaDe(p.data));
-      await tx.insert(lancamentos).values({
-        profissionalId: p.profissionalId,
-        competencia,
-        dataReferencia: p.data,
-        natureza: deProfissional ? "credito" : "debito",
-        tipo: deProfissional ? "pagamento_profissional" : "repasse_profissional",
-        valorCentavos: p.valorCentavos,
-        descricao: `${deProfissional ? "Pagamento recebido" : "Repasse pago"} (${p.forma})${p.observacao ? ` · ${p.observacao}` : ""}`,
-        origem: `pagamento:${pagamento.id}`,
-        idempotencyKey: `pagamento:${pagamento.id}`,
-      });
-      await registrarAuditoria(tx, { acao: "pagamento.registrado", entidade: "pagamentos", entidadeId: pagamento.id, dados: p });
-      return pagamento;
-    },
-    database,
-  );
+  return withTenant(ctx, async (tx) => ({ id: (await inserirPagamento(tx, dados)).id }), database);
 }
 
 export const ajusteSchema = z.object({

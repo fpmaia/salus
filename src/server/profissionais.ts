@@ -8,6 +8,7 @@ import { convitesProfissional, memberships, profissionais } from "../db/schema";
 import { type ContextoTenant, withTenant, withUser } from "../db/tenant";
 import { analisarDocumento } from "../domain/documentos";
 import { exigirPermissao } from "../domain/rbac";
+import { exigirLimite } from "./assinatura";
 import { ErroNegocio } from "./erros";
 
 export const VALIDADE_CONVITE_DIAS = 7;
@@ -76,6 +77,7 @@ export async function criarProfissional(
   return withTenant(
     ctx,
     async (tx) => {
+      await exigirLimite(tx, "profissionais");
       const [profissional] = await tx
         .insert(profissionais)
         .values(valores)
@@ -106,6 +108,7 @@ export async function atualizarProfissional(
     async (tx) => {
       const [atual] = await tx.select().from(profissionais).where(eq(profissionais.id, profissionalId));
       if (!atual) throw new ErroNegocio("Profissional não encontrado");
+      if (valores.ativo && !atual.ativo) await exigirLimite(tx, "profissionais");
       // Depois do acesso criado, o e-mail é o do login e não muda por aqui.
       if (atual.membershipId && valores.email !== atual.email) {
         throw new ErroNegocio("O e-mail não pode ser alterado depois que o profissional aceitou o convite");

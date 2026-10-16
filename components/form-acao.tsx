@@ -33,9 +33,10 @@ export function FormAcao({
   const [estado, executar, pendente] = useActionState(acao, inicial);
   const formulario = useRef<HTMLFormElement>(null);
 
-  // Envio via onSubmit (e não pela prop action): o React só reseta o formulário
-  // automaticamente com `action`, o que apagaria o que o usuário digitou num erro.
-  // Aqui o reset acontece apenas no sucesso.
+  // Depois de hidratado, o envio vai pelo onSubmit (preventDefault impede o React de rodar
+  // a prop action): assim o formulário só é resetado no sucesso, sem apagar o que o usuário
+  // digitou num erro. A prop `action` continua lá para o envio antes da hidratação — sem
+  // ela, o navegador faria um GET nativo com os campos (até senhas/chaves) na URL.
   useEffect(() => {
     if (estado.sucesso && !estado.erro) formulario.current?.reset();
   }, [estado]);
@@ -43,6 +44,7 @@ export function FormAcao({
   return (
     <form
       ref={formulario}
+      action={executar}
       className={className ?? "flex flex-col gap-3"}
       onSubmit={(evento) => {
         evento.preventDefault();

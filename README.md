@@ -112,6 +112,7 @@ Usuários do seed: `admin|recepcao|profissional@alfa.salus.dev` e `...@beta.salu
 | 3 | Financeiro: acordos, ledger, fechamento, extrato, pagamentos, relatórios | ✅ |
 | 4 | Lembretes por WhatsApp (outbox) e link de confirmação do paciente | ✅ |
 | Pós-MVP | NFS-e Nacional da locação via Focus NFe | ✅ |
-| Pós-MVP | Cobrança do SaaS, cobrança via PIX/boleto, prontuário eletrônico, agendamento online | — |
+| Pós-MVP | Cobrança do SaaS (planos e limites) e do profissional via PIX/boleto (Asaas) | ✅ |
+| Pós-MVP | Prontuário eletrônico, agendamento online | — |
 
 Detalhes e decisões de cada fase: [docs/plano-desenvolvimento.md](docs/plano-desenvolvimento.md).

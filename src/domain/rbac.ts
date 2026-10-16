@@ -18,6 +18,8 @@ export const PERMISSOES = {
   "fiscal.emitir": ["admin"],
   "fiscal.ver": ["admin", "recepcao"],
   "pagamentos.baixar": ["admin", "recepcao"],
+  "cobrancas.gerenciar": ["admin", "recepcao"],
+  "assinatura.ver": ["admin"],
   "pacientes.gerenciar": ["admin", "recepcao"],
   "pacientes.proprios": ["profissional"],
   "pacientes.ver": ["admin", "recepcao", "profissional"],

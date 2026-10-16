@@ -217,8 +217,8 @@ Toda tabela de tenant tem `id uuid`, `tenant_id uuid`, `criado_em`, `atualizado_
 
 ### Pós-MVP (ordem sugerida)
 1. **NFS-e** via provedor (Focus NFe / eNotas) para a locação. **Concluída** (Focus NFe, ver abaixo).
-2. **Cobrança do SaaS**: assinatura dos planos Básico/Pro/Enterprise e limites (unidades, salas, profissionais).
-3. **Cobrança do profissional** via PIX/boleto (ex.: Asaas).
+2. **Cobrança do SaaS**: assinatura dos planos Básico/Pro/Enterprise e limites (unidades, salas, profissionais). **Concluída** (Asaas, ver seção 8).
+3. **Cobrança do profissional** via PIX/boleto (ex.: Asaas). **Concluída** (seção 8).
 4. **Prontuário eletrônico**: evolução clínica, anexos, auditoria de acesso, guarda de 20 anos, assinatura ICP-Brasil, prescrição via Memed. Compartilhamento entre profissionais condicionado ao consentimento do profissional e do paciente (o profissional é o controlador dos dados).
 5. **Agendamento online público** por profissional.
 6. Convênios (TISS) — só se houver demanda.
@@ -250,4 +250,34 @@ Testes: `src/domain/fiscal.test.ts`, `src/server/cripto.test.ts` e `tests/integr
   - Notas fiscais: pendências da configuração, profissionais a faturar (individual ou em lote), notas do mês com DANFSe/portal, cancelamento e configuração.
   - Nota do mês no extrato do profissional e na página financeira dele.
 - **Fora do escopo por ora:** webhook da Focus (`event: "nfsen"`; o polling já cobre), cadastro da empresa na Focus via API (o token vem do painel deles) e reenvio de e-mail.
+
+## 8. Cobranças via Asaas (pós-MVP, concluída)
+
+Testes: `src/domain/cobranca.test.ts`, `tests/integration/cobrancas.test.ts` e `tests/integration/assinatura.test.ts` (com um gateway falso que guarda estado, em `tests/integration/gateway-falso.ts`).
+
+- **Duas contas Asaas, dois fluxos:**
+  - **SaaS (Salus → espaço):** conta da plataforma, configurada pelas variáveis `ASAAS_AMBIENTE`, `ASAAS_API_KEY` e `ASAAS_WEBHOOK_TOKEN`.
+  - **Profissional (espaço → profissional):** conta do próprio espaço, com a chave cifrada por tenant em `configuracoes_cobranca`.
+- **API:** v3 (`https://api.asaas.com/v3` e `https://api-sandbox.asaas.com/v3`), header `access_token` e `User-Agent` (obrigatório para contas novas).
+  - Cobranças com `billingType` PIX, BOLETO ou UNDEFINED (o pagador escolhe).
+  - Multa e juros só são enviados se configurados, para não sobrescrever o padrão da conta.
+- **Ambiente `simulado` (padrão):** nada sai do sistema; botões "Simular pagamento" para desenvolvimento e demonstração.
+- **Planos e limites:**
+  - Os limites de `planos_saas.limites` são aplicados ao criar ou reativar unidades, salas e profissionais.
+  - A troca de plano vale a partir da próxima fatura; o downgrade é recusado se o uso não couber no novo plano.
+- **Fatura do SaaS:** uma por tenant e mês (`faturas_saas`, idempotente), pelo preço do plano. Vence no dia 10 ou, se gerada depois disso, em 3 dias.
+  - Job diário `assinatura.gerar-faturas` e sincronização a cada 30 min.
+  - Fatura vencida mostra um aviso no painel do admin. A suspensão do tenant continua manual.
+- **Cobrança do profissional:** gerada na página financeira do profissional (valor sugerido = saldo), com vencimento padrão configurável. O cliente Asaas é criado uma vez por profissional e exige CPF/CNPJ.
+- **Webhooks:**
+  - Rotas: `/api/webhooks/asaas/plataforma` e `/api/webhooks/asaas/<tenantId>`.
+  - Autenticação pelo header `asaas-access-token`. O token do tenant é gerado na tela, mostrado uma vez e guardado como hash.
+  - Idempotência pelo `id` do evento (`eventos_webhook`).
+  - O status nunca vem do payload: o serviço consulta a cobrança na API e aplica o status oficial.
+  - Jobs de reserva (`cobrancas.sincronizar` a cada 15 min, `assinatura.sincronizar`) cobrem webhooks perdidos.
+- **Baixa automática:** cobrança paga gera o pagamento e o lançamento de crédito no ledger, uma única vez. Um estorno ou chargeback depois do pagamento gera o estorno do lançamento.
+  - Estados finais não regridem: um webhook atrasado de "pendente" não desfaz um pagamento.
+- **Sem duplicar no Asaas:** se a resposta da criação se perder, o reenvio busca a cobrança pela `externalReference` antes de criar outra.
+- **Formulários (`FormAcao`):** mantêm a prop `action` para envio antes da hidratação (sem ela, um envio precoce viraria GET com os campos na URL) e usam `onSubmit` depois de hidratados, para não apagar o que foi digitado num erro.
+- **Fora do escopo por ora:** suspensão automática por inadimplência, split de pagamento, cartão recorrente e PIX Automático.
 

@@ -92,6 +92,20 @@
       "when": 1792159400785,
       "tag": "0012_rls_nfse",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1792160034185,
+      "tag": "0013_cobrancas_asaas",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1792160035978,
+      "tag": "0014_rls_cobrancas_asaas",
+      "breakpoints": true
     }
   ]
 }

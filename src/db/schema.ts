@@ -167,6 +167,8 @@ export const tenants = pgTable("tenants", {
     .notNull()
     .references(() => planosSaas.id),
   status: tenantStatus("status").notNull().default("ativo"),
+  // Cliente do tenant na conta Asaas da plataforma (cobrança do SaaS).
+  asaasCustomerId: text("asaas_customer_id"),
   criadoEm: criadoEm(),
   atualizadoEm: atualizadoEm(),
 });
@@ -337,6 +339,8 @@ export const profissionais = pgTable(
     // Tomador da NFS-e de locação (só dígitos).
     tipoDocumento: tipoDocumento("tipo_documento"),
     documento: text("documento"),
+    // Cliente do profissional na conta Asaas do espaço (cobrança PIX/boleto).
+    asaasCustomerId: text("asaas_customer_id"),
     ativo: boolean("ativo").notNull().default(true),
     criadoEm: criadoEm(),
     atualizadoEm: atualizadoEm(),
@@ -799,4 +803,113 @@ export const notasFiscais = pgTable(
     foreignKey({ columns: [t.tenantId, t.profissionalId], foreignColumns: [profissionais.tenantId, profissionais.id] }),
     check("notas_fiscais_valor_check", sql`${t.valorCentavos} > 0`),
   ],
+);
+
+// ---------------------------------------------------------------------------
+// Pós-MVP: cobranças via Asaas (RLS)
+// ---------------------------------------------------------------------------
+
+export const ambienteAsaas = pgEnum("ambiente_asaas", ["simulado", "sandbox", "producao"]);
+export const statusCobranca = pgEnum("status_cobranca", ["pendente", "vencida", "paga", "estornada", "cancelada", "erro"]);
+export const formaCobranca = pgEnum("forma_cobranca", ["PIX", "BOLETO", "UNDEFINED"]);
+
+// Fatura mensal do SaaS (Salus → espaço), emitida na conta Asaas da plataforma.
+export const faturasSaas = pgTable(
+  "faturas_saas",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: tenantIdDoContexto(),
+    competencia: date("competencia", { mode: "string" }).notNull(),
+    planoId: uuid("plano_id")
+      .notNull()
+      .references(() => planosSaas.id),
+    valorCentavos: integer("valor_centavos").notNull(),
+    vencimento: date("vencimento", { mode: "string" }).notNull(),
+    ambiente: ambienteAsaas("ambiente").notNull(),
+    status: statusCobranca("status").notNull().default("pendente"),
+    asaasPaymentId: text("asaas_payment_id"),
+    invoiceUrl: text("invoice_url"),
+    pagoEm: timestamp("pago_em", { withTimezone: true }),
+    ultimoErro: text("ultimo_erro"),
+    criadoEm: criadoEm(),
+    atualizadoEm: atualizadoEm(),
+  },
+  (t) => [
+    uniqueIndex("faturas_saas_competencia_key").on(t.tenantId, t.competencia),
+    uniqueIndex("faturas_saas_asaas_key").on(t.asaasPaymentId),
+    check("faturas_saas_valor_check", sql`${t.valorCentavos} > 0`),
+  ],
+);
+
+// Conta Asaas do próprio espaço para cobrar os profissionais. Uma linha por tenant.
+export const configuracoesCobranca = pgTable(
+  "configuracoes_cobranca",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: tenantIdDoContexto(),
+    ativo: boolean("ativo").notNull().default(false),
+    ambiente: ambienteAsaas("ambiente").notNull().default("simulado"),
+    // Chave de API do Asaas cifrada (src/server/cripto.ts). Nunca volta para a tela.
+    apiKeyCifrada: text("api_key_cifrada"),
+    // SHA-256 do token que o Asaas envia no header asaas-access-token do webhook.
+    webhookTokenHash: text("webhook_token_hash"),
+    diasVencimento: integer("dias_vencimento").notNull().default(5),
+    // Multa (percentual) e juros ao mês (percentual), em pontos-base; nulos = padrão da conta Asaas.
+    multaBp: integer("multa_bp"),
+    jurosMesBp: integer("juros_mes_bp"),
+    criadoEm: criadoEm(),
+    atualizadoEm: atualizadoEm(),
+  },
+  (t) => [
+    uniqueIndex("configuracoes_cobranca_tenant_key").on(t.tenantId),
+    check("configuracoes_cobranca_dias_check", sql`${t.diasVencimento} between 1 and 60`),
+  ],
+);
+
+// Cobrança PIX/boleto do espaço ao profissional. Paga = baixa automática no ledger.
+export const cobrancasProfissional = pgTable(
+  "cobrancas_profissional",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: tenantIdDoContexto(),
+    profissionalId: uuid("profissional_id").notNull(),
+    competencia: date("competencia", { mode: "string" }),
+    descricao: text("descricao").notNull(),
+    valorCentavos: integer("valor_centavos").notNull(),
+    vencimento: date("vencimento", { mode: "string" }).notNull(),
+    forma: formaCobranca("forma").notNull().default("UNDEFINED"),
+    ambiente: ambienteAsaas("ambiente").notNull(),
+    status: statusCobranca("status").notNull().default("pendente"),
+    asaasPaymentId: text("asaas_payment_id"),
+    invoiceUrl: text("invoice_url"),
+    bankSlipUrl: text("bank_slip_url"),
+    pagoEm: timestamp("pago_em", { withTimezone: true }),
+    // Pagamento (baixa) gerado quando o Asaas confirmou o recebimento.
+    pagamentoId: uuid("pagamento_id"),
+    ultimoErro: text("ultimo_erro"),
+    criadoPor: uuid("criado_por").default(sql`app_current_user_id()`).references(() => users.id, { onDelete: "set null" }),
+    criadoEm: criadoEm(),
+    atualizadoEm: atualizadoEm(),
+  },
+  (t) => [
+    uniqueIndex("cobrancas_profissional_asaas_key").on(t.asaasPaymentId),
+    index("cobrancas_profissional_profissional_idx").on(t.profissionalId, t.criadoEm),
+    foreignKey({ columns: [t.tenantId, t.profissionalId], foreignColumns: [profissionais.tenantId, profissionais.id] }),
+    check("cobrancas_profissional_valor_check", sql`${t.valorCentavos} > 0`),
+  ],
+);
+
+// Eventos de webhook já processados (o Asaas entrega "ao menos uma vez").
+export const eventosWebhook = pgTable(
+  "eventos_webhook",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: tenantIdDoContexto(),
+    origem: text("origem").notNull(),
+    eventoId: text("evento_id").notNull(),
+    tipo: text("tipo").notNull(),
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+    criadoEm: criadoEm(),
+  },
+  (t) => [uniqueIndex("eventos_webhook_evento_key").on(t.tenantId, t.origem, t.eventoId)],
 );

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { obterContextoTenant } from "@/src/auth/sessao";
 import { pode, ROTULOS_ROLE, type Permissao } from "@/src/domain/rbac";
+import { assinaturaEmAtraso } from "@/src/server/assinatura";
 import { BotaoSair } from "./botao-sair";
 
 const NAVEGACAO: { href: string; rotulo: string; permissao?: Permissao }[] = [
@@ -14,11 +15,13 @@ const NAVEGACAO: { href: string; rotulo: string; permissao?: Permissao }[] = [
   { href: "/painel/unidades", rotulo: "Unidades e salas", permissao: "salas.gerenciar" },
   { href: "/painel/profissionais", rotulo: "Profissionais", permissao: "profissionais.gerenciar" },
   { href: "/painel/notificacoes", rotulo: "Notificações", permissao: "auditoria.ver" },
+  { href: "/painel/assinatura", rotulo: "Assinatura", permissao: "assinatura.ver" },
 ];
 
 export default async function PainelLayout({ children }: LayoutProps<"/painel">) {
   const ctx = await obterContextoTenant();
   const itens = NAVEGACAO.filter((item) => !item.permissao || pode(ctx.role, item.permissao));
+  const atraso = pode(ctx.role, "assinatura.ver") && (await assinaturaEmAtraso(ctx));
 
   return (
     <div className="flex flex-1 flex-col">
@@ -49,6 +52,14 @@ export default async function PainelLayout({ children }: LayoutProps<"/painel">)
           ))}
         </nav>
       </header>
+      {atraso && (
+        <div className="bg-destructive/10 px-4 py-2 text-center text-sm text-destructive">
+          A fatura do Salus está vencida.{" "}
+          <Link href="/painel/assinatura" className="font-medium underline underline-offset-4">
+            Ver assinatura
+          </Link>
+        </div>
+      )}
       {children}
     </div>
   );

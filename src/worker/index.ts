@@ -1,6 +1,8 @@
 import PgBoss from "pg-boss";
 import type { Transaction } from "../db/client";
 import { listarTenantsAtivos, withSistema } from "../db/tenant";
+import { gerarFaturaDoMes, sincronizarFaturas } from "../server/assinatura";
+import { sincronizarCobrancas } from "../server/cobrancas";
 import { processarNotasFiscais } from "../server/fiscal";
 import { agendarLembretes, processarFila } from "../server/notificacoes";
 import { providerDoAmbiente } from "../server/provider";
@@ -36,6 +38,10 @@ const JOBS: Job[] = [
   { fila: "notificacoes.enviar", cron: "* * * * *", porTenant: (tenantId, agora) => processarFila(tenantId, provider, agora) },
   // NFS-e: reenvia pendentes (consultando antes, sem duplicar) e acompanha as em processamento.
   { fila: "fiscal.processar-notas", cron: "*/2 * * * *", porTenant: (tenantId, agora) => processarNotasFiscais(tenantId, agora) },
+  // Asaas: fatura mensal do SaaS (idempotente, roda todo dia) e sincronização de reserva dos webhooks.
+  { fila: "assinatura.gerar-faturas", cron: "0 6 * * *", porTenant: (tenantId, agora) => gerarFaturaDoMes(tenantId, { agora }) },
+  { fila: "assinatura.sincronizar", cron: "*/30 * * * *", porTenant: (tenantId, agora) => sincronizarFaturas(tenantId, { agora }) },
+  { fila: "cobrancas.sincronizar", cron: "*/15 * * * *", porTenant: (tenantId, agora) => sincronizarCobrancas(tenantId, { agora }) },
 ];
 
 async function porTenant(job: Job) {
