@@ -5,8 +5,9 @@ import type { Role } from "../../domain/rbac";
 import { criarTenantComAdmin } from "../../server/onboarding";
 import { listarMembershipsDoUsuario } from "../../server/memberships";
 import { createDb } from "../client";
+import { criarPaciente } from "../../server/pacientes";
 import { criarSala, criarUnidade, definirHorarios } from "../../server/unidades";
-import { memberships, profissionais, unidades, users } from "../schema";
+import { memberships, pacientes, profissionais, unidades, users } from "../schema";
 import { withTenant } from "../tenant";
 
 // Seed de DESENVOLVIMENTO: dois espaços com admin, recepção e profissional cada.
@@ -118,6 +119,18 @@ async function main() {
         await criarSala(ctxAdmin, unidadeId, { nome: "Sala 1", recursos: ["Maca", "Pia"] }, db);
         await criarSala(ctxAdmin, unidadeId, { nome: "Sala 2", recursos: ["Divã"] }, db);
         await criarSala(ctxAdmin, unidadeId, { nome: "Sala 3", recursos: ["Mesa de reunião"] }, db);
+      }
+
+      // Pacientes de demonstração (dados fictícios).
+      const temPacientes = await withTenant(ctxAdmin, (tx) => tx.select({ id: pacientes.id }).from(pacientes).limit(1), db);
+      if (temPacientes.length === 0) {
+        for (const paciente of [
+          { nome: "Ana Paciente", telefone: "11 90000-0001", consentimentoLembretes: true },
+          { nome: "Bruno Paciente", telefone: "11 90000-0002" },
+          { nome: "Carla Paciente", telefone: "11 90000-0003", consentimentoLembretes: true },
+        ]) {
+          await criarPaciente(ctxAdmin, paciente, new Date(), db);
+        }
       }
       console.log(`✔ ${espaco.nome}: ${PESSOAS.map((p) => `${p.role}@${espaco.prefixo}.salus.dev`).join(", ")}`);
     }

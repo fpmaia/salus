@@ -178,6 +178,8 @@ export const tenantSettings = pgTable(
     tenantId: tenantIdDoContexto(),
     timezone: text("timezone").notNull().default("America/Sao_Paulo"),
     preferencias: jsonb("preferencias").$type<Record<string, unknown>>().notNull().default({}),
+    // Política de cancelamento: abaixo desta antecedência o cancelamento é "tardio".
+    antecedenciaCancelamentoHoras: integer("antecedencia_cancelamento_horas").notNull().default(24),
     criadoEm: criadoEm(),
     atualizadoEm: atualizadoEm(),
   },
@@ -419,5 +421,96 @@ export const reservasSala = pgTable(
     uniqueIndex("reservas_sala_recorrencia_data_key").on(t.recorrenciaId, t.dataOcorrencia),
     check("reservas_sala_periodo_check", sql`not isempty(${t.periodo}) and lower_inc(${t.periodo}) and not upper_inc(${t.periodo})`),
     index("reservas_sala_profissional_idx").on(t.profissionalId),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// Fase 2: pacientes e agendamentos (RLS)
+// ---------------------------------------------------------------------------
+
+export const agendamentoStatus = pgEnum("agendamento_status", [
+  "agendado",
+  "confirmado",
+  "presente",
+  "realizado",
+  "falta",
+  "cancelado",
+]);
+
+// Cadastro único do paciente no tenant (dados administrativos; nada clínico aqui).
+export const pacientes = pgTable(
+  "pacientes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: tenantIdDoContexto(),
+    nome: text("nome").notNull(),
+    // Só dígitos; opcional (minimização de dados, LGPD).
+    cpf: text("cpf"),
+    dataNascimento: date("data_nascimento", { mode: "string" }),
+    telefone: text("telefone"),
+    email: text("email"),
+    // Consentimento para lembretes (WhatsApp na Fase 4).
+    consentimentoLembretes: boolean("consentimento_lembretes").notNull().default(false),
+    consentimentoEm: timestamp("consentimento_em", { withTimezone: true }),
+    ativo: boolean("ativo").notNull().default(true),
+    criadoPor: uuid("criado_por").default(sql`app_current_user_id()`).references(() => users.id, { onDelete: "set null" }),
+    criadoEm: criadoEm(),
+    atualizadoEm: atualizadoEm(),
+  },
+  (t) => [
+    unique("pacientes_tenant_id_id_key").on(t.tenantId, t.id),
+    uniqueIndex("pacientes_tenant_cpf_key").on(t.tenantId, t.cpf),
+    index("pacientes_tenant_nome_idx").on(t.tenantId, t.nome),
+  ],
+);
+
+// Quais profissionais enxergam o paciente (quem cadastrou ou atende). Admin e recepção veem todos.
+export const pacientesProfissionais = pgTable(
+  "pacientes_profissionais",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: tenantIdDoContexto(),
+    pacienteId: uuid("paciente_id").notNull(),
+    profissionalId: uuid("profissional_id").notNull(),
+    criadoEm: criadoEm(),
+  },
+  (t) => [
+    uniqueIndex("pacientes_profissionais_key").on(t.pacienteId, t.profissionalId),
+    index("pacientes_profissionais_profissional_idx").on(t.profissionalId),
+    foreignKey({ columns: [t.tenantId, t.pacienteId], foreignColumns: [pacientes.tenantId, pacientes.id] }).onDelete("cascade"),
+    foreignKey({ columns: [t.tenantId, t.profissionalId], foreignColumns: [profissionais.tenantId, profissionais.id] }).onDelete("cascade"),
+  ],
+);
+
+// Atendimento de um paciente, sempre dentro de uma reserva de sala do mesmo profissional
+// (garantido por trigger na migration custom da Fase 2).
+export const agendamentos = pgTable(
+  "agendamentos",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: tenantIdDoContexto(),
+    reservaId: uuid("reserva_id").notNull(),
+    profissionalId: uuid("profissional_id").notNull(),
+    pacienteId: uuid("paciente_id").notNull(),
+    periodo: tstzrange("periodo").notNull(),
+    status: agendamentoStatus("status").notNull().default("agendado"),
+    observacao: text("observacao"),
+    statusAtualizadoEm: timestamp("status_atualizado_em", { withTimezone: true }).notNull().defaultNow(),
+    canceladoEm: timestamp("cancelado_em", { withTimezone: true }),
+    motivoCancelamento: text("motivo_cancelamento"),
+    // Cancelado com menos antecedência que a política do tenant (base para cobrança na Fase 3).
+    cancelamentoTardio: boolean("cancelamento_tardio").notNull().default(false),
+    criadoPor: uuid("criado_por").default(sql`app_current_user_id()`).references(() => users.id, { onDelete: "set null" }),
+    criadoEm: criadoEm(),
+    atualizadoEm: atualizadoEm(),
+  },
+  (t) => [
+    unique("agendamentos_tenant_id_id_key").on(t.tenantId, t.id),
+    foreignKey({ columns: [t.tenantId, t.reservaId], foreignColumns: [reservasSala.tenantId, reservasSala.id] }),
+    foreignKey({ columns: [t.tenantId, t.profissionalId], foreignColumns: [profissionais.tenantId, profissionais.id] }),
+    foreignKey({ columns: [t.tenantId, t.pacienteId], foreignColumns: [pacientes.tenantId, pacientes.id] }),
+    index("agendamentos_reserva_idx").on(t.reservaId),
+    index("agendamentos_paciente_idx").on(t.pacienteId),
+    check("agendamentos_periodo_check", sql`not isempty(${t.periodo}) and lower_inc(${t.periodo}) and not upper_inc(${t.periodo})`),
   ],
 );

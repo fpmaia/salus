@@ -1,0 +1,47 @@
+"use server";
+
+import { obterContextoTenant } from "@/src/auth/sessao";
+import type { StatusAgendamento } from "@/src/domain/agendamentos";
+import { type EstadoAcao, executarAcao, texto, textoOuUndefined } from "@/src/server/acao";
+import { alterarStatusAgendamento, criarAgendamento } from "@/src/server/agendamentos";
+import { formatarDataBr } from "@/src/server/reservas";
+
+export async function criarAgendamentoAcao(_estado: EstadoAcao, formData: FormData) {
+  return executarAcao(async () => {
+    const ctx = await obterContextoTenant();
+    const data = texto(formData, "data");
+    const { reservaCriada } = await criarAgendamento(ctx, {
+      pacienteId: texto(formData, "pacienteId"),
+      profissionalId: textoOuUndefined(formData, "profissionalId"),
+      reservaId: textoOuUndefined(formData, "reservaId"),
+      salaId: textoOuUndefined(formData, "salaId"),
+      data,
+      horaInicio: texto(formData, "horaInicio"),
+      horaFim: texto(formData, "horaFim"),
+      observacao: texto(formData, "observacao"),
+    });
+    const base = `Agendado para ${formatarDataBr(data)}, ${texto(formData, "horaInicio")}`;
+    return reservaCriada ? `${base} (sala reservada automaticamente)` : base;
+  });
+}
+
+const MENSAGENS: Partial<Record<StatusAgendamento, string>> = {
+  confirmado: "Confirmado",
+  presente: "Check-in feito",
+  realizado: "Atendimento realizado",
+  falta: "Falta registrada",
+};
+
+export async function alterarStatusAcao(
+  agendamentoId: string,
+  para: StatusAgendamento,
+  _estado: EstadoAcao,
+  formData: FormData,
+) {
+  return executarAcao(async () => {
+    const ctx = await obterContextoTenant();
+    const { cancelamentoTardio } = await alterarStatusAgendamento(ctx, agendamentoId, para, textoOuUndefined(formData, "motivo") ?? null);
+    if (para === "cancelado") return cancelamentoTardio ? "Cancelado (cancelamento tardio)" : "Cancelado";
+    return MENSAGENS[para] ?? "Atualizado";
+  });
+}

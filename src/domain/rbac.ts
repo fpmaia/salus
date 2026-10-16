@@ -14,6 +14,8 @@ export const PERMISSOES = {
   "financeiro.ver": ["admin"],
   "pagamentos.baixar": ["admin", "recepcao"],
   "pacientes.gerenciar": ["admin", "recepcao"],
+  "pacientes.proprios": ["profissional"],
+  "pacientes.ver": ["admin", "recepcao", "profissional"],
   "agenda.gerenciar": ["admin", "recepcao"],
   "agenda.propria": ["admin", "recepcao", "profissional"],
   "agenda.ver": ["admin", "recepcao", "profissional"],

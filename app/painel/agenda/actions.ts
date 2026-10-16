@@ -44,7 +44,8 @@ export async function cancelarReservaAcao(reservaId: string, _estado: EstadoAcao
 export async function encerrarRecorrenciaAcao(regraId: string, aPartirDe: string) {
   return executarAcao(async () => {
     const ctx = await obterContextoTenant();
-    const { canceladas } = await encerrarRecorrencia(ctx, regraId, aPartirDe);
-    return `Série encerrada a partir de ${formatarDataBr(aPartirDe)} (${canceladas} ocorrências canceladas)`;
+    const { canceladas, mantidas } = await encerrarRecorrencia(ctx, regraId, aPartirDe);
+    const aviso = mantidas > 0 ? `; ${mantidas} com pacientes agendados continuam ativas` : "";
+    return `Série encerrada a partir de ${formatarDataBr(aPartirDe)} (${canceladas} ocorrências canceladas${aviso})`;
   });
 }

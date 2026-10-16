@@ -104,6 +104,11 @@ export function GradeAgenda({ config, colunas, reservas, inicioMin, fimMin, agor
                 {r.horaInicio}–{r.horaFim}
                 {r.recorrenciaId && " · semanal"}
               </span>
+              {r.pacientes > 0 && (
+                <span className="block truncate opacity-80">
+                  {r.pacientes} {r.pacientes === 1 ? "paciente" : "pacientes"}
+                </span>
+              )}
             </>
           );
           const classe = cn(

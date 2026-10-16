@@ -5,7 +5,9 @@ import { BotaoSair } from "./botao-sair";
 
 const NAVEGACAO: { href: string; rotulo: string; permissao?: Permissao }[] = [
   { href: "/painel", rotulo: "Início" },
-  { href: "/painel/agenda", rotulo: "Agenda", permissao: "agenda.ver" },
+  { href: "/painel/atendimentos", rotulo: "Atendimentos", permissao: "agenda.propria" },
+  { href: "/painel/agenda", rotulo: "Agenda de salas", permissao: "agenda.ver" },
+  { href: "/painel/pacientes", rotulo: "Pacientes", permissao: "pacientes.ver" },
   { href: "/painel/unidades", rotulo: "Unidades e salas", permissao: "salas.gerenciar" },
   { href: "/painel/profissionais", rotulo: "Profissionais", permissao: "profissionais.gerenciar" },
 ];

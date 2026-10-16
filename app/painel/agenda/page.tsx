@@ -25,8 +25,11 @@ import {
   obterReserva,
 } from "@/src/server/reservas";
 import { listarUnidades } from "@/src/server/unidades";
+import { atendimentosDaReserva } from "@/src/server/agendamentos";
+import { listarPacientes } from "@/src/server/pacientes";
 import { cancelarReservaAcao, criarReservaAcao, encerrarRecorrenciaAcao } from "./actions";
 import { GradeAgenda, type ColunaGrade } from "./grade";
+import { FormAgendamento, ListaAtendimentos } from "../atendimentos/componentes";
 
 const DIAS_CURTOS = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -125,6 +128,9 @@ export default async function AgendaPage({ searchParams }: PageProps<"/painel/ag
     listarProfissionaisParaReserva(ctx),
     parametros.reserva ? obterReserva(ctx, parametros.reserva) : Promise.resolve(null),
   ]);
+  const [atendimentosReserva, pacientes] = reservaAberta
+    ? await Promise.all([atendimentosDaReserva(ctx, reservaAberta.id), listarPacientes(ctx)])
+    : [[], []];
 
   // Pré-preenchimento ao clicar num horário livre.
   const novaSala = parametros.nova ?? (semana ? salaSemana?.id : salas[0]?.id);
@@ -233,6 +239,25 @@ export default async function AgendaPage({ searchParams }: PageProps<"/painel/ag
                     {reservaAberta.recorrenciaId && " · reserva semanal"}
                   </span>
                 </p>
+                <div className="flex flex-col gap-2 border-t pt-3">
+                  <p className="font-medium">Pacientes</p>
+                  <ListaAtendimentos atendimentos={atendimentosReserva} mostrarProfissional={false} />
+                </div>
+                {reservaAberta.status === "ativa" && reservaAberta.fim > new Date() && (
+                  <div className="flex flex-col gap-2 border-t pt-3">
+                    <p className="font-medium">Agendar paciente nesta reserva</p>
+                    <FormAgendamento
+                      pacientes={pacientes.map((p) => ({ id: p.id, nome: p.nome }))}
+                      profissionais={[]}
+                      salas={[]}
+                      reservaId={reservaAberta.id}
+                      data={reservaAberta.data}
+                      horaInicio={reservaAberta.horaInicio}
+                      horaFim={horaDeMinutos(Math.min(minutosDoDia(reservaAberta.horaInicio) + 60, minutosDoDia(reservaAberta.horaFim)))}
+                      slotMinutos={config.slotMinutos}
+                    />
+                  </div>
+                )}
                 {reservaAberta.status === "ativa" && (
                   <FormAcao
                     acao={cancelarReservaAcao.bind(null, reservaAberta.id)}

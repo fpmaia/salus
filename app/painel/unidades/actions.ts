@@ -2,6 +2,7 @@
 
 import { obterContextoTenant } from "@/src/auth/sessao";
 import { type EstadoAcao, executarAcao, texto } from "@/src/server/acao";
+import { definirPoliticaCancelamento } from "@/src/server/configuracoes";
 import {
   adicionarFeriado,
   atualizarSala,
@@ -103,5 +104,13 @@ export async function atualizarSalaAcao(salaId: string, _estado: EstadoAcao, for
       ativo: formData.get("ativo") === "on",
     });
     return "Sala atualizada";
+  });
+}
+
+export async function definirPoliticaCancelamentoAcao(_estado: EstadoAcao, formData: FormData) {
+  return executarAcao(async () => {
+    const ctx = await obterContextoTenant();
+    await definirPoliticaCancelamento(ctx, texto(formData, "horas"));
+    return "Política de cancelamento salva";
   });
 }

@@ -153,6 +153,15 @@ Toda tabela de tenant tem `id uuid`, `tenant_id uuid`, `criado_em`, `atualizado_
 
 **Pronto quando:** agendamento fora da reserva cria reserva ou é recusado (sala ocupada); profissional não tem dois pacientes no mesmo horário; transições de status inválidas são bloqueadas.
 
+**Status: concluída** (critérios cobertos em `tests/integration/agendamentos.test.ts`). Decisões de implementação:
+- **Visibilidade (LGPD):** admin e recepção veem todos os pacientes. O profissional vê só os vinculados a ele (`pacientes_profissionais`: os que cadastrou ou que têm agendamento com ele) e, no histórico, só os próprios atendimentos. O `audit_log` não guarda dados pessoais do paciente. Paciente não é apagado, apenas inativado.
+- **Encaixe na reserva:** um trigger garante que o agendamento fica dentro do período de uma reserva ativa do mesmo profissional. Sem reserva no horário, o agendamento com sala informada cria a reserva automaticamente; sem sala, é recusado.
+- **Conflitos:** `EXCLUDE USING gist` por profissional e por paciente, ignorando os cancelados.
+- **Status:** agendado → confirmado → presente → realizado; falta e cancelado saem do fluxo ativo. O check-in abre 1h antes do início; realizado e falta só depois do início; cancelar só antes dele. Admin e recepção alteram qualquer agendamento; o profissional, só os seus.
+- **Política de cancelamento:** `tenant_settings.antecedencia_cancelamento_horas` (padrão 24h). Abaixo disso o cancelamento é marcado como `cancelamento_tardio`, base para a cobrança na Fase 3.
+- **Reserva com pacientes:** uma reserva com agendamentos ativos não pode ser cancelada (trigger). "Encerrar série" mantém as ocorrências que têm pacientes e informa quantas ficaram.
+- **Telas:** Atendimentos (lista do dia com as ações de status), Pacientes (busca, cadastro, histórico) e o painel da reserva na agenda (pacientes da reserva e agendamento dentro dela).
+
 ### Fase 3 — Financeiro
 - Acordos versionados com os 4 modelos + no-show + fluxo de recebimento.
 - Geração idempotente de lançamentos a partir dos eventos.

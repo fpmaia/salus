@@ -36,6 +36,20 @@
       "when": 1792151427763,
       "tag": "0004_rls_espaco_e_reservas",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792154154670,
+      "tag": "0005_pacientes_e_agendamentos",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792154156497,
+      "tag": "0006_rls_pacientes_e_agendamentos",
+      "breakpoints": true
     }
   ]
 }

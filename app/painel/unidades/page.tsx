@@ -3,14 +3,18 @@ import { FormAcao } from "@/components/form-acao";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { obterContextoTenant } from "@/src/auth/sessao";
 import { exigirPermissaoNaPagina } from "@/src/auth/permissao";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { pode } from "@/src/domain/rbac";
+import { obterConfiguracoes } from "@/src/server/configuracoes";
 import { listarUnidades } from "@/src/server/unidades";
-import { criarUnidadeAcao } from "./actions";
+import { criarUnidadeAcao, definirPoliticaCancelamentoAcao } from "./actions";
 import { CamposUnidade } from "./campos-unidade";
 
 export default async function UnidadesPage() {
   const ctx = await obterContextoTenant();
   exigirPermissaoNaPagina(ctx.role, "salas.gerenciar");
-  const unidades = await listarUnidades(ctx);
+  const [unidades, configuracoes] = await Promise.all([listarUnidades(ctx), obterConfiguracoes(ctx)]);
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6">
@@ -42,6 +46,34 @@ export default async function UnidadesPage() {
           )}
         </CardContent>
       </Card>
+
+      {pode(ctx.role, "tenant.configurar") && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Política de cancelamento</CardTitle>
+            <CardDescription>
+              Cancelamentos de pacientes com menos antecedência que isso ficam marcados como tardios (a cobrança entra
+              com o financeiro).
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <FormAcao acao={definirPoliticaCancelamentoAcao} textoBotao="Salvar política">
+              <div className="flex max-w-xs flex-col gap-2">
+                <Label htmlFor="horas">Antecedência mínima (horas)</Label>
+                <Input
+                  id="horas"
+                  name="horas"
+                  type="number"
+                  min={0}
+                  max={168}
+                  defaultValue={configuracoes.antecedenciaCancelamentoHoras}
+                  required
+                />
+              </div>
+            </FormAcao>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

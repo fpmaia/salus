@@ -3,7 +3,7 @@ import { z } from "zod";
 import { registrarAuditoria } from "../db/audit";
 import type { Database, Transaction } from "../db/client";
 import { erroPostgres, PG } from "../db/erros";
-import { profissionais, regrasRecorrencia, reservasSala, salas, unidades } from "../db/schema";
+import { agendamentos, profissionais, regrasRecorrencia, reservasSala, salas, unidades } from "../db/schema";
 import { type ContextoTenant, withTenant } from "../db/tenant";
 import { exigirPermissao, pode } from "../domain/rbac";
 import { datasDaRecorrencia, limiteDaJanela } from "../domain/recorrencia";
@@ -43,11 +43,16 @@ export const recorrenciaSchema = z
   })
   .refine((r) => !r.dataFim || r.dataFim >= r.dataInicio, "A data final deve ser depois da inicial");
 
+// Agendamentos que ainda ocupam a reserva (agendado, confirmado, presente).
+const SEM_AGENDAMENTOS_ATIVOS = sql`select 1 from ${agendamentos}
+  where ${agendamentos.reservaId} = ${reservasSala.id}
+    and ${agendamentos.status} in ('agendado', 'confirmado', 'presente')`;
+
 function sqlRange(inicio: Date, fim: Date) {
   return sql`tstzrange(${inicio.toISOString()}::timestamptz, ${fim.toISOString()}::timestamptz, '[)')`;
 }
 
-function traduzirConflito(erro: unknown): never {
+export function traduzirConflito(erro: unknown): never {
   const pg = erroPostgres(erro);
   if (pg?.code === PG.violacaoExclusao) {
     if (pg.constraint === "reservas_sala_sem_sobreposicao_profissional") {
@@ -55,12 +60,15 @@ function traduzirConflito(erro: unknown): never {
     }
     throw new ErroReserva("conflito_sala", "A sala já está reservada nesse horário");
   }
+  if (pg?.code === PG.excecaoPlpgsql && pg.message === "reserva.com_agendamentos") {
+    throw new ErroReserva("nao_permitido", "Há pacientes agendados nesta reserva: cancele ou remarque os agendamentos antes");
+  }
   throw erro;
 }
 
-type SalaComUnidade = { id: string; nome: string; ativo: boolean; unidadeId: string; config: ConfigUnidade };
+export type SalaComUnidade = { id: string; nome: string; ativo: boolean; unidadeId: string; config: ConfigUnidade };
 
-async function carregarSala(tx: Transaction, salaId: string): Promise<SalaComUnidade> {
+export async function carregarSala(tx: Transaction, salaId: string): Promise<SalaComUnidade> {
   const [sala] = await tx
     .select({ id: salas.id, nome: salas.nome, ativo: salas.ativo, unidadeId: salas.unidadeId, unidadeAtiva: unidades.ativo })
     .from(salas)
@@ -76,7 +84,7 @@ async function carregarSala(tx: Transaction, salaId: string): Promise<SalaComUni
  * Define de quem é a reserva: profissional reserva só para si; admin/recepção
  * informam o profissional.
  */
-async function resolverProfissional(
+export async function resolverProfissional(
   tx: Transaction,
   ctx: ContextoTenant,
   profissionalId: string | undefined,
@@ -166,7 +174,8 @@ export async function cancelarReserva(
       await tx
         .update(reservasSala)
         .set({ status: "cancelada", canceladaEm: agora, motivoCancelamento: motivo?.trim() || null })
-        .where(eq(reservasSala.id, reservaId));
+        .where(eq(reservasSala.id, reservaId))
+        .catch(traduzirConflito);
       await registrarAuditoria(tx, {
         acao: "reserva.cancelada",
         entidade: "reservas_sala",
@@ -303,7 +312,7 @@ export async function encerrarRecorrencia(
   aPartirDe: DataLocal,
   agora = new Date(),
   database?: Database,
-): Promise<{ canceladas: number }> {
+): Promise<{ canceladas: number; mantidas: number }> {
   if (!dataValida(aPartirDe)) throw new ErroReserva("dados_invalidos", "Data inválida");
   return withTenant(
     ctx,
@@ -332,16 +341,29 @@ export async function encerrarRecorrencia(
             eq(reservasSala.status, "ativa"),
             gte(reservasSala.dataOcorrencia, aPartirDe),
             sql`lower(${reservasSala.periodo}) > ${agora.toISOString()}::timestamptz`,
+            sql`not exists (${SEM_AGENDAMENTOS_ATIVOS})`,
           ),
         )
         .returning({ id: reservasSala.id });
+      // Ocorrências com pacientes agendados ficam ativas até os agendamentos serem resolvidos.
+      const mantidas = await tx
+        .select({ id: reservasSala.id })
+        .from(reservasSala)
+        .where(
+          and(
+            eq(reservasSala.recorrenciaId, regraId),
+            eq(reservasSala.status, "ativa"),
+            gte(reservasSala.dataOcorrencia, aPartirDe),
+            sql`lower(${reservasSala.periodo}) > ${agora.toISOString()}::timestamptz`,
+          ),
+        );
       await registrarAuditoria(tx, {
         acao: "recorrencia.encerrada",
         entidade: "regras_recorrencia",
         entidadeId: regraId,
-        dados: { aPartirDe, canceladas: canceladas.length },
+        dados: { aPartirDe, canceladas: canceladas.length, mantidas: mantidas.length },
       });
-      return { canceladas: canceladas.length };
+      return { canceladas: canceladas.length, mantidas: mantidas.length };
     },
     database,
   );
@@ -434,6 +456,8 @@ export type ReservaNaAgenda = {
   profissionalNome: string | null;
   propria: boolean;
   recorrenciaId: string | null;
+  /** Pacientes com agendamento ativo/realizado na reserva (só para quem vê a reserva). */
+  pacientes: number;
 };
 
 /** Reservas não canceladas das salas no período; para profissionais, as de terceiros vêm anônimas. */
@@ -456,6 +480,8 @@ async function reservasNoPeriodo(
       profissionalId: reservasSala.profissionalId,
       profissionalNome: profissionais.nome,
       recorrenciaId: reservasSala.recorrenciaId,
+      pacientes: sql<number>`(select count(*)::int from ${agendamentos}
+        where ${agendamentos.reservaId} = ${reservasSala.id} and ${agendamentos.status} <> 'cancelado')`,
     })
     .from(reservasSala)
     .innerJoin(profissionais, eq(profissionais.id, reservasSala.profissionalId))
@@ -483,6 +509,7 @@ async function reservasNoPeriodo(
       profissionalNome: veTudo || propria ? r.profissionalNome : null,
       propria,
       recorrenciaId: veTudo || propria ? r.recorrenciaId : null,
+      pacientes: veTudo || propria ? r.pacientes : 0,
     };
   });
 }
@@ -551,6 +578,7 @@ export async function obterReserva(ctx: ContextoTenant, reservaId: string, datab
         horaInicio: ini.hora,
         horaFim: fim.hora,
         inicio: linha.reserva.periodo.inicio,
+        fim: linha.reserva.periodo.fim,
         recorrenciaId: linha.reserva.recorrenciaId,
         dataOcorrencia: linha.reserva.dataOcorrencia,
         propria,
