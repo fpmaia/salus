@@ -83,6 +83,7 @@ type Valores = {
   conselho?: string | null;
   registro?: string | null;
   especialidade?: string | null;
+  documento?: string | null;
 };
 
 function CamposProfissional({
@@ -134,6 +135,10 @@ function CamposProfissional({
       <div className="flex flex-col gap-2">
         <Label htmlFor={campo("especialidade")}>Especialidade</Label>
         <Input id={campo("especialidade")} name="especialidade" defaultValue={valores.especialidade ?? ""} />
+      </div>
+      <div className="flex flex-col gap-2">
+        <Label htmlFor={campo("documento")}>CPF ou CNPJ (para a NFS-e)</Label>
+        <Input id={campo("documento")} name="documento" inputMode="numeric" defaultValue={valores.documento ?? ""} />
       </div>
     </div>
   );

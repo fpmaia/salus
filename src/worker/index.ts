@@ -1,6 +1,7 @@
 import PgBoss from "pg-boss";
 import type { Transaction } from "../db/client";
 import { listarTenantsAtivos, withSistema } from "../db/tenant";
+import { processarNotasFiscais } from "../server/fiscal";
 import { agendarLembretes, processarFila } from "../server/notificacoes";
 import { providerDoAmbiente } from "../server/provider";
 import { concluirReservasPassadas, materializarRecorrencias } from "../server/reservas";
@@ -33,6 +34,8 @@ const JOBS: Job[] = [
   // Lembretes D-1 (janela de 2h a 24h antes) e envio da outbox com retentativas.
   { fila: "notificacoes.agendar-lembretes", cron: "*/15 * * * *", executar: agendarLembretes },
   { fila: "notificacoes.enviar", cron: "* * * * *", porTenant: (tenantId, agora) => processarFila(tenantId, provider, agora) },
+  // NFS-e: reenvia pendentes (consultando antes, sem duplicar) e acompanha as em processamento.
+  { fila: "fiscal.processar-notas", cron: "*/2 * * * *", porTenant: (tenantId, agora) => processarNotasFiscais(tenantId, agora) },
 ];
 
 async function porTenant(job: Job) {

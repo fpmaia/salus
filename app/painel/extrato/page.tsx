@@ -3,6 +3,7 @@ import { exigirPermissaoNaPagina } from "@/src/auth/permissao";
 import { obterContextoTenant } from "@/src/auth/sessao";
 import { formatarMoeda } from "@/src/domain/dinheiro";
 import { competenciaAtual, competenciaSchema, extrato } from "@/src/server/financeiro";
+import { listarNotas } from "@/src/server/fiscal";
 import { NavCompetencia, rotuloCompetencia, TabelaExtrato } from "../financeiro/componentes";
 
 export default async function MeuExtratoPage({ searchParams }: PageProps<"/painel/extrato">) {
@@ -11,7 +12,7 @@ export default async function MeuExtratoPage({ searchParams }: PageProps<"/paine
   const brutos = await searchParams;
   const informada = typeof brutos.competencia === "string" ? competenciaSchema.safeParse(brutos.competencia) : null;
   const competencia = informada?.success ? informada.data : await competenciaAtual(ctx);
-  const dados = await extrato(ctx, { competencia });
+  const [dados, notas] = await Promise.all([extrato(ctx, { competencia }), listarNotas(ctx, competencia)]);
   const saldo = dados.saldoFinal;
 
   return (
@@ -42,6 +43,31 @@ export default async function MeuExtratoPage({ searchParams }: PageProps<"/paine
           <TabelaExtrato linhas={dados.linhas} saldoAnterior={dados.saldoAnterior} saldoFinal={dados.saldoFinal} visao="profissional" />
         </CardContent>
       </Card>
+
+      {notas.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Nota fiscal de {rotuloCompetencia(competencia)}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="divide-y text-sm">
+              {notas.map(({ nota }) => (
+                <li key={nota.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                  <span>
+                    {nota.numero ? `NFS-e nº ${nota.numero}` : `DPS ${nota.serieDps}/${nota.numeroDps}`} · {formatarMoeda(nota.valorCentavos)}
+                    <span className="ml-2 text-xs text-muted-foreground">{nota.status}</span>
+                  </span>
+                  {nota.urlDanfse && nota.status === "autorizada" && (
+                    <a href={nota.urlDanfse} target="_blank" rel="noreferrer" className="text-primary underline-offset-4 hover:underline">
+                      Baixar DANFSe
+                    </a>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
     </main>
   );
 }

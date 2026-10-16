@@ -216,7 +216,7 @@ Toda tabela de tenant tem `id uuid`, `tenant_id uuid`, `criado_em`, `atualizado_
 **MVP = Fases 0 a 4.**
 
 ### Pós-MVP (ordem sugerida)
-1. **NFS-e** via provedor (Focus NFe / eNotas) para a locação.
+1. **NFS-e** via provedor (Focus NFe / eNotas) para a locação. **Concluída** (Focus NFe, ver abaixo).
 2. **Cobrança do SaaS**: assinatura dos planos Básico/Pro/Enterprise e limites (unidades, salas, profissionais).
 3. **Cobrança do profissional** via PIX/boleto (ex.: Asaas).
 4. **Prontuário eletrônico**: evolução clínica, anexos, auditoria de acesso, guarda de 20 anos, assinatura ICP-Brasil, prescrição via Memed. Compartilhamento entre profissionais condicionado ao consentimento do profissional e do paciente (o profissional é o controlador dos dados).
@@ -229,3 +229,25 @@ Toda tabela de tenant tem `id uuid`, `tenant_id uuid`, `criado_em`, `atualizado_
 - **WhatsApp Cloud API:** aprovação de templates e verificação do negócio levam tempo — iniciar o processo cedo.
 - **RLS sem Supabase:** depende de disciplina; toda query passa por `withTenant` e há teste de vazamento no CI.
 - **Deploy:** decidir antes da Fase 4 (backups do Postgres são obrigatórios em qualquer opção).
+
+## 7. NFS-e da locação (pós-MVP, concluída)
+
+Testes: `src/domain/fiscal.test.ts`, `src/server/cripto.test.ts` e `tests/integration/fiscal.test.ts`.
+
+- **Padrão:** NFS-e Nacional (DPS) via Focus NFe (`/v2/nfsen`, autenticação Basic com o token como usuário).
+  - A LC 214/2025 fixou o padrão nacional para jan/2026; há divergência sobre a obrigatoriedade para os municípios com emissor próprio.
+  - Emissores municipais específicos podem entrar depois atrás da mesma interface (`EmissorNfse` em `src/server/fiscal-provider.ts`).
+- **O que é faturado:** uma nota por profissional e competência fechada. O espaço é o prestador (CNPJ do tenant); o profissional é o tomador (CPF/CNPJ no cadastro). O valor é a receita de locação líquida do mês (hora, consulta, percentual, falta, mensalidade e excedente). O repasse do caixa centralizado não entra.
+- **Configuração por tenant (`configuracoes_fiscais`):**
+  - Ambiente `simulado`, `homologacao` ou `producao`.
+  - Código IBGE do município, código de tributação nacional do ISSQN, opção e regime do Simples, alíquota, NBS e série.
+  - Numeração da DPS sequencial, reservada na mesma transação que cria a nota.
+  - Token da Focus cifrado com AES-256-GCM (`SECRETS_KEY`); nunca volta para a tela nem para o `audit_log`.
+- **Envio idempotente:** a nota nasce `pendente` com a referência `salus-<id>`. Antes de cada envio o worker consulta a referência; se a Focus já a recebeu, só adota o status. Por isso uma falha de rede não duplica a nota.
+- **Status:** `pendente` → `processando` → `autorizada` | `erro` (pré-validação ou autorização negada). O job `fiscal.processar-notas` roda a cada 2 min, até 10 tentativas.
+- **Recusas e cancelamento:** uma nota recusada libera nova emissão com novo número. O cancelamento é síncrono, exige justificativa (mín. 15 caracteres) e é definitivo.
+- **Telas:**
+  - Notas fiscais: pendências da configuração, profissionais a faturar (individual ou em lote), notas do mês com DANFSe/portal, cancelamento e configuração.
+  - Nota do mês no extrato do profissional e na página financeira dele.
+- **Fora do escopo por ora:** webhook da Focus (`event: "nfsen"`; o polling já cobre), cadastro da empresa na Focus via API (o token vem do painel deles) e reenvio de e-mail.
+

@@ -13,6 +13,7 @@ function dadosProfissional(formData: FormData) {
     conselho: texto(formData, "conselho") as never,
     registro: texto(formData, "registro"),
     especialidade: texto(formData, "especialidade"),
+    documento: texto(formData, "documento"),
   };
 }
 

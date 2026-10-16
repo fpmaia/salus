@@ -6,6 +6,7 @@ import { getDb, type Database, type Transaction } from "../db/client";
 import { erroPostgres, PG } from "../db/erros";
 import { convitesProfissional, memberships, profissionais } from "../db/schema";
 import { type ContextoTenant, withTenant, withUser } from "../db/tenant";
+import { analisarDocumento } from "../domain/documentos";
 import { exigirPermissao } from "../domain/rbac";
 import { ErroNegocio } from "./erros";
 
@@ -36,7 +37,26 @@ export const profissionalSchema = z.object({
     .transform((v) => v ?? null),
   registro: textoOpcional(30),
   especialidade: textoOpcional(120),
+  /** CPF ou CNPJ (tomador da NFS-e de locação). Opcional no cadastro, exigido para emitir nota. */
+  documento: z
+    .string()
+    .optional()
+    .transform((v, ctx) => {
+      if (!v?.trim()) return { tipoDocumento: null, documento: null };
+      const doc = analisarDocumento(v);
+      if (!doc) {
+        ctx.addIssue({ code: "custom", message: "CPF ou CNPJ inválido" });
+        return z.NEVER;
+      }
+      return { tipoDocumento: doc.tipo, documento: doc.digitos };
+    }),
 });
+
+/** Achata o documento analisado nas colunas da tabela. */
+function colunas(valores: z.output<typeof profissionalSchema>) {
+  const { documento, ...resto } = valores;
+  return { ...resto, ...documento };
+}
 
 function traduzirErroProfissional(erro: unknown): never {
   const pg = erroPostgres(erro);
@@ -52,7 +72,7 @@ export async function criarProfissional(
   database?: Database,
 ): Promise<{ id: string }> {
   exigirPermissao(ctx.role, "profissionais.gerenciar");
-  const valores = profissionalSchema.parse(dados);
+  const valores = colunas(profissionalSchema.parse(dados));
   return withTenant(
     ctx,
     async (tx) => {
@@ -80,7 +100,7 @@ export async function atualizarProfissional(
   database?: Database,
 ): Promise<void> {
   exigirPermissao(ctx.role, "profissionais.gerenciar");
-  const valores = { ...profissionalSchema.parse(dados), ativo: dados.ativo };
+  const valores = { ...colunas(profissionalSchema.parse(dados)), ativo: dados.ativo };
   await withTenant(
     ctx,
     async (tx) => {

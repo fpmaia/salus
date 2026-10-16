@@ -334,6 +334,9 @@ export const profissionais = pgTable(
     conselho: text("conselho"),
     registro: text("registro"),
     especialidade: text("especialidade"),
+    // Tomador da NFS-e de locação (só dígitos).
+    tipoDocumento: tipoDocumento("tipo_documento"),
+    documento: text("documento"),
     ativo: boolean("ativo").notNull().default(true),
     criadoEm: criadoEm(),
     atualizadoEm: atualizadoEm(),
@@ -709,5 +712,91 @@ export const pagamentos = pgTable(
     foreignKey({ columns: [t.tenantId, t.profissionalId], foreignColumns: [profissionais.tenantId, profissionais.id] }),
     index("pagamentos_profissional_idx").on(t.profissionalId, t.data),
     check("pagamentos_valor_check", sql`${t.valorCentavos} > 0`),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// Pós-MVP: NFS-e da locação (RLS)
+// ---------------------------------------------------------------------------
+
+export const ambienteFiscal = pgEnum("ambiente_fiscal", ["simulado", "homologacao", "producao"]);
+export const statusNotaFiscal = pgEnum("status_nota_fiscal", ["pendente", "processando", "autorizada", "erro", "cancelada"]);
+
+// Dados do espaço como prestador (NFS-e Nacional via Focus NFe). Uma linha por tenant.
+export const configuracoesFiscais = pgTable(
+  "configuracoes_fiscais",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: tenantIdDoContexto(),
+    ativo: boolean("ativo").notNull().default(false),
+    ambiente: ambienteFiscal("ambiente").notNull().default("simulado"),
+    // Token da Focus NFe cifrado (AES-256-GCM, src/server/cripto.ts). Nunca volta para a tela.
+    tokenCifrado: text("token_cifrado"),
+    inscricaoMunicipal: text("inscricao_municipal"),
+    // Código IBGE do município (7 dígitos).
+    codigoMunicipio: text("codigo_municipio"),
+    // 1 = não optante, 2 = MEI, 3 = ME/EPP (Simples Nacional).
+    opcaoSimplesNacional: smallint("opcao_simples_nacional").notNull().default(3),
+    regimeTributarioSimplesNacional: smallint("regime_tributario_simples_nacional"),
+    regimeEspecialTributacao: smallint("regime_especial_tributacao").notNull().default(0),
+    // Código de tributação nacional do ISSQN (6 dígitos) e NBS (opcional).
+    codigoTributacaoNacional: text("codigo_tributacao_nacional"),
+    codigoNbs: text("codigo_nbs"),
+    // Alíquota do ISS em pontos-base (200 = 2%); opcional para optantes do Simples.
+    aliquotaIssBp: integer("aliquota_iss_bp"),
+    descricaoServico: text("descricao_servico").notNull().default("Cessão de uso de sala para atendimento"),
+    serieDps: integer("serie_dps").notNull().default(1),
+    proximoNumeroDps: integer("proximo_numero_dps").notNull().default(1),
+    criadoEm: criadoEm(),
+    atualizadoEm: atualizadoEm(),
+  },
+  (t) => [
+    uniqueIndex("configuracoes_fiscais_tenant_key").on(t.tenantId),
+    check("configuracoes_fiscais_simples_check", sql`${t.opcaoSimplesNacional} between 1 and 3`),
+    check("configuracoes_fiscais_numero_check", sql`${t.proximoNumeroDps} >= 1`),
+  ],
+);
+
+// NFS-e de locação: uma por profissional e competência fechada (ativa = não cancelada nem com erro).
+export const notasFiscais = pgTable(
+  "notas_fiscais",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: tenantIdDoContexto(),
+    profissionalId: uuid("profissional_id").notNull(),
+    competencia: date("competencia", { mode: "string" }).notNull(),
+    valorCentavos: integer("valor_centavos").notNull(),
+    descricao: text("descricao").notNull(),
+    ambiente: ambienteFiscal("ambiente").notNull(),
+    // Referência única na Focus (idempotência do envio).
+    referencia: text("referencia").notNull(),
+    serieDps: integer("serie_dps").notNull(),
+    numeroDps: integer("numero_dps").notNull(),
+    status: statusNotaFiscal("status").notNull().default("pendente"),
+    // Tomador no momento da emissão (CPF/CNPJ e nome).
+    tomador: jsonb("tomador").$type<{ tipoDocumento: "cpf" | "cnpj"; documento: string; nome: string; email: string | null }>().notNull(),
+    numero: text("numero"),
+    codigoVerificacao: text("codigo_verificacao"),
+    url: text("url"),
+    urlDanfse: text("url_danfse"),
+    caminhoXml: text("caminho_xml"),
+    erros: jsonb("erros").$type<{ codigo?: string; mensagem: string; correcao?: string | null }[]>(),
+    tentativas: integer("tentativas").notNull().default(0),
+    emitidaEm: timestamp("emitida_em", { withTimezone: true }),
+    justificativaCancelamento: text("justificativa_cancelamento"),
+    canceladaEm: timestamp("cancelada_em", { withTimezone: true }),
+    criadoPor: uuid("criado_por").default(sql`app_current_user_id()`).references(() => users.id, { onDelete: "set null" }),
+    criadoEm: criadoEm(),
+    atualizadoEm: atualizadoEm(),
+  },
+  (t) => [
+    uniqueIndex("notas_fiscais_referencia_key").on(t.tenantId, t.referencia),
+    uniqueIndex("notas_fiscais_numero_dps_key").on(t.tenantId, t.ambiente, t.serieDps, t.numeroDps),
+    uniqueIndex("notas_fiscais_uma_ativa_key")
+      .on(t.tenantId, t.profissionalId, t.competencia)
+      .where(sql`${t.status} not in ('erro', 'cancelada')`),
+    index("notas_fiscais_status_idx").on(t.status),
+    foreignKey({ columns: [t.tenantId, t.profissionalId], foreignColumns: [profissionais.tenantId, profissionais.id] }),
+    check("notas_fiscais_valor_check", sql`${t.valorCentavos} > 0`),
   ],
 );

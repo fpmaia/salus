@@ -12,6 +12,7 @@ import { proximaCompetencia, ROTULOS_MODELO, type Acordo } from "@/src/domain/fi
 import { pode } from "@/src/domain/rbac";
 import { hojeNoFuso } from "@/src/domain/tempo";
 import { competenciaAtual, competenciaSchema, extrato, listarAcordos, listarPagamentos } from "@/src/server/financeiro";
+import { listarNotas } from "@/src/server/fiscal";
 import { formatarDataBr } from "@/src/server/reservas";
 import { criarAcordoAcao, fecharCompetenciaAcao, lancarAjusteAcao, registrarPagamentoAcao } from "../actions";
 import { NavCompetencia, rotuloCompetencia, Saldo, TabelaExtrato } from "../componentes";
@@ -51,10 +52,12 @@ export default async function FinanceiroProfissionalPage({ params, searchParams 
 
   const dados = await extrato(ctx, { profissionalId, competencia }).catch(() => null);
   if (!dados) notFound();
-  const [acordos, pagamentosRecentes] = await Promise.all([
+  const [acordos, pagamentosRecentes, todasNotas] = await Promise.all([
     admin ? listarAcordos(ctx, profissionalId) : Promise.resolve([]),
     listarPagamentos(ctx, profissionalId),
+    pode(ctx.role, "fiscal.ver") ? listarNotas(ctx, competencia) : Promise.resolve([]),
   ]);
+  const notas = todasNotas.filter((n) => n.nota.profissionalId === profissionalId);
   const hoje = hojeNoFuso("America/Sao_Paulo");
   const podeFechar = pode(ctx.role, "financeiro.fechar") && !dados.fechamento?.fechadoEm && proximaCompetencia(competencia) <= atual;
   const c = competencia.slice(0, 7);
@@ -94,6 +97,31 @@ export default async function FinanceiroProfissionalPage({ params, searchParams 
           )}
         </CardContent>
       </Card>
+
+      {notas.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Nota fiscal de {rotuloCompetencia(competencia)}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="divide-y text-sm">
+              {notas.map(({ nota }) => (
+                <li key={nota.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                  <span>
+                    {nota.numero ? `NFS-e nº ${nota.numero}` : `DPS ${nota.serieDps}/${nota.numeroDps}`} · {formatarMoeda(nota.valorCentavos)}
+                    <span className="ml-2 text-xs text-muted-foreground">{nota.status}</span>
+                  </span>
+                  {nota.urlDanfse && nota.status === "autorizada" && (
+                    <a href={nota.urlDanfse} target="_blank" rel="noreferrer" className="text-primary underline-offset-4 hover:underline">
+                      Baixar DANFSe
+                    </a>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-6 md:grid-cols-2">
         <Card>

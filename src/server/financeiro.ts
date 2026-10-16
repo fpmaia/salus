@@ -727,7 +727,7 @@ export async function resumoCompetencia(ctx: ContextoTenant, competencia: string
   );
 }
 
-const TIPOS_RECEITA: TipoLancamento[] = ["locacao_hora", "locacao_consulta", "locacao_percentual", "falta", "mensalidade", "excedente_horas"];
+export const TIPOS_RECEITA: TipoLancamento[] = ["locacao_hora", "locacao_consulta", "locacao_percentual", "falta", "mensalidade", "excedente_horas"];
 
 /** Receita de locação (líquida de estornos) por unidade na competência. Mensalidades não têm unidade. */
 export async function receitaPorUnidade(ctx: ContextoTenant, competencia: string, database?: Database) {
