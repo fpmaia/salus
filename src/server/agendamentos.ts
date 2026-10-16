@@ -299,6 +299,7 @@ export type AtendimentoDoDia = {
   status: StatusAgendamento;
   cancelamentoTardio: boolean;
   valorCentavos: number | null;
+  origem: "equipe" | "online";
   observacao: string | null;
   pacienteId: string;
   pacienteNome: string;
@@ -327,6 +328,7 @@ async function listarAtendimentos(
       status: agendamentos.status,
       cancelamentoTardio: agendamentos.cancelamentoTardio,
       valorCentavos: agendamentos.valorCentavos,
+      origem: agendamentos.origem,
       observacao: agendamentos.observacao,
       pacienteId: pacientes.id,
       pacienteNome: pacientes.nome,

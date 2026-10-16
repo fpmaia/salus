@@ -17,6 +17,8 @@ type Props = {
   confirmar?: string;
   /** Renderiza conteúdo extra com o estado (ex.: link gerado). */
   depois?: (estado: EstadoAcao) => React.ReactNode;
+  /** Chamado depois de cada ação concluída com sucesso. */
+  aoConcluir?: (estado: EstadoAcao) => void;
 };
 
 /** Formulário ligado a uma Server Action, com estado pendente e mensagens. */
@@ -29,6 +31,7 @@ export function FormAcao({
   className,
   confirmar,
   depois,
+  aoConcluir,
 }: Props) {
   const [estado, executar, pendente] = useActionState(acao, inicial);
   const formulario = useRef<HTMLFormElement>(null);
@@ -38,7 +41,12 @@ export function FormAcao({
   // digitou num erro. A prop `action` continua lá para o envio antes da hidratação — sem
   // ela, o navegador faria um GET nativo com os campos (até senhas/chaves) na URL.
   useEffect(() => {
-    if (estado.sucesso && !estado.erro) formulario.current?.reset();
+    if (estado.sucesso && !estado.erro) {
+      formulario.current?.reset();
+      aoConcluir?.(estado);
+    }
+    // aoConcluir fora das dependências: só reage a um novo resultado da ação.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [estado]);
 
   return (

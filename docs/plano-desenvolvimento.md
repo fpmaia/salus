@@ -220,7 +220,7 @@ Toda tabela de tenant tem `id uuid`, `tenant_id uuid`, `criado_em`, `atualizado_
 2. **Cobrança do SaaS**: assinatura dos planos Básico/Pro/Enterprise e limites (unidades, salas, profissionais). **Concluída** (Asaas, ver seção 8).
 3. **Cobrança do profissional** via PIX/boleto (ex.: Asaas). **Concluída** (seção 8).
 4. **Prontuário eletrônico**: evolução clínica, anexos, auditoria de acesso, guarda de 20 anos, assinatura ICP-Brasil, prescrição via Memed. Compartilhamento entre profissionais condicionado ao consentimento do profissional e do paciente (o profissional é o controlador dos dados).
-5. **Agendamento online público** por profissional.
+5. **Agendamento online público** por profissional. **Concluído** (seção 9).
 6. Convênios (TISS) — só se houver demanda.
 
 ## 6. Riscos e pontos em aberto
@@ -280,4 +280,25 @@ Testes: `src/domain/cobranca.test.ts`, `tests/integration/cobrancas.test.ts` e `
 - **Sem duplicar no Asaas:** se a resposta da criação se perder, o reenvio busca a cobrança pela `externalReference` antes de criar outra.
 - **Formulários (`FormAcao`):** mantêm a prop `action` para envio antes da hidratação (sem ela, um envio precoce viraria GET com os campos na URL) e usam `onSubmit` depois de hidratados, para não apagar o que foi digitado num erro.
 - **Fora do escopo por ora:** suspensão automática por inadimplência, split de pagamento, cartão recorrente e PIX Automático.
+
+## 9. Agendamento online (pós-MVP, concluído)
+
+Testes: `src/domain/disponibilidade.test.ts` e `tests/integration/agendamento-online.test.ts`.
+
+- **Página pública `/agendar/<slug>`:** sem login, ativada pelo próprio profissional ou pelo admin em "Agenda online".
+  - O slug é gerado do nome com sufixo aleatório e é único na plataforma.
+  - A função `SECURITY DEFINER` `app_profissional_publico` resolve tenant e profissional só quando o agendamento online está ativo; o resto roda com a RLS do tenant.
+- **Oferta:** só horários dentro das reservas de sala ativas do profissional (ele controla a oferta reservando sala), descontando atendimentos não cancelados.
+  - Passo = slot da unidade; duração da consulta, antecedência mínima e janela máxima configuráveis.
+  - O cálculo é puro (`horariosLivres`).
+- **Agendar:**
+  - O horário escolhido é recalculado contra a oferta atual, então não dá para forjar horário fora das reservas. O `EXCLUDE` do banco resolve a corrida entre dois pacientes ("o horário acabou de ser ocupado").
+  - O paciente é reaproveitado pelo CPF ou pelo celular normalizado, sem expor nem alterar o cadastro existente. O consentimento para lembretes só é adicionado, nunca retirado por aqui.
+  - O agendamento é marcado com `origem = online`. A resposta traz o link `/c/<token>` da Fase 4 para confirmar ou cancelar, e os lembretes D-1 seguem o fluxo normal.
+- **Proteções:** aceite LGPD obrigatório, celular válido, campo-isca contra robôs e no máximo 3 agendamentos online futuros por paciente.
+- **Telas:**
+  - Página pública responsiva (escolha de dia e horário + dados).
+  - "Agenda online" no painel, com o link para divulgar.
+  - Selo "online" na lista de atendimentos.
+- **Fora do escopo por ora:** CAPTCHA, confirmação de celular por código, escolha entre vários profissionais numa mesma página e pagamento antecipado.
 

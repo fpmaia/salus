@@ -63,7 +63,10 @@ export function ListaAtendimentos({
               </span>
               {a.observacao && <span className="block text-xs text-muted-foreground">Obs.: {a.observacao}</span>}
             </span>
-            <SeloStatus status={a.status} tardio={a.cancelamentoTardio} />
+            <span className="flex items-center gap-2">
+              {a.origem === "online" && <span className="rounded-md bg-primary/10 px-2 py-0.5 text-xs text-primary">online</span>}
+              <SeloStatus status={a.status} tardio={a.cancelamentoTardio} />
+            </span>
           </div>
           <div className="flex flex-wrap gap-2">
             {a.status !== "cancelado" && (

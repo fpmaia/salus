@@ -28,6 +28,7 @@ export const PERMISSOES = {
   "agenda.ver": ["admin", "recepcao", "profissional"],
   "reservas.gerenciar": ["admin", "recepcao"],
   "reservas.proprias": ["profissional"],
+  "agenda_online.configurar": ["admin", "profissional"],
   "extrato.proprio": ["profissional"],
 } as const satisfies Record<string, readonly Role[]>;
 

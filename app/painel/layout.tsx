@@ -9,6 +9,7 @@ const NAVEGACAO: { href: string; rotulo: string; permissao?: Permissao }[] = [
   { href: "/painel/atendimentos", rotulo: "Atendimentos", permissao: "agenda.propria" },
   { href: "/painel/agenda", rotulo: "Agenda de salas", permissao: "agenda.ver" },
   { href: "/painel/pacientes", rotulo: "Pacientes", permissao: "pacientes.ver" },
+  { href: "/painel/agendamento-online", rotulo: "Agenda online", permissao: "agenda_online.configurar" },
   { href: "/painel/financeiro", rotulo: "Financeiro", permissao: "financeiro.ver" },
   { href: "/painel/fiscal", rotulo: "Notas fiscais", permissao: "fiscal.ver" },
   { href: "/painel/extrato", rotulo: "Meu extrato", permissao: "extrato.proprio" },

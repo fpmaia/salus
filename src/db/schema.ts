@@ -341,6 +341,13 @@ export const profissionais = pgTable(
     documento: text("documento"),
     // Cliente do profissional na conta Asaas do espaço (cobrança PIX/boleto).
     asaasCustomerId: text("asaas_customer_id"),
+    // Agendamento online público (/agendar/<slug>).
+    agendamentoOnline: boolean("agendamento_online").notNull().default(false),
+    slugPublico: text("slug_publico"),
+    duracaoConsultaMin: integer("duracao_consulta_min").notNull().default(60),
+    antecedenciaMinHoras: integer("antecedencia_min_horas").notNull().default(2),
+    janelaDias: integer("janela_dias").notNull().default(30),
+    mensagemPublica: text("mensagem_publica"),
     ativo: boolean("ativo").notNull().default(true),
     criadoEm: criadoEm(),
     atualizadoEm: atualizadoEm(),
@@ -349,6 +356,10 @@ export const profissionais = pgTable(
     unique("profissionais_tenant_id_id_key").on(t.tenantId, t.id),
     uniqueIndex("profissionais_tenant_email_key").on(t.tenantId, t.email),
     uniqueIndex("profissionais_membership_key").on(t.membershipId),
+    // Slug único na plataforma: a página pública resolve o tenant a partir dele.
+    uniqueIndex("profissionais_slug_publico_key").on(t.slugPublico),
+    check("profissionais_duracao_check", sql`${t.duracaoConsultaMin} between 15 and 480`),
+    check("profissionais_janela_check", sql`${t.janelaDias} between 1 and 180 and ${t.antecedenciaMinHoras} between 0 and 168`),
   ],
 );
 
@@ -435,6 +446,8 @@ export const reservasSala = pgTable(
 // Fase 2: pacientes e agendamentos (RLS)
 // ---------------------------------------------------------------------------
 
+export const origemAgendamento = pgEnum("origem_agendamento", ["equipe", "online"]);
+
 export const agendamentoStatus = pgEnum("agendamento_status", [
   "agendado",
   "confirmado",
@@ -511,6 +524,8 @@ export const agendamentos = pgTable(
     // No pagamento direto é declarado pelo profissional/recepção; fica no audit_log.
     valorCentavos: integer("valor_centavos"),
     valorInformadoEm: timestamp("valor_informado_em", { withTimezone: true }),
+    // "online" = marcado pelo próprio paciente na página pública.
+    origem: origemAgendamento("origem").notNull().default("equipe"),
     criadoPor: uuid("criado_por").default(sql`app_current_user_id()`).references(() => users.id, { onDelete: "set null" }),
     criadoEm: criadoEm(),
     atualizadoEm: atualizadoEm(),
