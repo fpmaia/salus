@@ -104,11 +104,13 @@ Usuários do seed: `admin|recepcao|profissional@alfa.salus.dev` e `...@beta.salu
 
 ## 10. Roadmap
 
-| Fase | Entrega |
-|---|---|
-| 0 | Fundação: Docker, auth, multi-tenant, RLS, auditoria, CI |
-| 1 | Unidades, salas, profissionais e reservas (avulsas e recorrentes) |
-| 2 | Pacientes e agendamentos |
-| 3 | Financeiro: acordos, ledger, fechamento e extrato |
-| 4 | Lembretes e confirmação por WhatsApp |
-| Pós-MVP | NFS-e, cobrança do SaaS, cobrança via PIX/boleto, prontuário eletrônico, agendamento online |
+| Fase | Entrega | Status |
+|---|---|---|
+| 0 | Fundação: Docker, auth, multi-tenant, RLS, auditoria, CI | ✅ |
+| 1 | Unidades, salas, profissionais (convite) e reservas avulsas/recorrentes | ✅ |
+| 2 | Pacientes e agendamentos (fluxo de status, cancelamento tardio) | ✅ |
+| 3 | Financeiro: acordos, ledger, fechamento, extrato, pagamentos, relatórios | ✅ |
+| 4 | Lembretes por WhatsApp (outbox) e link de confirmação do paciente | ✅ |
+| Pós-MVP | NFS-e, cobrança do SaaS, cobrança via PIX/boleto, prontuário eletrônico, agendamento online | — |
+
+Detalhes e decisões de cada fase: [docs/plano-desenvolvimento.md](docs/plano-desenvolvimento.md).

@@ -195,6 +195,24 @@ Toda tabela de tenant tem `id uuid`, `tenant_id uuid`, `criado_em`, `atualizado_
 
 **Pronto quando:** paciente confirma pelo link e o status muda; cancelamento tardio aplica a regra de no-show; envio com falha é reprocessado sem duplicar.
 
+**Status: concluída** (critérios cobertos em `tests/integration/notificacoes.test.ts`). Decisões de implementação:
+- **Outbox (`notificacoes_outbox`):** idempotente por chave (`lembrete_agendamento:<id>:<início>`). Se o atendimento for remarcado, sai um lembrete novo.
+- **Job a cada 15 min:** enfileira os lembretes D-1, na janela de 2h a 24h antes. Para pacientes, só com consentimento e telefone válido (normalizado para E.164); para profissionais, um lembrete por reserva.
+- **Job a cada minuto (envio), em três passos:**
+  1. Reivindica com `FOR UPDATE SKIP LOCKED` e revalida (agendamento ativo, consentimento, horário futuro).
+  2. Envia fora da transação.
+  3. Registra o resultado.
+  - Retentativa com espera crescente (1, 2, 4… min, até 5 tentativas). Erro 4xx da Meta é definitivo. Itens presos em "enviando" voltam para a fila após 10 min (entrega "ao menos uma vez").
+- **Provider:** `console` (padrão; registra no log) ou `meta` (WhatsApp Cloud API com templates aprovados; variáveis `WHATSAPP_*` no `.env.example`).
+- **Link do paciente (`/c/<token>`):** token HMAC-SHA256 sem estado (tenant, agendamento, validade = fim do atendimento), `noindex` e `no-referrer`. Mostra só o primeiro nome, data, hora, profissional e local.
+  - Confirmar e cancelar usam o mesmo núcleo de status da equipe (`aplicarStatusAgendamento`), então o cancelamento tardio pelo link gera a cobrança de falta do acordo.
+  - "Parar lembretes" retira o consentimento (LGPD) e cancela os pendentes.
+- **Cancelamentos:** cancelar, finalizar ou registrar falta num agendamento, ou cancelar uma reserva, cancela os lembretes pendentes.
+- **Tela Notificações (admin):** histórico da outbox com filtro por status e "tentar de novo" para as que falharam.
+- **Fora do escopo:** webhook de status de entrega e resposta "PARAR" pelo WhatsApp. O opt-out é feito pelo link.
+
+**MVP concluído (Fases 0–4).** Próxima etapa: pós-MVP, começando pela NFS-e.
+
 **MVP = Fases 0 a 4.**
 
 ### Pós-MVP (ordem sugerida)

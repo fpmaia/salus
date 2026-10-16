@@ -12,6 +12,7 @@ const NAVEGACAO: { href: string; rotulo: string; permissao?: Permissao }[] = [
   { href: "/painel/extrato", rotulo: "Meu extrato", permissao: "extrato.proprio" },
   { href: "/painel/unidades", rotulo: "Unidades e salas", permissao: "salas.gerenciar" },
   { href: "/painel/profissionais", rotulo: "Profissionais", permissao: "profissionais.gerenciar" },
+  { href: "/painel/notificacoes", rotulo: "Notificações", permissao: "auditoria.ver" },
 ];
 
 export default async function PainelLayout({ children }: LayoutProps<"/painel">) {

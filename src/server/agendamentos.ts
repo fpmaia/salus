@@ -16,6 +16,7 @@ import { exigirPermissao, pode } from "../domain/rbac";
 import { validarJanela } from "../domain/reservas";
 import { dataValida, horaValida, instanteLocal, partesLocais, somarDias, type DataLocal } from "../domain/tempo";
 import { gerarLancamentosAgendamento } from "./financeiro";
+import { cancelarNotificacoesDoAgendamento } from "./outbox";
 import { acessoAPacientes, pacienteVisivel, vincularPaciente } from "./pacientes";
 import { profissionalDoUsuario } from "./profissionais";
 import { carregarSala, resolverProfissional, traduzirConflito } from "./reservas";
@@ -208,6 +209,54 @@ async function reservaDoDia(tx: Transaction, profissionalId: string, data: DataL
 export const statusSchema = z.enum(STATUS_AGENDAMENTO);
 
 /** Muda o status (confirmar, check-in, realizado, falta, cancelar), respeitando o fluxo. */
+/**
+ * Núcleo da mudança de status (já dentro de uma transação de tenant): valida o fluxo,
+ * marca cancelamento tardio, gera os lançamentos e audita. `origem` vai para o audit_log.
+ */
+export async function aplicarStatusAgendamento(
+  tx: Transaction,
+  agendamento: typeof agendamentos.$inferSelect,
+  destino: StatusAgendamento,
+  motivo: string | null,
+  agora: Date,
+  origem: "equipe" | "paciente" = "equipe",
+): Promise<{ cancelamentoTardio: boolean }> {
+  validarTransicao(agendamento.status, destino, agendamento.periodo, agora);
+
+  let tardio = false;
+  if (destino === "cancelado") {
+    const [config] = await tx.select({ horas: tenantSettings.antecedenciaCancelamentoHoras }).from(tenantSettings);
+    tardio = cancelamentoTardio(agendamento.periodo.inicio, agora, config?.horas ?? 24);
+  }
+  await tx
+    .update(agendamentos)
+    .set({
+      status: destino,
+      statusAtualizadoEm: agora,
+      ...(destino === "cancelado"
+        ? { canceladoEm: agora, motivoCancelamento: motivo?.trim() || null, cancelamentoTardio: tardio }
+        : {}),
+    })
+    .where(eq(agendamentos.id, agendamento.id))
+    .catch(traduzirErroAgendamento);
+  // Fato gerador do financeiro (realizado, falta, cancelamento tardio).
+  if (destino === "realizado" || destino === "falta" || destino === "cancelado") {
+    await gerarLancamentosAgendamento(tx, agendamento.id);
+  }
+  // Lembretes pendentes perdem o sentido quando o agendamento sai do fluxo ativo.
+  if (destino === "cancelado" || destino === "falta" || destino === "realizado") {
+    await cancelarNotificacoesDoAgendamento(tx, agendamento.id, `Agendamento ${destino}`);
+  }
+  await registrarAuditoria(tx, {
+    acao: `agendamento.${destino}`,
+    entidade: "agendamentos",
+    entidadeId: agendamento.id,
+    dados: { de: agendamento.status, para: destino, origem, ...(destino === "cancelado" ? { tardio } : {}) },
+  });
+  return { cancelamentoTardio: tardio };
+}
+
+/** Muda o status (confirmar, check-in, realizado, falta, cancelar), respeitando o fluxo. */
 export async function alterarStatusAgendamento(
   ctx: ContextoTenant,
   agendamentoId: string,
@@ -230,36 +279,7 @@ export async function alterarStatusAgendamento(
           throw new ErroAgendamento("nao_permitido", "Você só pode alterar os seus atendimentos");
         }
       }
-
-      validarTransicao(agendamento.status, destino, agendamento.periodo, agora);
-
-      let tardio = false;
-      if (destino === "cancelado") {
-        const [config] = await tx.select({ horas: tenantSettings.antecedenciaCancelamentoHoras }).from(tenantSettings);
-        tardio = cancelamentoTardio(agendamento.periodo.inicio, agora, config?.horas ?? 24);
-      }
-      await tx
-        .update(agendamentos)
-        .set({
-          status: destino,
-          statusAtualizadoEm: agora,
-          ...(destino === "cancelado"
-            ? { canceladoEm: agora, motivoCancelamento: motivo?.trim() || null, cancelamentoTardio: tardio }
-            : {}),
-        })
-        .where(eq(agendamentos.id, agendamentoId))
-        .catch(traduzirErroAgendamento);
-      // Fato gerador do financeiro (realizado, falta, cancelamento tardio).
-      if (destino === "realizado" || destino === "falta" || destino === "cancelado") {
-        await gerarLancamentosAgendamento(tx, agendamentoId);
-      }
-      await registrarAuditoria(tx, {
-        acao: `agendamento.${destino}`,
-        entidade: "agendamentos",
-        entidadeId: agendamentoId,
-        dados: { de: agendamento.status, para: destino, ...(destino === "cancelado" ? { tardio } : {}) },
-      });
-      return { cancelamentoTardio: tardio };
+      return aplicarStatusAgendamento(tx, agendamento, destino, motivo, agora);
     },
     database,
   );

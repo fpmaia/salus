@@ -3,6 +3,11 @@ name: salus
 x-db-env: &db-env
   DATABASE_URL: postgres://salus_app:${SALUS_APP_PASSWORD:-salus_app_dev}@db:5432/salus
   DATABASE_MIGRATOR_URL: postgres://salus_owner:${SALUS_OWNER_PASSWORD:-salus_owner_dev}@db:5432/salus
+  APP_URL: ${APP_URL:-http://localhost:3000}
+  LINKS_SECRET: ${LINKS_SECRET:-}
+  WHATSAPP_PROVIDER: ${WHATSAPP_PROVIDER:-console}
+  WHATSAPP_TOKEN: ${WHATSAPP_TOKEN:-}
+  WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID:-}
 
 services:
   db:

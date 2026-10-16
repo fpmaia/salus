@@ -64,6 +64,20 @@
       "when": 1792157644596,
       "tag": "0008_rls_financeiro",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1792158471748,
+      "tag": "0009_notificacoes",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792158473562,
+      "tag": "0010_rls_notificacoes",
+      "breakpoints": true
     }
   ]
 }

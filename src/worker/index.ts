@@ -1,6 +1,8 @@
 import PgBoss from "pg-boss";
 import type { Transaction } from "../db/client";
 import { listarTenantsAtivos, withSistema } from "../db/tenant";
+import { agendarLembretes, processarFila } from "../server/notificacoes";
+import { providerDoAmbiente } from "../server/provider";
 import { concluirReservasPassadas, materializarRecorrencias } from "../server/reservas";
 
 // Worker separado (pg-boss). Cada job percorre os tenants ativos e processa um por vez,
@@ -15,21 +17,31 @@ try {
 type Job = {
   fila: string;
   cron: string;
-  executar: (tx: Transaction, agora: Date) => Promise<unknown>;
+  /** Roda dentro de withSistema (uma transação por tenant)… */
+  executar?: (tx: Transaction, agora: Date) => Promise<unknown>;
+  /** …ou gerencia as próprias transações (ex.: envio, que chama um serviço externo). */
+  porTenant?: (tenantId: string, agora: Date) => Promise<unknown>;
 };
+
+const provider = providerDoAmbiente();
 
 const JOBS: Job[] = [
   // Diário, de madrugada: estende as recorrências até o fim da janela de 8 semanas.
   { fila: "agenda.materializar-recorrencias", cron: "0 3 * * *", executar: materializarRecorrencias },
   // Reservas que terminaram passam a "concluida" (base para o financeiro da Fase 3).
   { fila: "agenda.concluir-reservas", cron: "*/15 * * * *", executar: concluirReservasPassadas },
+  // Lembretes D-1 (janela de 2h a 24h antes) e envio da outbox com retentativas.
+  { fila: "notificacoes.agendar-lembretes", cron: "*/15 * * * *", executar: agendarLembretes },
+  { fila: "notificacoes.enviar", cron: "* * * * *", porTenant: (tenantId, agora) => processarFila(tenantId, provider, agora) },
 ];
 
 async function porTenant(job: Job) {
   const agora = new Date();
   for (const tenantId of await listarTenantsAtivos()) {
     try {
-      const resultado = await withSistema(tenantId, (tx) => job.executar(tx, agora));
+      const resultado = job.porTenant
+        ? await job.porTenant(tenantId, agora)
+        : await withSistema(tenantId, (tx) => job.executar!(tx, agora));
       console.log(`[worker] ${job.fila} tenant=${tenantId}`, resultado);
     } catch (erro) {
       // Falha num tenant não impede os demais; o job é refeito na próxima execução.
@@ -54,7 +66,7 @@ async function main() {
   }
   // Fila da Fase 0, substituída pelos jobs acima.
   await boss.unschedule("manutencao.heartbeat").catch(() => undefined);
-  console.log(`[worker] pronto: ${JOBS.map((j) => j.fila).join(", ")}`);
+  console.log(`[worker] pronto (whatsapp: ${provider.nome}): ${JOBS.map((j) => j.fila).join(", ")}`);
 
   const encerrar = async () => {
     await boss.stop({ graceful: true });

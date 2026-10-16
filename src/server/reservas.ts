@@ -19,6 +19,7 @@ import {
   type DataLocal,
 } from "../domain/tempo";
 import { gerarLancamentosReserva } from "./financeiro";
+import { cancelarNotificacoesDaReserva } from "./outbox";
 import { profissionalDoUsuario } from "./profissionais";
 import { carregarConfigUnidade } from "./unidades";
 
@@ -177,6 +178,7 @@ export async function cancelarReserva(
         .set({ status: "cancelada", canceladaEm: agora, motivoCancelamento: motivo?.trim() || null })
         .where(eq(reservasSala.id, reservaId))
         .catch(traduzirConflito);
+      await cancelarNotificacoesDaReserva(tx, reservaId, "Reserva cancelada");
       await registrarAuditoria(tx, {
         acao: "reserva.cancelada",
         entidade: "reservas_sala",

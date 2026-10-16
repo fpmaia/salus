@@ -652,6 +652,44 @@ export const fechamentos = pgTable(
   ],
 );
 
+// ---------------------------------------------------------------------------
+// Fase 4: notificações (RLS)
+// ---------------------------------------------------------------------------
+
+export const tipoNotificacao = pgEnum("tipo_notificacao", ["lembrete_agendamento", "lembrete_reserva"]);
+export const statusNotificacao = pgEnum("status_notificacao", ["pendente", "enviando", "enviado", "falhou", "cancelado"]);
+
+// Outbox: gravada na mesma transação do fato; o worker envia, com retentativas.
+export const notificacoesOutbox = pgTable(
+  "notificacoes_outbox",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: tenantIdDoContexto(),
+    canal: text("canal").notNull().default("whatsapp"),
+    tipo: tipoNotificacao("tipo").notNull(),
+    // Telefone em E.164 (+55…).
+    destinatario: text("destinatario").notNull(),
+    parametros: jsonb("parametros").$type<Record<string, string>>().notNull().default({}),
+    agendamentoId: uuid("agendamento_id"),
+    reservaId: uuid("reserva_id"),
+    status: statusNotificacao("status").notNull().default("pendente"),
+    agendarPara: timestamp("agendar_para", { withTimezone: true }).notNull().defaultNow(),
+    tentativas: integer("tentativas").notNull().default(0),
+    ultimoErro: text("ultimo_erro"),
+    enviadoEm: timestamp("enviado_em", { withTimezone: true }),
+    mensagemProviderId: text("mensagem_provider_id"),
+    idempotencyKey: text("idempotency_key").notNull(),
+    criadoEm: criadoEm(),
+    atualizadoEm: atualizadoEm(),
+  },
+  (t) => [
+    uniqueIndex("notificacoes_outbox_idempotency_key").on(t.tenantId, t.idempotencyKey),
+    index("notificacoes_outbox_fila_idx").on(t.status, t.agendarPara),
+    foreignKey({ columns: [t.tenantId, t.agendamentoId], foreignColumns: [agendamentos.tenantId, agendamentos.id] }),
+    foreignKey({ columns: [t.tenantId, t.reservaId], foreignColumns: [reservasSala.tenantId, reservasSala.id] }),
+  ],
+);
+
 // Baixa manual de pagamento (PIX, dinheiro…). Gera o lançamento correspondente.
 export const pagamentos = pgTable(
   "pagamentos",
