@@ -73,7 +73,36 @@ Ledger (livro-razão) **append-only**, gerado por um serviço de domínio a part
 - `lancamentos`, `fechamentos`, `pagamentos`
 - `notificacoes_outbox`, `consentimentos`
 
-## 9. Roadmap
+## 9. Desenvolvimento
+
+Pré-requisitos: Node 22 (`.nvmrc`) e Docker.
+
+```bash
+cp .env.example .env          # ajuste BETTER_AUTH_SECRET
+npm install
+npm run db:up                 # Postgres 16 em 127.0.0.1:5433 (cria papéis e bancos)
+npm run db:migrate
+npm run db:seed               # 2 espaços demo; senha: salus-dev-123
+npm run dev                   # http://localhost:3000
+```
+
+Usuários do seed: `admin|recepcao|profissional@alfa.salus.dev` e `...@beta.salus.dev`.
+
+| Comando | O quê |
+|---|---|
+| `npm run lint` / `npm run typecheck` | ESLint / TypeScript |
+| `npm test` | Vitest: unitários (`src/**/*.test.ts`) + integração com Postgres real (`tests/integration`, banco `salus_test` recriado a cada execução) |
+| `npm run db:generate` | Gera migration SQL a partir de `src/db/schema.ts` (use `-- --custom` para SQL manual: RLS, grants) |
+| `npm run worker` | Worker pg-boss |
+| `docker compose up --build` | Stack completa: db, migrate, app e worker |
+
+**Multi-tenant na prática**
+- O app conecta como `salus_app` (sem `BYPASSRLS`, não dono das tabelas); migrations rodam como `salus_owner`.
+- Toda query de tenant passa por `withTenant(ctx, fn)` ([src/db/tenant.ts](src/db/tenant.ts)), que faz `SET LOCAL app.tenant_id/app.user_id/app.role` na transação. Fora dele, tabelas de tenant aparecem vazias.
+- Tabela nova com `tenant_id`? Na migration custom: `ENABLE` + `FORCE ROW LEVEL SECURITY`, policy `tenant_isolation` e `GRANT` mínimo ao `salus_app` (veja `0002_rls_e_privilegios.sql`). O teste de integração falha se alguma tabela com `tenant_id` ficar sem RLS.
+- Não use `drizzle-kit push`: as políticas vivem nas migrations SQL.
+
+## 10. Roadmap
 
 | Fase | Entrega |
 |---|---|

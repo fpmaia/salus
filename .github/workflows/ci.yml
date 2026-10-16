@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verificar:
+    name: Lint, typecheck e testes
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      TEST_DATABASE_URL: postgres://salus_app:salus_app_dev@localhost:5433/salus_test
+      TEST_DATABASE_MIGRATOR_URL: postgres://salus_owner:salus_owner_dev@localhost:5433/salus_test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      # Mesmo Postgres (e mesmo bootstrap de papéis) do desenvolvimento.
+      - name: Subir Postgres
+        run: docker compose up -d db --wait
+
+      - run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Testes (unitários + integração com Postgres real)
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Logs do Postgres
+        if: failure()
+        run: docker compose logs db
