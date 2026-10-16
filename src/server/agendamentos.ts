@@ -15,6 +15,7 @@ import {
 import { exigirPermissao, pode } from "../domain/rbac";
 import { validarJanela } from "../domain/reservas";
 import { dataValida, horaValida, instanteLocal, partesLocais, somarDias, type DataLocal } from "../domain/tempo";
+import { gerarLancamentosAgendamento } from "./financeiro";
 import { acessoAPacientes, pacienteVisivel, vincularPaciente } from "./pacientes";
 import { profissionalDoUsuario } from "./profissionais";
 import { carregarSala, resolverProfissional, traduzirConflito } from "./reservas";
@@ -248,6 +249,10 @@ export async function alterarStatusAgendamento(
         })
         .where(eq(agendamentos.id, agendamentoId))
         .catch(traduzirErroAgendamento);
+      // Fato gerador do financeiro (realizado, falta, cancelamento tardio).
+      if (destino === "realizado" || destino === "falta" || destino === "cancelado") {
+        await gerarLancamentosAgendamento(tx, agendamentoId);
+      }
       await registrarAuditoria(tx, {
         acao: `agendamento.${destino}`,
         entidade: "agendamentos",
@@ -273,6 +278,7 @@ export type AtendimentoDoDia = {
   fim: Date;
   status: StatusAgendamento;
   cancelamentoTardio: boolean;
+  valorCentavos: number | null;
   observacao: string | null;
   pacienteId: string;
   pacienteNome: string;
@@ -300,6 +306,7 @@ async function listarAtendimentos(
       periodo: agendamentos.periodo,
       status: agendamentos.status,
       cancelamentoTardio: agendamentos.cancelamentoTardio,
+      valorCentavos: agendamentos.valorCentavos,
       observacao: agendamentos.observacao,
       pacienteId: pacientes.id,
       pacienteNome: pacientes.nome,

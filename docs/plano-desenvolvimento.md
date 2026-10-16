@@ -170,6 +170,25 @@ Toda tabela de tenant tem `id uuid`, `tenant_id uuid`, `criado_em`, `atualizado_
 
 **Pronto quando:** tabela de casos cobre todos os modelos × no-show × fluxo; reprocessar eventos não altera saldos; fechamento fechado não aceita novos lançamentos na competência.
 
+**Status: concluída** (casos em `src/domain/financeiro.test.ts`, ponta a ponta em `tests/integration/financeiro.test.ts`). Decisões de implementação:
+- **Conta corrente:** o ledger (`lancamentos`) é a conta do profissional com o espaço. Débito = o profissional deve; crédito = o espaço deve (repasse). Só aceita SELECT/INSERT. O estorno repete o tipo com a natureza invertida e aponta `estorno_de`.
+- **Conciliação idempotente:** para cada fato gerador (`reserva:<id>`, `agendamento:<id>`, `competencia:<prof>:<mês>`), o domínio calcula os lançamentos devidos e o serviço estorna o que sobra e cria o que falta. Por isso reprocessar não muda nada, e corrigir o valor de um atendimento gera estorno + novo lançamento. A `idempotency_key` é única por tenant.
+- **Fatos geradores:**
+  - Reserva concluída (modelo hora; gerada pelo worker ou no fechamento).
+  - Agendamento realizado, falta ou cancelamento tardio (modelos consulta e percentual).
+  - Valor do atendimento, que entra no modelo percentual e gera o repasse no caixa centralizado.
+  - Fechamento do mês (mensalidade + horas excedentes).
+- **Acordos:** versionados por vigência, sem sobreposição (`EXCLUDE` com `daterange`). Um novo acordo encerra o anterior na véspera. Um `CHECK` com `coalesce` garante os campos de cada modelo. A mensalidade não tem pró-rata.
+- **Percentual com pagamento direto:** o valor é declarado e auditado (`agendamento.valor` no `audit_log`). Sem valor informado, não há cobrança.
+- **Fechamento:** só depois do fim do mês e em ordem cronológica. Antes de congelar os totais, conclui as reservas passadas, reprocessa a competência e gera a mensalidade; o mês fica imutável (trigger). Correções de um mês fechado caem na próxima competência aberta.
+- **Baixa manual:** pagamentos nas duas direções (profissional → espaço, repasse espaço → profissional) e ajustes manuais (só admin).
+- **Telas e acesso:**
+  - Financeiro: resumo do mês, receita por unidade e ocupação das salas.
+  - Página do profissional: extrato, pagamento, ajuste e acordo.
+  - "Meu extrato" para o profissional.
+  - Campo de valor nos atendimentos.
+  - A recepção vê o financeiro e registra pagamentos; acordos, fechamento e ajustes são do admin.
+
 ### Fase 4 — Notificações
 - Outbox + provider WhatsApp; lembrete D-1 de agendamento e de reserva.
 - Link de confirmação/cancelamento para o paciente; opt-in/opt-out.

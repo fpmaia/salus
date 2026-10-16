@@ -6,6 +6,8 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { cn } from "cn";
 import { ROTULOS_STATUS, transicoesPossiveis, type StatusAgendamento } from "@/src/domain/agendamentos";
 import type { AtendimentoDoDia } from "@/src/server/agendamentos";
+import { formatarMoeda } from "@/src/domain/dinheiro";
+import { definirValorAcao } from "../financeiro/actions";
 import { alterarStatusAcao, criarAgendamentoAcao } from "./actions";
 
 const ROTULO_ACAO: Record<StatusAgendamento, string> = {
@@ -64,6 +66,25 @@ export function ListaAtendimentos({
             <SeloStatus status={a.status} tardio={a.cancelamentoTardio} />
           </div>
           <div className="flex flex-wrap gap-2">
+            {a.status !== "cancelado" && (
+              <FormAcao
+                acao={definirValorAcao.bind(null, a.id)}
+                textoBotao={a.valorCentavos === null ? "Salvar valor" : "Alterar valor"}
+                textoPendente="…"
+                variante="outline"
+                className="flex flex-wrap items-center gap-2"
+              >
+                <Input
+                  name="valor"
+                  inputMode="decimal"
+                  placeholder="Valor R$"
+                  aria-label="Valor cobrado do paciente"
+                  defaultValue={a.valorCentavos === null ? "" : (a.valorCentavos / 100).toFixed(2).replace(".", ",")}
+                  title={a.valorCentavos === null ? undefined : formatarMoeda(a.valorCentavos)}
+                  className="h-7 w-28"
+                />
+              </FormAcao>
+            )}
             {transicoesPossiveis(a.status)
               .filter((s) => s !== "cancelado")
               .map((s) => (

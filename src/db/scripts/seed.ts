@@ -5,9 +5,10 @@ import type { Role } from "../../domain/rbac";
 import { criarTenantComAdmin } from "../../server/onboarding";
 import { listarMembershipsDoUsuario } from "../../server/memberships";
 import { createDb } from "../client";
+import { criarAcordo } from "../../server/financeiro";
 import { criarPaciente } from "../../server/pacientes";
 import { criarSala, criarUnidade, definirHorarios } from "../../server/unidades";
-import { memberships, pacientes, profissionais, unidades, users } from "../schema";
+import { acordosFinanceiros, memberships, pacientes, profissionais, unidades, users } from "../schema";
 import { withTenant } from "../tenant";
 
 // Seed de DESENVOLVIMENTO: dois espaços com admin, recepção e profissional cada.
@@ -119,6 +120,22 @@ async function main() {
         await criarSala(ctxAdmin, unidadeId, { nome: "Sala 1", recursos: ["Maca", "Pia"] }, db);
         await criarSala(ctxAdmin, unidadeId, { nome: "Sala 2", recursos: ["Divã"] }, db);
         await criarSala(ctxAdmin, unidadeId, { nome: "Sala 3", recursos: ["Mesa de reunião"] }, db);
+      }
+
+      // Acordos de exemplo: locação por hora e por consulta (caixa centralizado, falta cobrada).
+      const temAcordos = await withTenant(ctxAdmin, (tx) => tx.select({ id: acordosFinanceiros.id }).from(acordosFinanceiros).limit(1), db);
+      if (temAcordos.length === 0) {
+        const lista = await withTenant(ctxAdmin, (tx) => tx.select({ id: profissionais.id, email: profissionais.email }).from(profissionais), db);
+        const desde = `${new Date().toISOString().slice(0, 7)}-01`;
+        for (const p of lista) {
+          await criarAcordo(
+            ctxAdmin,
+            p.email.startsWith("profissional@")
+              ? { profissionalId: p.id, modelo: "hora", valorHoraCentavos: 4500, vigenteDe: desde }
+              : { profissionalId: p.id, modelo: "consulta", valorConsultaCentavos: 3000, fluxoRecebimento: "centralizado", regraFalta: "integral", vigenteDe: desde },
+            db,
+          );
+        }
       }
 
       // Pacientes de demonstração (dados fictícios).

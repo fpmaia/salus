@@ -500,6 +500,10 @@ export const agendamentos = pgTable(
     motivoCancelamento: text("motivo_cancelamento"),
     // Cancelado com menos antecedência que a política do tenant (base para cobrança na Fase 3).
     cancelamentoTardio: boolean("cancelamento_tardio").notNull().default(false),
+    // Valor cobrado do paciente (base do modelo percentual e do repasse no caixa centralizado).
+    // No pagamento direto é declarado pelo profissional/recepção; fica no audit_log.
+    valorCentavos: integer("valor_centavos"),
+    valorInformadoEm: timestamp("valor_informado_em", { withTimezone: true }),
     criadoPor: uuid("criado_por").default(sql`app_current_user_id()`).references(() => users.id, { onDelete: "set null" }),
     criadoEm: criadoEm(),
     atualizadoEm: atualizadoEm(),
@@ -512,5 +516,160 @@ export const agendamentos = pgTable(
     index("agendamentos_reserva_idx").on(t.reservaId),
     index("agendamentos_paciente_idx").on(t.pacienteId),
     check("agendamentos_periodo_check", sql`not isempty(${t.periodo}) and lower_inc(${t.periodo}) and not upper_inc(${t.periodo})`),
+    check("agendamentos_valor_check", sql`${t.valorCentavos} is null or ${t.valorCentavos} >= 0`),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// Fase 3: financeiro (RLS)
+// ---------------------------------------------------------------------------
+
+export const modeloCobranca = pgEnum("modelo_cobranca", ["hora", "consulta", "percentual", "mensalidade"]);
+export const fluxoRecebimento = pgEnum("fluxo_recebimento", ["centralizado", "direto"]);
+export const regraFalta = pgEnum("regra_falta", ["isenta", "integral", "percentual"]);
+export const naturezaLancamento = pgEnum("natureza_lancamento", ["debito", "credito"]);
+export const tipoLancamento = pgEnum("tipo_lancamento", [
+  "locacao_hora",
+  "locacao_consulta",
+  "locacao_percentual",
+  "falta",
+  "mensalidade",
+  "excedente_horas",
+  "recebimento_paciente",
+  "pagamento_profissional",
+  "repasse_profissional",
+  "ajuste",
+]);
+export const fechamentoStatus = pgEnum("fechamento_status", ["aberto", "fechado"]);
+export const direcaoPagamento = pgEnum("direcao_pagamento", ["profissional_para_espaco", "espaco_para_profissional"]);
+export const formaPagamento = pgEnum("forma_pagamento", ["pix", "dinheiro", "cartao", "transferencia", "boleto", "outro"]);
+
+// Acordo do profissional com o espaço, versionado por vigência (reajuste = novo acordo).
+// Vigências do mesmo profissional não se sobrepõem (EXCLUDE na migration custom).
+export const acordosFinanceiros = pgTable(
+  "acordos_financeiros",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: tenantIdDoContexto(),
+    profissionalId: uuid("profissional_id").notNull(),
+    modelo: modeloCobranca("modelo").notNull(),
+    fluxoRecebimento: fluxoRecebimento("fluxo_recebimento").notNull().default("direto"),
+    valorHoraCentavos: integer("valor_hora_centavos"),
+    valorConsultaCentavos: integer("valor_consulta_centavos"),
+    // Pontos-base: 3000 = 30%.
+    percentualBp: integer("percentual_bp"),
+    mensalidadeCentavos: integer("mensalidade_centavos"),
+    horasIncluidas: integer("horas_incluidas"),
+    regraFalta: regraFalta("regra_falta").notNull().default("isenta"),
+    faltaPercentualBp: integer("falta_percentual_bp"),
+    vigenteDe: date("vigente_de", { mode: "string" }).notNull(),
+    vigenteAte: date("vigente_ate", { mode: "string" }),
+    criadoPor: uuid("criado_por").default(sql`app_current_user_id()`).references(() => users.id, { onDelete: "set null" }),
+    criadoEm: criadoEm(),
+    atualizadoEm: atualizadoEm(),
+  },
+  (t) => [
+    foreignKey({ columns: [t.tenantId, t.profissionalId], foreignColumns: [profissionais.tenantId, profissionais.id] }),
+    index("acordos_financeiros_profissional_idx").on(t.profissionalId, t.vigenteDe),
+    check("acordos_vigencia_check", sql`${t.vigenteAte} is null or ${t.vigenteAte} >= ${t.vigenteDe}`),
+    check(
+      "acordos_modelo_check",
+      // coalesce: num CHECK, NULL passaria como verdadeiro.
+      sql`coalesce(case ${t.modelo}
+        when 'hora' then ${t.valorHoraCentavos} > 0
+        when 'consulta' then ${t.valorConsultaCentavos} > 0
+        when 'percentual' then ${t.percentualBp} between 1 and 10000
+        when 'mensalidade' then ${t.mensalidadeCentavos} > 0 and ${t.horasIncluidas} >= 0 and ${t.valorHoraCentavos} >= 0
+      end, false)`,
+    ),
+    check(
+      "acordos_falta_check",
+      sql`${t.regraFalta} <> 'percentual' or coalesce(${t.faltaPercentualBp} between 1 and 10000, false)`,
+    ),
+  ],
+);
+
+// Livro-razão: conta corrente do profissional com o espaço. Append-only (só SELECT/INSERT
+// para a aplicação). Débito = profissional deve ao espaço; crédito = espaço deve ao profissional.
+// Estorno: mesmo tipo, natureza invertida, estorno_de apontando o original.
+export const lancamentos = pgTable(
+  "lancamentos",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: tenantIdDoContexto(),
+    profissionalId: uuid("profissional_id").notNull(),
+    // Primeiro dia do mês de competência.
+    competencia: date("competencia", { mode: "string" }).notNull(),
+    // Data local do fato gerador.
+    dataReferencia: date("data_referencia", { mode: "string" }).notNull(),
+    natureza: naturezaLancamento("natureza").notNull(),
+    tipo: tipoLancamento("tipo").notNull(),
+    valorCentavos: integer("valor_centavos").notNull(),
+    descricao: text("descricao").notNull(),
+    // Fato gerador: "reserva:<id>", "agendamento:<id>", "competencia:<profissional>:<AAAA-MM>", "pagamento:<id>", "ajuste:<id>".
+    origem: text("origem").notNull(),
+    estornoDe: uuid("estorno_de"),
+    idempotencyKey: text("idempotency_key").notNull(),
+    criadoPor: uuid("criado_por").default(sql`app_current_user_id()`).references(() => users.id, { onDelete: "set null" }),
+    criadoEm: criadoEm(),
+  },
+  (t) => [
+    unique("lancamentos_tenant_id_id_key").on(t.tenantId, t.id),
+    uniqueIndex("lancamentos_idempotency_key").on(t.tenantId, t.idempotencyKey),
+    uniqueIndex("lancamentos_estorno_de_key").on(t.estornoDe),
+    index("lancamentos_profissional_competencia_idx").on(t.profissionalId, t.competencia),
+    index("lancamentos_origem_idx").on(t.tenantId, t.origem),
+    foreignKey({ columns: [t.tenantId, t.profissionalId], foreignColumns: [profissionais.tenantId, profissionais.id] }),
+    foreignKey({ columns: [t.tenantId, t.estornoDe], foreignColumns: [t.tenantId, t.id] }),
+    check("lancamentos_valor_check", sql`${t.valorCentavos} > 0`),
+    check("lancamentos_competencia_check", sql`extract(day from ${t.competencia}) = 1`),
+  ],
+);
+
+// Fechamento mensal por profissional. Fechado = imutável; a competência fechada não aceita
+// novos lançamentos (trigger), que passam para a próxima competência aberta.
+export const fechamentos = pgTable(
+  "fechamentos",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: tenantIdDoContexto(),
+    profissionalId: uuid("profissional_id").notNull(),
+    competencia: date("competencia", { mode: "string" }).notNull(),
+    status: fechamentoStatus("status").notNull().default("aberto"),
+    saldoAnteriorCentavos: integer("saldo_anterior_centavos").notNull().default(0),
+    totalDebitosCentavos: integer("total_debitos_centavos").notNull().default(0),
+    totalCreditosCentavos: integer("total_creditos_centavos").notNull().default(0),
+    saldoFinalCentavos: integer("saldo_final_centavos").notNull().default(0),
+    fechadoEm: timestamp("fechado_em", { withTimezone: true }),
+    fechadoPor: uuid("fechado_por").references(() => users.id, { onDelete: "set null" }),
+    criadoEm: criadoEm(),
+    atualizadoEm: atualizadoEm(),
+  },
+  (t) => [
+    uniqueIndex("fechamentos_profissional_competencia_key").on(t.tenantId, t.profissionalId, t.competencia),
+    foreignKey({ columns: [t.tenantId, t.profissionalId], foreignColumns: [profissionais.tenantId, profissionais.id] }),
+    check("fechamentos_competencia_check", sql`extract(day from ${t.competencia}) = 1`),
+  ],
+);
+
+// Baixa manual de pagamento (PIX, dinheiro…). Gera o lançamento correspondente.
+export const pagamentos = pgTable(
+  "pagamentos",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: tenantIdDoContexto(),
+    profissionalId: uuid("profissional_id").notNull(),
+    data: date("data", { mode: "string" }).notNull(),
+    valorCentavos: integer("valor_centavos").notNull(),
+    direcao: direcaoPagamento("direcao").notNull(),
+    forma: formaPagamento("forma").notNull(),
+    observacao: text("observacao"),
+    criadoPor: uuid("criado_por").default(sql`app_current_user_id()`).references(() => users.id, { onDelete: "set null" }),
+    criadoEm: criadoEm(),
+  },
+  (t) => [
+    foreignKey({ columns: [t.tenantId, t.profissionalId], foreignColumns: [profissionais.tenantId, profissionais.id] }),
+    index("pagamentos_profissional_idx").on(t.profissionalId, t.data),
+    check("pagamentos_valor_check", sql`${t.valorCentavos} > 0`),
   ],
 );

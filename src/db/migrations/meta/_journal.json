@@ -50,6 +50,20 @@
       "when": 1792154156497,
       "tag": "0006_rls_pacientes_e_agendamentos",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792157642885,
+      "tag": "0007_financeiro",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1792157644596,
+      "tag": "0008_rls_financeiro",
+      "breakpoints": true
     }
   ]
 }

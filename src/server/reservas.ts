@@ -18,6 +18,7 @@ import {
   somarDias,
   type DataLocal,
 } from "../domain/tempo";
+import { gerarLancamentosReserva } from "./financeiro";
 import { profissionalDoUsuario } from "./profissionais";
 import { carregarConfigUnidade } from "./unidades";
 
@@ -431,13 +432,14 @@ export async function materializarRecorrencias(
   return { criadas, conflitos };
 }
 
-/** Marca como concluídas as reservas ativas que já terminaram. */
+/** Marca como concluídas as reservas ativas que já terminaram e gera a locação por hora. */
 export async function concluirReservasPassadas(tx: Transaction, agora = new Date()): Promise<number> {
   const concluidas = await tx
     .update(reservasSala)
     .set({ status: "concluida" })
     .where(and(eq(reservasSala.status, "ativa"), sql`upper(${reservasSala.periodo}) <= ${agora.toISOString()}::timestamptz`))
     .returning({ id: reservasSala.id });
+  for (const r of concluidas) await gerarLancamentosReserva(tx, r.id);
   return concluidas.length;
 }
 
