@@ -137,6 +137,15 @@ Toda tabela de tenant tem `id uuid`, `tenant_id uuid`, `criado_em`, `atualizado_
 
 **Pronto quando:** duas reservas sobrepostas na mesma sala são rejeitadas pelo banco; reserva fora do horário de funcionamento ou em feriado é recusada; recorrência semanal materializa as próximas semanas.
 
+**Status: concluída** (critérios cobertos em `tests/integration/reservas.test.ts`). Decisões de implementação:
+- **Convite:** link com token (válido por 7 dias, só o hash SHA-256 fica no banco) que o admin copia e envia por WhatsApp. O aceite exige o mesmo e-mail do cadastro do profissional e roda numa função `SECURITY DEFINER` (`app_aceitar_convite`). Envio por e-mail fica para depois.
+- **Reserva do profissional:** confirmação imediata quando a sala está livre e dentro do horário. Admin e recepção reservam para qualquer profissional e cancelam qualquer reserva; o profissional cancela só as suas, antes do início.
+- **Grade:** própria (Tailwind). Visão diária com as salas em colunas e semanal por sala. Slot por unidade (15, 30 ou 60 min; padrão 30). Para o profissional, reservas de terceiros aparecem como "Ocupado".
+- **Conflitos:** dois `EXCLUDE USING gist` em `reservas_sala`, um por sala e outro por profissional, ignorando as canceladas. Intervalos semiabertos `[início, fim)`.
+- **Isolamento:** FKs compostas `(tenant_id, x_id)` entre tabelas de tenant, porque a FK não passa pela RLS.
+- **Recorrência:** semanal. Na criação, materializa a janela de 8 semanas e é rejeitada por inteiro se houver conflito, informando as datas; feriados são pulados. O worker estende a janela diariamente (conflitos posteriores são pulados e auditados). Cancelar uma ocorrência não a recria; "encerrar série" cancela as futuras.
+- **Worker:** jobs `agenda.materializar-recorrencias` (diário) e `agenda.concluir-reservas` (a cada 15 min), um tenant por vez via `withSistema`.
+
 ### Fase 2 — Agenda de pacientes
 - Cadastro de pacientes (CPF opcional, contato, consentimento).
 - Agendamentos dentro de reservas; fluxo de status; check-in pela recepção.

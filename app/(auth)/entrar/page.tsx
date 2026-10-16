@@ -2,14 +2,25 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { use, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authClient } from "@/src/auth/client";
 
-export default function EntrarPage() {
+// Volta para o convite depois de entrar/cadastrar (só aceita token, nunca URL arbitrária).
+function destinoDoConvite(convite: string | string[] | undefined): string | null {
+  return typeof convite === "string" && /^[\w-]{20,100}$/.test(convite) ? `/convite/${convite}` : null;
+}
+
+export default function EntrarPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const parametros = use(searchParams);
+  const destino = destinoDoConvite(parametros.convite);
   const router = useRouter();
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
@@ -26,7 +37,7 @@ export default function EntrarPage() {
       setErro("E-mail ou senha inválidos.");
       return;
     }
-    router.push("/painel");
+    router.push(destino ?? "/painel");
     router.refresh();
   }
 
@@ -54,7 +65,7 @@ export default function EntrarPage() {
           </Button>
           <p className="text-sm text-muted-foreground">
             Não tem conta?{" "}
-            <Link href="/cadastro" className="text-primary underline-offset-4 hover:underline">
+            <Link href={destino ? `/cadastro?convite=${String(parametros.convite)}` : "/cadastro"} className="text-primary underline-offset-4 hover:underline">
               Criar conta
             </Link>
           </p>

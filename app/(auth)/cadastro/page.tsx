@@ -2,14 +2,26 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { use, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authClient } from "@/src/auth/client";
 
-export default function CadastroPage() {
+// Volta para o convite depois de entrar/cadastrar (só aceita token, nunca URL arbitrária).
+function destinoDoConvite(convite: string | string[] | undefined): string | null {
+  return typeof convite === "string" && /^[\w-]{20,100}$/.test(convite) ? `/convite/${convite}` : null;
+}
+
+export default function CadastroPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const parametros = use(searchParams);
+  const destino = destinoDoConvite(parametros.convite);
+  const valorInicial = (campo: string) => (typeof parametros[campo] === "string" ? parametros[campo] : undefined);
   const router = useRouter();
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
@@ -27,7 +39,7 @@ export default function CadastroPage() {
       setErro(error.message ?? "Não foi possível criar a conta.");
       return;
     }
-    router.push("/onboarding");
+    router.push(destino ?? "/onboarding");
     router.refresh();
   }
 
@@ -35,17 +47,17 @@ export default function CadastroPage() {
     <Card>
       <CardHeader>
         <CardTitle>Criar conta</CardTitle>
-        <CardDescription>Depois você cadastra o seu espaço.</CardDescription>
+        <CardDescription>{destino ? "Use o e-mail do convite." : "Depois você cadastra o seu espaço."}</CardDescription>
       </CardHeader>
       <form action={cadastrar}>
         <CardContent className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
             <Label htmlFor="nome">Seu nome</Label>
-            <Input id="nome" name="nome" autoComplete="name" required />
+            <Input id="nome" name="nome" autoComplete="name" defaultValue={valorInicial("nome")} required />
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="email">E-mail</Label>
-            <Input id="email" name="email" type="email" autoComplete="email" required />
+            <Input id="email" name="email" type="email" autoComplete="email" defaultValue={valorInicial("email")} required />
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="senha">Senha (mín. 8 caracteres)</Label>
@@ -59,7 +71,7 @@ export default function CadastroPage() {
           </Button>
           <p className="text-sm text-muted-foreground">
             Já tem conta?{" "}
-            <Link href="/entrar" className="text-primary underline-offset-4 hover:underline">
+            <Link href={destino ? `/entrar?convite=${String(parametros.convite)}` : "/entrar"} className="text-primary underline-offset-4 hover:underline">
               Entrar
             </Link>
           </p>

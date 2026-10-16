@@ -1,16 +1,24 @@
 import { sql } from "drizzle-orm";
 import {
   boolean,
+  check,
+  customType,
+  date,
+  foreignKey,
   index,
   integer,
   jsonb,
   pgEnum,
   pgTable,
+  smallint,
   text,
+  time,
   timestamp,
+  unique,
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+import { formatarRange, lerRange, type Intervalo } from "./range";
 
 /*
  * Convenções
@@ -20,7 +28,15 @@ import {
  * - Tabelas do Better Auth (users, sessions, accounts, verifications) são globais e
  *   seguem os nomes de campo da biblioteca.
  * - RLS, grants e políticas ficam em migrations SQL customizadas, não aqui.
+ * - Referências entre tabelas de tenant usam FK composta (tenant_id, x_id): a FK não
+ *   passa pela RLS, então sem isso um tenant poderia apontar para o id de outro.
  */
+
+const tstzrange = customType<{ data: Intervalo; driverData: string }>({
+  dataType: () => "tstzrange",
+  toDriver: formatarRange,
+  fromDriver: lerRange,
+});
 
 const criadoEm = () =>
   timestamp("criado_em", { withTimezone: true }).notNull().defaultNow();
@@ -203,4 +219,205 @@ export const auditLog = pgTable(
     criadoEm: criadoEm(),
   },
   (t) => [index("audit_log_tenant_criado_em_idx").on(t.tenantId, t.criadoEm)],
+);
+
+// ---------------------------------------------------------------------------
+// Fase 1: espaço, profissionais e reservas de sala (RLS)
+// ---------------------------------------------------------------------------
+
+export const reservaStatus = pgEnum("reserva_status", ["ativa", "concluida", "cancelada"]);
+
+export const unidades = pgTable(
+  "unidades",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: tenantIdDoContexto(),
+    nome: text("nome").notNull(),
+    endereco: text("endereco"),
+    timezone: text("timezone").notNull().default("America/Sao_Paulo"),
+    // Início e fim das reservas são múltiplos do slot, a partir da meia-noite local.
+    slotMinutos: integer("slot_minutos").notNull().default(30),
+    ativo: boolean("ativo").notNull().default(true),
+    criadoEm: criadoEm(),
+    atualizadoEm: atualizadoEm(),
+  },
+  (t) => [
+    unique("unidades_tenant_id_id_key").on(t.tenantId, t.id),
+    check("unidades_slot_minutos_check", sql`${t.slotMinutos} in (15, 30, 60)`),
+  ],
+);
+
+// Vários intervalos por dia são permitidos (ex.: 08–12 e 14–18).
+export const horariosFuncionamento = pgTable(
+  "horarios_funcionamento",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: tenantIdDoContexto(),
+    unidadeId: uuid("unidade_id").notNull(),
+    // 0 = domingo … 6 = sábado
+    diaSemana: smallint("dia_semana").notNull(),
+    abre: time("abre").notNull(),
+    fecha: time("fecha").notNull(),
+    criadoEm: criadoEm(),
+  },
+  (t) => [
+    foreignKey({ columns: [t.tenantId, t.unidadeId], foreignColumns: [unidades.tenantId, unidades.id] }).onDelete("cascade"),
+    index("horarios_funcionamento_unidade_idx").on(t.unidadeId, t.diaSemana),
+    check("horarios_funcionamento_dia_check", sql`${t.diaSemana} between 0 and 6`),
+    check("horarios_funcionamento_intervalo_check", sql`${t.fecha} > ${t.abre}`),
+  ],
+);
+
+// unidade_id nulo = feriado de todas as unidades do tenant.
+export const feriados = pgTable(
+  "feriados",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: tenantIdDoContexto(),
+    unidadeId: uuid("unidade_id"),
+    data: date("data", { mode: "string" }).notNull(),
+    descricao: text("descricao").notNull(),
+    criadoEm: criadoEm(),
+  },
+  (t) => [
+    foreignKey({ columns: [t.tenantId, t.unidadeId], foreignColumns: [unidades.tenantId, unidades.id] }).onDelete("cascade"),
+    index("feriados_tenant_data_idx").on(t.tenantId, t.data),
+  ],
+);
+
+export const salas = pgTable(
+  "salas",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: tenantIdDoContexto(),
+    unidadeId: uuid("unidade_id").notNull(),
+    nome: text("nome").notNull(),
+    descricao: text("descricao"),
+    ativo: boolean("ativo").notNull().default(true),
+    criadoEm: criadoEm(),
+    atualizadoEm: atualizadoEm(),
+  },
+  (t) => [
+    unique("salas_tenant_id_id_key").on(t.tenantId, t.id),
+    uniqueIndex("salas_unidade_nome_key").on(t.unidadeId, t.nome),
+    foreignKey({ columns: [t.tenantId, t.unidadeId], foreignColumns: [unidades.tenantId, unidades.id] }),
+  ],
+);
+
+export const recursosSala = pgTable(
+  "recursos_sala",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: tenantIdDoContexto(),
+    salaId: uuid("sala_id").notNull(),
+    nome: text("nome").notNull(),
+    criadoEm: criadoEm(),
+  },
+  (t) => [
+    uniqueIndex("recursos_sala_sala_nome_key").on(t.salaId, t.nome),
+    foreignKey({ columns: [t.tenantId, t.salaId], foreignColumns: [salas.tenantId, salas.id] }).onDelete("cascade"),
+  ],
+);
+
+// Cadastro do profissional no tenant. membership_id é preenchido quando o convite é aceito.
+export const profissionais = pgTable(
+  "profissionais",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: tenantIdDoContexto(),
+    membershipId: uuid("membership_id").references(() => memberships.id, { onDelete: "set null" }),
+    nome: text("nome").notNull(),
+    email: text("email").notNull(),
+    telefone: text("telefone"),
+    conselho: text("conselho"),
+    registro: text("registro"),
+    especialidade: text("especialidade"),
+    ativo: boolean("ativo").notNull().default(true),
+    criadoEm: criadoEm(),
+    atualizadoEm: atualizadoEm(),
+  },
+  (t) => [
+    unique("profissionais_tenant_id_id_key").on(t.tenantId, t.id),
+    uniqueIndex("profissionais_tenant_email_key").on(t.tenantId, t.email),
+    uniqueIndex("profissionais_membership_key").on(t.membershipId),
+  ],
+);
+
+// Só o hash SHA-256 do token é guardado; o link é mostrado uma única vez ao admin.
+export const convitesProfissional = pgTable(
+  "convites_profissional",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: tenantIdDoContexto(),
+    profissionalId: uuid("profissional_id").notNull(),
+    tokenHash: text("token_hash").notNull().unique(),
+    expiraEm: timestamp("expira_em", { withTimezone: true }).notNull(),
+    aceitoEm: timestamp("aceito_em", { withTimezone: true }),
+    aceitoPor: uuid("aceito_por").references(() => users.id, { onDelete: "set null" }),
+    revogadoEm: timestamp("revogado_em", { withTimezone: true }),
+    criadoEm: criadoEm(),
+  },
+  (t) => [
+    foreignKey({ columns: [t.tenantId, t.profissionalId], foreignColumns: [profissionais.tenantId, profissionais.id] }).onDelete("cascade"),
+  ],
+);
+
+// Recorrência semanal; o worker materializa as reservas numa janela à frente.
+export const regrasRecorrencia = pgTable(
+  "regras_recorrencia",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: tenantIdDoContexto(),
+    salaId: uuid("sala_id").notNull(),
+    profissionalId: uuid("profissional_id").notNull(),
+    diaSemana: smallint("dia_semana").notNull(),
+    horaInicio: time("hora_inicio").notNull(),
+    horaFim: time("hora_fim").notNull(),
+    dataInicio: date("data_inicio", { mode: "string" }).notNull(),
+    dataFim: date("data_fim", { mode: "string" }),
+    materializadaAte: date("materializada_ate", { mode: "string" }),
+    encerradaEm: timestamp("encerrada_em", { withTimezone: true }),
+    criadoPor: uuid("criado_por").default(sql`app_current_user_id()`).references(() => users.id, { onDelete: "set null" }),
+    criadoEm: criadoEm(),
+    atualizadoEm: atualizadoEm(),
+  },
+  (t) => [
+    unique("regras_recorrencia_tenant_id_id_key").on(t.tenantId, t.id),
+    foreignKey({ columns: [t.tenantId, t.salaId], foreignColumns: [salas.tenantId, salas.id] }),
+    foreignKey({ columns: [t.tenantId, t.profissionalId], foreignColumns: [profissionais.tenantId, profissionais.id] }),
+    check("regras_recorrencia_dia_check", sql`${t.diaSemana} between 0 and 6`),
+    check("regras_recorrencia_intervalo_check", sql`${t.horaFim} > ${t.horaInicio}`),
+  ],
+);
+
+// Conflitos (mesma sala ou mesmo profissional no mesmo período) são barrados por
+// EXCLUDE USING gist na migration custom de RLS da Fase 1.
+export const reservasSala = pgTable(
+  "reservas_sala",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: tenantIdDoContexto(),
+    salaId: uuid("sala_id").notNull(),
+    profissionalId: uuid("profissional_id").notNull(),
+    periodo: tstzrange("periodo").notNull(),
+    status: reservaStatus("status").notNull().default("ativa"),
+    recorrenciaId: uuid("recorrencia_id"),
+    // Data local da ocorrência (só para reservas de recorrência).
+    dataOcorrencia: date("data_ocorrencia", { mode: "string" }),
+    canceladaEm: timestamp("cancelada_em", { withTimezone: true }),
+    motivoCancelamento: text("motivo_cancelamento"),
+    criadoPor: uuid("criado_por").default(sql`app_current_user_id()`).references(() => users.id, { onDelete: "set null" }),
+    criadoEm: criadoEm(),
+    atualizadoEm: atualizadoEm(),
+  },
+  (t) => [
+    unique("reservas_sala_tenant_id_id_key").on(t.tenantId, t.id),
+    foreignKey({ columns: [t.tenantId, t.salaId], foreignColumns: [salas.tenantId, salas.id] }),
+    foreignKey({ columns: [t.tenantId, t.profissionalId], foreignColumns: [profissionais.tenantId, profissionais.id] }),
+    foreignKey({ columns: [t.tenantId, t.recorrenciaId], foreignColumns: [regrasRecorrencia.tenantId, regrasRecorrencia.id] }),
+    // Uma ocorrência cancelada continua ocupando a data e não é recriada pelo worker.
+    uniqueIndex("reservas_sala_recorrencia_data_key").on(t.recorrenciaId, t.dataOcorrencia),
+    check("reservas_sala_periodo_check", sql`not isempty(${t.periodo}) and lower_inc(${t.periodo}) and not upper_inc(${t.periodo})`),
+    index("reservas_sala_profissional_idx").on(t.profissionalId),
+  ],
 );

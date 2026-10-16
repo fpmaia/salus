@@ -86,7 +86,7 @@ npm run db:seed               # 2 espaços demo; senha: salus-dev-123
 npm run dev                   # http://localhost:3000
 ```
 
-Usuários do seed: `admin|recepcao|profissional@alfa.salus.dev` e `...@beta.salus.dev`.
+Usuários do seed: `admin|recepcao|profissional@alfa.salus.dev` e `...@beta.salus.dev`. Cada espaço vem com a "Unidade Centro" (3 salas) e um profissional sem acesso (`convidado@...`) para testar o convite.
 
 | Comando | O quê |
 |---|---|

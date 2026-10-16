@@ -22,6 +22,20 @@
       "when": 1792149257659,
       "tag": "0002_rls_e_privilegios",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792151414109,
+      "tag": "0003_espaco_e_reservas",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792151427763,
+      "tag": "0004_rls_espaco_e_reservas",
+      "breakpoints": true
     }
   ]
 }

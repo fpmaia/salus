@@ -36,6 +36,32 @@ export async function withTenant<T>(
 }
 
 /**
+ * Contexto de sistema (worker): tenant definido, sem usuário. app.role = 'sistema';
+ * colunas com default app_current_user_id() (audit_log.user_id, criado_por) ficam nulas.
+ */
+export async function withSistema<T>(
+  tenantId: string,
+  fn: (tx: Transaction) => Promise<T>,
+  database: Database = getDb(),
+): Promise<T> {
+  const id = z.uuid().parse(tenantId);
+  return database.transaction(async (tx) => {
+    await tx.execute(sql`
+      select
+        set_config('app.tenant_id', ${id}, true),
+        set_config('app.role', 'sistema', true)
+    `);
+    return fn(tx);
+  });
+}
+
+/** Ids dos tenants ativos (função SECURITY DEFINER), para jobs que percorrem todos. */
+export async function listarTenantsAtivos(database: Database = getDb()): Promise<string[]> {
+  const { rows } = await database.execute<{ id: string }>(sql`select app_tenants_ativos() as id`);
+  return rows.map((linha) => linha.id);
+}
+
+/**
  * Contexto só de usuário (sem tenant): usado para descobrir as memberships do
  * usuário logado via app_memberships_do_usuario(). Tabelas de tenant continuam
  * invisíveis, pois app.tenant_id não está definido.

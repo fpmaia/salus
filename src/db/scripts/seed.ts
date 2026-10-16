@@ -1,11 +1,12 @@
 import { betterAuth } from "better-auth";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { opcoesAuth } from "../../auth/config";
 import type { Role } from "../../domain/rbac";
 import { criarTenantComAdmin } from "../../server/onboarding";
 import { listarMembershipsDoUsuario } from "../../server/memberships";
 import { createDb } from "../client";
-import { memberships, users } from "../schema";
+import { criarSala, criarUnidade, definirHorarios } from "../../server/unidades";
+import { memberships, profissionais, unidades, users } from "../schema";
 import { withTenant } from "../tenant";
 
 // Seed de DESENVOLVIMENTO: dois espaços com admin, recepção e profissional cada.
@@ -67,8 +68,9 @@ async function main() {
         [membership] = await listarMembershipsDoUsuario(adminId, db);
       }
 
+      const ctxAdmin = { tenantId: membership.tenantId, userId: adminId, role: "admin" } as const;
       await withTenant(
-        { tenantId: membership.tenantId, userId: adminId, role: "admin" },
+        ctxAdmin,
         async (tx) => {
           for (const role of ["recepcao", "profissional"] as const) {
             await tx
@@ -76,9 +78,47 @@ async function main() {
               .values({ userId: ids.get(role)!, role })
               .onConflictDoNothing();
           }
+          // Cadastro de profissional já vinculado ao usuário (no app real isso vem do convite).
+          const [membershipProfissional] = await tx
+            .select({ id: memberships.id })
+            .from(memberships)
+            .where(and(eq(memberships.userId, ids.get("profissional")!), eq(memberships.role, "profissional")));
+          await tx
+            .insert(profissionais)
+            .values({
+              nome: `Dra. Profissional ${espaco.prefixo}`,
+              email: `profissional@${espaco.prefixo}.salus.dev`,
+              conselho: "CRP",
+              registro: "06/123456",
+              especialidade: "Psicologia",
+              membershipId: membershipProfissional.id,
+            })
+            .onConflictDoNothing();
+          await tx
+            .insert(profissionais)
+            .values({ nome: `Dr. Convidado ${espaco.prefixo}`, email: `convidado@${espaco.prefixo}.salus.dev`, conselho: "CRM" })
+            .onConflictDoNothing();
         },
         db,
       );
+
+      // Unidade com horário comercial e três salas.
+      const existentes = await withTenant(ctxAdmin, (tx) => tx.select({ id: unidades.id }).from(unidades), db);
+      if (existentes.length === 0) {
+        const { id: unidadeId } = await criarUnidade(ctxAdmin, { nome: "Unidade Centro", endereco: "Av. Paulista, 1000 — São Paulo" }, db);
+        await definirHorarios(
+          ctxAdmin,
+          unidadeId,
+          [
+            ...[1, 2, 3, 4, 5].map((diaSemana) => ({ diaSemana, abre: "07:00", fecha: "21:00" })),
+            { diaSemana: 6, abre: "08:00", fecha: "13:00" },
+          ],
+          db,
+        );
+        await criarSala(ctxAdmin, unidadeId, { nome: "Sala 1", recursos: ["Maca", "Pia"] }, db);
+        await criarSala(ctxAdmin, unidadeId, { nome: "Sala 2", recursos: ["Divã"] }, db);
+        await criarSala(ctxAdmin, unidadeId, { nome: "Sala 3", recursos: ["Mesa de reunião"] }, db);
+      }
       console.log(`✔ ${espaco.nome}: ${PESSOAS.map((p) => `${p.role}@${espaco.prefixo}.salus.dev`).join(", ")}`);
     }
     console.log(`Senha de todos os usuários de dev: ${SENHA_DEV}`);
