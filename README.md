@@ -93,6 +93,7 @@ Usuários do seed: `admin|recepcao|profissional@alfa.salus.dev` e `...@beta.salu
 |---|---|
 | `npm run lint` / `npm run typecheck` | ESLint / TypeScript |
 | `npm test` | Vitest: unitários (`src/**/*.test.ts`) + integração com Postgres real (`tests/integration`, banco `salus_test` recriado a cada execução) |
+| `npm run test:e2e` | Playwright: reservar sala, agendar paciente e fechar o mês, no navegador contra o app real (porta 3100, recria o `salus_test`; não rode junto com o `npm test`). Na primeira vez: `npx playwright install chromium` |
 | `npm run db:generate` | Gera migration SQL a partir de `src/db/schema.ts` (use `-- --custom` para SQL manual: RLS, grants) |
 | `npm run worker` | Worker pg-boss |
 | `docker compose up --build` | Stack completa: db, migrate, app e worker |

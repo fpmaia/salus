@@ -105,7 +105,10 @@ ALTER TABLE agendamentos ADD CONSTRAINT agendamentos_profissional_sem_sobreposic
 ### 3.8 Testes
 - **Vitest** para o domínio — motor financeiro com tabelas de casos (cada modelo × no-show × fluxo de recebimento).
 - **Integração com Postgres real** (Testcontainers ou o próprio compose): RLS (tenant A não lê tenant B), constraints gist, idempotência do ledger.
-- **Playwright** para fluxos críticos (reservar sala, agendar, fechar mês).
+- **Playwright** para fluxos críticos (reservar sala, agendar, fechar mês): `tests/e2e`, rodando no CI sobre o build de produção.
+  - O `global-setup` recria o `salus_test` e monta um espaço próprio pelos serviços do app: usuários admin, recepção e profissional, sala, paciente, um acordo por hora e uma reserva no mês anterior.
+  - Localmente, o dev server sobe na porta 3100 com `distDir` `.next-e2e`, para não disputar o `.next` com um `npm run dev` aberto.
+  - Os testes conferem pelo estado da tela, não só pela mensagem: o formulário de fechamento some depois de fechar.
 
 ## 4. Modelo de dados do MVP
 

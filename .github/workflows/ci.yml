@@ -13,7 +13,7 @@ jobs:
   verificar:
     name: Lint, typecheck e testes
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     env:
       TEST_DATABASE_URL: postgres://salus_app:salus_app_dev@localhost:5433/salus_test
       TEST_DATABASE_MIGRATOR_URL: postgres://salus_owner:salus_owner_dev@localhost:5433/salus_test
@@ -42,6 +42,23 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      # E2E dos fluxos críticos sobre o build acima (next start na porta 3100, banco salus_test recriado).
+      - name: Instalar Chromium (Playwright)
+        run: npx playwright install --with-deps chromium
+
+      - name: Testes E2E (Playwright)
+        run: npm run test:e2e
+
+      - name: Relatório do Playwright
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
 
       - name: Logs do Postgres
         if: failure()
