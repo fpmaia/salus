@@ -120,6 +120,20 @@
       "when": 1792165039783,
       "tag": "0016_funcoes_agendamento_online",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1792202999863,
+      "tag": "0017_prontuario",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1792203001761,
+      "tag": "0018_rls_prontuario",
+      "breakpoints": true
     }
   ]
 }

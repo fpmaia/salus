@@ -9,6 +9,7 @@ const NAVEGACAO: { href: string; rotulo: string; permissao?: Permissao }[] = [
   { href: "/painel/atendimentos", rotulo: "Atendimentos", permissao: "agenda.propria" },
   { href: "/painel/agenda", rotulo: "Agenda de salas", permissao: "agenda.ver" },
   { href: "/painel/pacientes", rotulo: "Pacientes", permissao: "pacientes.ver" },
+  { href: "/painel/prontuario", rotulo: "Prontuário", permissao: "prontuario.menu" },
   { href: "/painel/agendamento-online", rotulo: "Agenda online", permissao: "agenda_online.configurar" },
   { href: "/painel/financeiro", rotulo: "Financeiro", permissao: "financeiro.ver" },
   { href: "/painel/fiscal", rotulo: "Notas fiscais", permissao: "fiscal.ver" },
@@ -26,7 +27,7 @@ export default async function PainelLayout({ children }: LayoutProps<"/painel">)
 
   return (
     <div className="flex flex-1 flex-col">
-      <header className="border-b">
+      <header className="border-b print:hidden">
         <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <div className="flex items-center gap-3">
             <span className="flex size-8 items-center justify-center rounded-lg bg-primary font-semibold text-primary-foreground">
@@ -54,7 +55,7 @@ export default async function PainelLayout({ children }: LayoutProps<"/painel">)
         </nav>
       </header>
       {atraso && (
-        <div className="bg-destructive/10 px-4 py-2 text-center text-sm text-destructive">
+        <div className="bg-destructive/10 px-4 py-2 text-center text-sm text-destructive print:hidden">
           A fatura do Salus está vencida.{" "}
           <Link href="/painel/assinatura" className="font-medium underline underline-offset-4">
             Ver assinatura

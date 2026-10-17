@@ -36,6 +36,33 @@ export async function withTenant<T>(
 }
 
 /**
+ * Contexto do prontuário: além do tenant, define app.profissional_id (a RLS clínica só
+ * mostra registros do próprio profissional ou compartilhados com ele). `solicitacao`
+ * libera a leitura para o admin numa solicitação formal (auditada pelo chamador).
+ */
+export async function withProntuario<T>(
+  ctx: ContextoTenant,
+  profissionalId: string | null,
+  fn: (tx: Transaction) => Promise<T>,
+  opcoes: { solicitacao?: boolean; database?: Database } = {},
+): Promise<T> {
+  const { tenantId, userId, role } = contextoTenantSchema.parse(ctx);
+  const profissional = profissionalId === null ? "" : z.uuid().parse(profissionalId);
+  const solicitacao = opcoes.solicitacao && role === "admin" ? "on" : "";
+  return (opcoes.database ?? getDb()).transaction(async (tx) => {
+    await tx.execute(sql`
+      select
+        set_config('app.tenant_id', ${tenantId}, true),
+        set_config('app.user_id', ${userId}, true),
+        set_config('app.role', ${role}, true),
+        set_config('app.profissional_id', ${profissional}, true),
+        set_config('app.prontuario_solicitacao', ${solicitacao}, true)
+    `);
+    return fn(tx);
+  });
+}
+
+/**
  * Contexto de sistema (worker): tenant definido, sem usuário. app.role = 'sistema';
  * colunas com default app_current_user_id() (audit_log.user_id, criado_por) ficam nulas.
  */

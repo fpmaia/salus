@@ -81,6 +81,7 @@ Pré-requisitos: Node 22 (`.nvmrc`) e Docker.
 cp .env.example .env          # ajuste BETTER_AUTH_SECRET
 npm install
 npm run db:up                 # Postgres 16 em 127.0.0.1:5433 (cria papéis e bancos)
+docker compose up -d s3       # S3 local (SeaweedFS) para anexos do prontuário
 npm run db:migrate
 npm run db:seed               # 2 espaços demo; senha: salus-dev-123
 npm run dev                   # http://localhost:3000
@@ -114,6 +115,6 @@ Usuários do seed: `admin|recepcao|profissional@alfa.salus.dev` e `...@beta.salu
 | Pós-MVP | NFS-e Nacional da locação via Focus NFe | ✅ |
 | Pós-MVP | Cobrança do SaaS (planos e limites) e do profissional via PIX/boleto (Asaas) | ✅ |
 | Pós-MVP | Agendamento online público por profissional | ✅ |
-| Pós-MVP | Prontuário eletrônico | — |
+| Pós-MVP | Prontuário eletrônico (sigilo por profissional, cifrado, imutável com adendo) | ✅ |
 
 Detalhes e decisões de cada fase: [docs/plano-desenvolvimento.md](docs/plano-desenvolvimento.md).

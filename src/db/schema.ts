@@ -928,3 +928,109 @@ export const eventosWebhook = pgTable(
   },
   (t) => [uniqueIndex("eventos_webhook_evento_key").on(t.tenantId, t.origem, t.eventoId)],
 );
+
+// ---------------------------------------------------------------------------
+// Pós-MVP: prontuário eletrônico (RLS por profissional, conteúdo cifrado)
+// ---------------------------------------------------------------------------
+
+// Chave de dados do tenant (AES-256), guardada cifrada pela SECRETS_KEY (envelope).
+export const chavesTenant = pgTable(
+  "chaves_tenant",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: tenantIdDoContexto(),
+    chaveCifrada: text("chave_cifrada").notNull(),
+    criadoEm: criadoEm(),
+  },
+  (t) => [uniqueIndex("chaves_tenant_tenant_key").on(t.tenantId)],
+);
+
+export const tipoRegistroClinico = pgEnum("tipo_registro_clinico", ["evolucao", "adendo"]);
+export const statusRegistroClinico = pgEnum("status_registro_clinico", ["rascunho", "finalizado"]);
+
+// Evolução clínica (ou adendo). Rascunho é editável; finalizado é imutável (trigger) e
+// tem hash de integridade. Correção = adendo apontando para o original.
+export const registrosClinicos = pgTable(
+  "registros_clinicos",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: tenantIdDoContexto(),
+    pacienteId: uuid("paciente_id").notNull(),
+    // Autor. A RLS só deixa o próprio autor (ou quem recebeu compartilhamento) ler.
+    profissionalId: uuid("profissional_id").notNull(),
+    agendamentoId: uuid("agendamento_id"),
+    tipo: tipoRegistroClinico("tipo").notNull().default("evolucao"),
+    adendoDe: uuid("adendo_de"),
+    status: statusRegistroClinico("status").notNull().default("rascunho"),
+    // JSON { anotacoes, prescricao } cifrado com a chave do tenant.
+    conteudoCifrado: text("conteudo_cifrado").notNull(),
+    hashIntegridade: text("hash_integridade"),
+    finalizadoEm: timestamp("finalizado_em", { withTimezone: true }),
+    criadoEm: criadoEm(),
+    atualizadoEm: atualizadoEm(),
+  },
+  (t) => [
+    unique("registros_clinicos_tenant_id_id_key").on(t.tenantId, t.id),
+    index("registros_clinicos_paciente_idx").on(t.tenantId, t.pacienteId, t.criadoEm),
+    foreignKey({ columns: [t.tenantId, t.pacienteId], foreignColumns: [pacientes.tenantId, pacientes.id] }),
+    foreignKey({ columns: [t.tenantId, t.profissionalId], foreignColumns: [profissionais.tenantId, profissionais.id] }),
+    foreignKey({ columns: [t.tenantId, t.agendamentoId], foreignColumns: [agendamentos.tenantId, agendamentos.id] }),
+    foreignKey({ columns: [t.tenantId, t.adendoDe], foreignColumns: [t.tenantId, t.id] }),
+    check("registros_clinicos_adendo_check", sql`(${t.tipo} = 'adendo') = (${t.adendoDe} is not null)`),
+    check(
+      "registros_clinicos_finalizado_check",
+      sql`(${t.status} = 'finalizado') = (${t.finalizadoEm} is not null and ${t.hashIntegridade} is not null)`,
+    ),
+  ],
+);
+
+// Anexo (exame, imagem, laudo): arquivo cifrado no armazenamento S3; aqui só metadados.
+export const anexosClinicos = pgTable(
+  "anexos_clinicos",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: tenantIdDoContexto(),
+    registroId: uuid("registro_id").notNull(),
+    pacienteId: uuid("paciente_id").notNull(),
+    profissionalId: uuid("profissional_id").notNull(),
+    nomeArquivo: text("nome_arquivo").notNull(),
+    tipoMime: text("tipo_mime").notNull(),
+    tamanhoBytes: integer("tamanho_bytes").notNull(),
+    // SHA-256 do arquivo original (entra no hash do registro ao finalizar).
+    hashArquivo: text("hash_arquivo").notNull(),
+    chaveObjeto: text("chave_objeto").notNull(),
+    criadoEm: criadoEm(),
+  },
+  (t) => [
+    index("anexos_clinicos_registro_idx").on(t.registroId),
+    foreignKey({ columns: [t.tenantId, t.registroId], foreignColumns: [registrosClinicos.tenantId, registrosClinicos.id] }),
+    check("anexos_clinicos_tamanho_check", sql`${t.tamanhoBytes} > 0`),
+  ],
+);
+
+// Compartilhamento: o autor libera os seus registros de um paciente para outro profissional,
+// com o consentimento do paciente registrado. Revogável.
+export const compartilhamentosClinicos = pgTable(
+  "compartilhamentos_clinicos",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: tenantIdDoContexto(),
+    pacienteId: uuid("paciente_id").notNull(),
+    deProfissionalId: uuid("de_profissional_id").notNull(),
+    paraProfissionalId: uuid("para_profissional_id").notNull(),
+    // Como o consentimento foi obtido (ex.: "termo assinado em 16/10/2026").
+    consentimento: text("consentimento").notNull(),
+    revogadoEm: timestamp("revogado_em", { withTimezone: true }),
+    criadoEm: criadoEm(),
+  },
+  (t) => [
+    uniqueIndex("compartilhamentos_clinicos_ativo_key")
+      .on(t.tenantId, t.pacienteId, t.deProfissionalId, t.paraProfissionalId)
+      .where(sql`${t.revogadoEm} is null`),
+    foreignKey({ columns: [t.tenantId, t.pacienteId], foreignColumns: [pacientes.tenantId, pacientes.id] }),
+    foreignKey({ columns: [t.tenantId, t.deProfissionalId], foreignColumns: [profissionais.tenantId, profissionais.id] }),
+    foreignKey({ columns: [t.tenantId, t.paraProfissionalId], foreignColumns: [profissionais.tenantId, profissionais.id] }),
+    check("compartilhamentos_clinicos_distintos_check", sql`${t.deProfissionalId} <> ${t.paraProfissionalId}`),
+  ],
+);
+

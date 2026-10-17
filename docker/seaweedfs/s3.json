@@ -1,0 +1,9 @@
+{
+  "identities": [
+    {
+      "name": "salus",
+      "credentials": [{ "accessKey": "salus", "secretKey": "salus-s3-dev" }],
+      "actions": ["Admin", "Read", "Write", "List", "Tagging"]
+    }
+  ]
+}

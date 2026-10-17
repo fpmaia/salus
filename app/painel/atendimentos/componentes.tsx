@@ -41,9 +41,12 @@ export function SeloStatus({ status, tardio }: { status: StatusAgendamento; tard
 export function ListaAtendimentos({
   atendimentos,
   mostrarProfissional = true,
+  linkProntuario = false,
 }: {
   atendimentos: AtendimentoDoDia[];
   mostrarProfissional?: boolean;
+  /** Profissional: atalho para o prontuário do paciente. */
+  linkProntuario?: boolean;
 }) {
   if (atendimentos.length === 0) return <p className="text-sm text-muted-foreground">Nenhum atendimento.</p>;
   return (
@@ -62,6 +65,11 @@ export function ListaAtendimentos({
                 {[mostrarProfissional && a.profissionalNome, a.salaNome, a.pacienteTelefone].filter(Boolean).join(" · ")}
               </span>
               {a.observacao && <span className="block text-xs text-muted-foreground">Obs.: {a.observacao}</span>}
+              {linkProntuario && (
+                <Link href={`/painel/prontuario/${a.pacienteId}`} className="text-xs text-primary underline-offset-4 hover:underline">
+                  Prontuário
+                </Link>
+              )}
             </span>
             <span className="flex items-center gap-2">
               {a.origem === "online" && <span className="rounded-md bg-primary/10 px-2 py-0.5 text-xs text-primary">online</span>}

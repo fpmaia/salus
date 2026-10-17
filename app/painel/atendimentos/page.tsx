@@ -112,7 +112,7 @@ export default async function AtendimentosPage({ searchParams }: PageProps<"/pai
               <CardDescription>Confirme, faça o check-in e registre o atendimento ou a falta.</CardDescription>
             </CardHeader>
             <CardContent>
-              <ListaAtendimentos atendimentos={ativos} mostrarProfissional={pode(ctx.role, "agenda.gerenciar")} />
+              <ListaAtendimentos atendimentos={ativos} mostrarProfissional={pode(ctx.role, "agenda.gerenciar")} linkProntuario={pode(ctx.role, "prontuario.proprio")} />
             </CardContent>
           </Card>
           {encerrados.length > 0 && (
@@ -121,7 +121,7 @@ export default async function AtendimentosPage({ searchParams }: PageProps<"/pai
                 <CardTitle className="text-base">Encerrados ({encerrados.length})</CardTitle>
               </CardHeader>
               <CardContent>
-                <ListaAtendimentos atendimentos={encerrados} mostrarProfissional={pode(ctx.role, "agenda.gerenciar")} />
+                <ListaAtendimentos atendimentos={encerrados} mostrarProfissional={pode(ctx.role, "agenda.gerenciar")} linkProntuario={pode(ctx.role, "prontuario.proprio")} />
               </CardContent>
             </Card>
           )}

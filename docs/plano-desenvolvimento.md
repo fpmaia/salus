@@ -219,7 +219,7 @@ Toda tabela de tenant tem `id uuid`, `tenant_id uuid`, `criado_em`, `atualizado_
 1. **NFS-e** via provedor (Focus NFe / eNotas) para a locação. **Concluída** (Focus NFe, ver abaixo).
 2. **Cobrança do SaaS**: assinatura dos planos Básico/Pro/Enterprise e limites (unidades, salas, profissionais). **Concluída** (Asaas, ver seção 8).
 3. **Cobrança do profissional** via PIX/boleto (ex.: Asaas). **Concluída** (seção 8).
-4. **Prontuário eletrônico**: evolução clínica, anexos, auditoria de acesso, guarda de 20 anos, assinatura ICP-Brasil, prescrição via Memed. Compartilhamento entre profissionais condicionado ao consentimento do profissional e do paciente (o profissional é o controlador dos dados).
+4. **Prontuário eletrônico** (**concluído**, seção 10): evolução clínica, anexos, auditoria de acesso, guarda de 20 anos, assinatura ICP-Brasil, prescrição via Memed. Compartilhamento entre profissionais condicionado ao consentimento do profissional e do paciente (o profissional é o controlador dos dados).
 5. **Agendamento online público** por profissional. **Concluído** (seção 9).
 6. Convênios (TISS) — só se houver demanda.
 
@@ -301,4 +301,39 @@ Testes: `src/domain/disponibilidade.test.ts` e `tests/integration/agendamento-on
   - "Agenda online" no painel, com o link para divulgar.
   - Selo "online" na lista de atendimentos.
 - **Fora do escopo por ora:** CAPTCHA, confirmação de celular por código, escolha entre vários profissionais numa mesma página e pagamento antecipado.
+
+## 10. Prontuário eletrônico (pós-MVP, concluído)
+
+Testes: `tests/integration/prontuario.test.ts`.
+
+**Decisões regulatórias tomadas com o usuário:**
+
+| Tema | Decisão |
+|---|---|
+| Assinatura | Eletrônica simples: autoria, data/hora e hash SHA-256 de integridade. ICP-Brasil (NGS2), necessária para dispensar o papel perante o CFM, fica para uma fase seguinte. |
+| Acesso | Só o autor lê o que escreveu. O compartilhamento com outro profissional exige o consentimento do paciente registrado e é revogável. Admin e recepção nunca leem conteúdo clínico. |
+| Prescrição | Texto livre na evolução, mais impressão/PDF. Receita digital (Memed) fica para depois. |
+| Anexos | Armazenamento S3 compatível (SeaweedFS no Docker; S3/R2 em produção), com os arquivos cifrados pela aplicação. |
+| Correções | Rascunho editável; depois de finalizado, imutável. Correção por adendo vinculado ao original. |
+| Saída do profissional | Ele exporta quando quiser. Depois de desligado, perde o acesso, e os registros ficam guardados; o admin só os vê por solicitação formal justificada (auditada, válida por 1 hora). |
+| Cifragem | Texto e arquivos com AES-256-GCM por chave de dados do tenant (envelope sob `SECRETS_KEY`). Não há busca textual no conteúdo. |
+| Auditoria | Toda leitura, exportação, download e solicitação vai para o `audit_log`. |
+
+**Implementação:**
+- **RLS por profissional:** `registros_clinicos`, `anexos_clinicos` e `compartilhamentos_clinicos` usam `app.profissional_id` (helper `withProntuario`). Nessas tabelas não existe a policy genérica de tenant (policies permissivas se somam com OR). Quem recebe compartilhamento só vê registros finalizados.
+- **Imutabilidade no banco:**
+  - Triggers impedem alterar ou apagar registro finalizado e trocar paciente, autor ou tipo de um rascunho.
+  - O adendo só vale sobre evolução finalizada do mesmo paciente e do mesmo autor.
+  - Anexos só entram e saem de rascunhos.
+- **Integridade:** hash sobre a forma canônica do registro (conteúdo, autoria, paciente, atendimento, anexos e data de finalização), conferido a cada leitura. Uma adulteração feita por fora do app aparece como "integridade NÃO confere".
+- **Anexos:** PDF, JPG, PNG ou WebP, até 10 MB.
+  - Upload por route handler (`/api/prontuario/anexos`, sem o limite de corpo das Server Actions).
+  - Download decifrado, com hash conferido e `Cache-Control: no-store`.
+  - O bucket é criado no primeiro uso.
+- **Telas:**
+  - Prontuário: pacientes do profissional, linha do tempo (rascunho, finalização, adendo), anexos e compartilhamento.
+  - Impressão/PDF e solicitação formal para o admin.
+  - Atalho "Prontuário" nos atendimentos.
+- **Fora do escopo por ora:** assinatura ICP-Brasil, Memed, modelos de evolução por especialidade e relatório de acessos na tela (o serviço `acessosAoProntuario` já existe).
+- **Infra:** o MinIO comunitário foi descontinuado em 2025; o Compose usa o SeaweedFS (`chrislusf/seaweedfs:4.48`) como S3 de dev.
 
