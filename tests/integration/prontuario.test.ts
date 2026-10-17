@@ -11,6 +11,7 @@ import { criarTenantComAdmin } from "../../src/server/onboarding";
 import { criarPaciente } from "../../src/server/pacientes";
 import { atualizarProfissional, criarProfissional } from "../../src/server/profissionais";
 import {
+  acessosAoProntuario,
   anexarArquivo,
   baixarAnexo,
   compartilharProntuario,
@@ -168,6 +169,10 @@ describe("integridade e anexos", () => {
 
     const baixado = await baixarAnexo(ctx.ana, anexo, { armazenamento, database: db });
     expect(baixado.dados.equals(pdf)).toBe(true);
+    const acessos = await acessosAoProntuario(admin, paciente, db);
+    expect(acessos.some((a) => a.acao === "prontuario.anexo_baixado" && a.usuarioNome)).toBe(true);
+    expect(acessos.some((a) => a.acao === "prontuario.lido")).toBe(true);
+    await expect(acessosAoProntuario(recepcao, paciente, db)).rejects.toThrow();
     await finalizarRegistro(ctx.ana, registro, { agora: AGORA, database: db });
     await expect(
       anexarArquivo(ctx.ana, registro, { nome: "outro.pdf", tipo: "application/pdf", dados: pdf }, { armazenamento, database: db }),

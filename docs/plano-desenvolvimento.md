@@ -334,6 +334,7 @@ Testes: `tests/integration/prontuario.test.ts`.
   - Prontuário: pacientes do profissional, linha do tempo (rascunho, finalização, adendo), anexos e compartilhamento.
   - Impressão/PDF e solicitação formal para o admin.
   - Atalho "Prontuário" nos atendimentos.
-- **Fora do escopo por ora:** assinatura ICP-Brasil, Memed, modelos de evolução por especialidade e relatório de acessos na tela (o serviço `acessosAoProntuario` já existe).
+- **Fora do escopo por ora:** assinatura ICP-Brasil, Memed, e modelos de evolução por especialidade.
+- **Relatório de acessos:** na ficha do paciente, só para o admin: leituras, exportações, solicitações e downloads de anexo, com usuário e horário (sem conteúdo clínico).
 - **Infra:** o MinIO comunitário foi descontinuado em 2025; o Compose usa o SeaweedFS (`chrislusf/seaweedfs:4.48`) como S3 de dev.
 

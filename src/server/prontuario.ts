@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, asc, desc, eq, gt, inArray, isNull, ne } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { registrarAuditoria } from "../db/audit";
 import type { Database, Transaction } from "../db/client";
@@ -13,6 +13,7 @@ import {
   pacientes,
   profissionais,
   registrosClinicos,
+  users,
 } from "../db/schema";
 import { type ContextoTenant, withProntuario, withTenant } from "../db/tenant";
 import { canonicoDoRegistro, validarAnexo, validarConteudo, type ConteudoClinico } from "../domain/prontuario";
@@ -528,16 +529,29 @@ export async function lerSolicitacao(ctx: ContextoTenant, solicitacaoId: string,
   );
 }
 
-/** Relatório de acessos ao prontuário de um paciente (direito do titular, LGPD). Admin. */
+export const ROTULOS_ACESSO: Record<string, string> = {
+  "prontuario.lido": "Leitura",
+  "prontuario.exportado": "Exportação",
+  "prontuario.solicitacao": "Solicitação formal",
+  "prontuario.anexo_baixado": "Download de anexo",
+};
+
+/** Relatório de acessos ao prontuário de um paciente (direito do titular, LGPD). Admin; sem conteúdo clínico. */
 export async function acessosAoProntuario(ctx: ContextoTenant, pacienteId: string, database?: Database) {
   exigirPermissao(ctx.role, "auditoria.ver");
   return withTenant(
     ctx,
     (tx) =>
       tx
-        .select({ acao: auditLog.acao, userId: auditLog.userId, criadoEm: auditLog.criadoEm })
+        .select({ id: auditLog.id, acao: auditLog.acao, usuarioNome: users.name, criadoEm: auditLog.criadoEm })
         .from(auditLog)
-        .where(and(eq(auditLog.entidadeId, pacienteId), inArray(auditLog.acao, ["prontuario.lido", "prontuario.exportado", "prontuario.solicitacao"])))
+        .leftJoin(users, eq(users.id, auditLog.userId))
+        .where(
+          or(
+            and(eq(auditLog.entidadeId, pacienteId), inArray(auditLog.acao, ["prontuario.lido", "prontuario.exportado", "prontuario.solicitacao"])),
+            and(eq(auditLog.acao, "prontuario.anexo_baixado"), sql`${auditLog.dados}->>'pacienteId' = ${pacienteId}`),
+          ),
+        )
         .orderBy(desc(auditLog.criadoEm))
         .limit(200),
     database,
