@@ -4,8 +4,10 @@ import { getDb } from "../db/client";
 import { opcoesAuth } from "./config";
 
 function criarAuth() {
-  // nextCookies deve ser o último plugin.
-  return betterAuth({ ...opcoesAuth(getDb()), plugins: [nextCookies()] });
+  const opcoes = opcoesAuth(getDb());
+  // Mantém os plugins da config (admin, twoFactor, captcha) e põe o nextCookies por último,
+  // como ele exige. Sobrescrever a lista desligaria esses plugins no app.
+  return betterAuth({ ...opcoes, plugins: [...opcoes.plugins, nextCookies()] });
 }
 
 const globalParaAuth = globalThis as unknown as { salusAuth?: ReturnType<typeof criarAuth> };
