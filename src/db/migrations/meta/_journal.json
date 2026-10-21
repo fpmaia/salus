@@ -253,6 +253,13 @@
       "when": 1792607824320,
       "tag": "0035_whatsapp_conexoes",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1792608488667,
+      "tag": "0036_modulos_por_espaco",
+      "breakpoints": true
     }
   ]
 }

@@ -1,3 +1,4 @@
+import { modulosDoEspaco } from "@/src/server/modulos";
 import { obterContextoTenant } from "@/src/auth/sessao";
 import { LIMITE_ANEXO_BYTES } from "@/src/domain/prontuario";
 import { mensagemDeErro } from "@/src/server/erros";
@@ -7,6 +8,7 @@ import { anexarArquivo } from "@/src/server/prontuario";
 // cifra o arquivo e confere que o registro é um rascunho do próprio profissional.
 export async function POST(request: Request) {
   const ctx = await obterContextoTenant();
+  if (!(await modulosDoEspaco(ctx)).prontuario) return new Response(null, { status: 404 });
   const tamanho = Number(request.headers.get("content-length") ?? 0);
   if (tamanho > LIMITE_ANEXO_BYTES + 64 * 1024) return Response.json({ erro: "Arquivo maior que 10 MB" }, { status: 413 });
   const formData = await request.formData().catch(() => null);

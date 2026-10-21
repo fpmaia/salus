@@ -1,3 +1,4 @@
+import { exigirModuloNaPagina } from "@/src/auth/permissao";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { FormAcao } from "@/components/form-acao";
@@ -14,6 +15,7 @@ import { solicitarProntuarioAcao } from "./actions";
 
 export default async function ProntuarioPage({ searchParams }: PageProps<"/painel/prontuario">) {
   const ctx = await obterContextoTenant();
+  await exigirModuloNaPagina(ctx, "prontuario");
   const profissional = pode(ctx.role, "prontuario.proprio");
   const solicitante = pode(ctx.role, "prontuario.solicitacao");
   if (!profissional && !solicitante) notFound();

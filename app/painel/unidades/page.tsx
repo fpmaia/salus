@@ -8,13 +8,15 @@ import { Label } from "@/components/ui/label";
 import { pode } from "@/src/domain/rbac";
 import { obterConfiguracoes } from "@/src/server/configuracoes";
 import { listarUnidades } from "@/src/server/unidades";
-import { criarUnidadeAcao, definirPoliticaCancelamentoAcao } from "./actions";
+import { MODULOS, modulosDoEspaco, ROTULOS_MODULO } from "@/src/server/modulos";
+import { criarUnidadeAcao, definirModulosAcao, definirPoliticaCancelamentoAcao } from "./actions";
 import { CamposUnidade } from "./campos-unidade";
 
 export default async function UnidadesPage() {
   const ctx = await obterContextoTenant();
   exigirPermissaoNaPagina(ctx.role, "salas.gerenciar");
   const [unidades, configuracoes] = await Promise.all([listarUnidades(ctx), obterConfiguracoes(ctx)]);
+  const modulos = pode(ctx.role, "tenant.configurar") ? await modulosDoEspaco(ctx) : null;
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6">
@@ -70,6 +72,28 @@ export default async function UnidadesPage() {
                   required
                 />
               </div>
+            </FormAcao>
+          </CardContent>
+        </Card>
+      )}
+
+      {modulos && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Módulos do espaço</CardTitle>
+            <CardDescription>Ligue só o que o espaço usa: desligado, o módulo some do menu de todos.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <FormAcao acao={definirModulosAcao} textoBotao="Salvar módulos">
+              {MODULOS.map((m) => (
+                <label key={m} className="flex items-start gap-2 text-sm">
+                  <input type="checkbox" name={m} defaultChecked={modulos[m]} className="mt-1" />
+                  <span>
+                    {ROTULOS_MODULO[m].nome}
+                    <span className="block text-xs text-muted-foreground">{ROTULOS_MODULO[m].descricao}</span>
+                  </span>
+                </label>
+              ))}
             </FormAcao>
           </CardContent>
         </Card>

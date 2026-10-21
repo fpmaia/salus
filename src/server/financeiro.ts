@@ -446,7 +446,7 @@ export const competenciaSchema = z
   .refine(dataValida, "Competência inválida");
 
 export async function reprocessar(ctx: ContextoTenant, competencia: string, database?: Database) {
-  exigirPermissao(ctx.role, "financeiro.ver");
+  exigirPermissao(ctx.role, "financeiro.reprocessar");
   const c = competenciaSchema.parse(competencia);
   return withTenant(
     ctx,
@@ -793,7 +793,19 @@ export async function extrato(
         .from(fechamentos)
         .where(and(eq(fechamentos.profissionalId, profissionalId), eq(fechamentos.competencia, c)));
       const acordo = acordoVigente(await carregarAcordos(tx, profissionalId), ultimoDiaDaCompetencia(c));
-      return { profissional, competencia: c, ...totais, linhas: extratoLinhas, fechamento: fechamento ?? null, acordo };
+      // Mês aberto: mensalidade e excedente só entram no fechamento; a prévia evita a surpresa (C12).
+      let previsto: { descricao: string; valorCentavos: number }[] = [];
+      if (!fechamento?.fechadoEm) {
+        const origem = `competencia:${profissionalId}:${c.slice(0, 7)}`;
+        const [{ ja }] = await tx.select({ ja: sql<number>`count(*)::int` }).from(lancamentos).where(eq(lancamentos.origem, origem));
+        if (ja === 0) {
+          const acordoDoMes = acordoVigente(await carregarAcordos(tx, profissionalId), c) ?? acordo;
+          previsto = lancamentosDaMensalidade(acordoDoMes, await usoDoMes(tx, profissionalId, c, acordoDoMes?.id ?? null))
+            .filter((l) => l.natureza === "debito")
+            .map((l) => ({ descricao: l.descricao, valorCentavos: l.valorCentavos }));
+        }
+      }
+      return { profissional, competencia: c, ...totais, linhas: extratoLinhas, fechamento: fechamento ?? null, acordo, previsto };
     },
     database,
   );
@@ -807,7 +819,7 @@ export async function resumoCompetencia(ctx: ContextoTenant, competencia: string
     ctx,
     async (tx) => {
       const lista = await tx
-        .select({ id: profissionais.id, nome: profissionais.nome, ativo: profissionais.ativo })
+        .select({ id: profissionais.id, nome: profissionais.nome, ativo: profissionais.ativo, documento: profissionais.documento })
         .from(profissionais)
         .orderBy(asc(profissionais.nome));
       const movimentos = await tx

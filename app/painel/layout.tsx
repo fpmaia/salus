@@ -6,20 +6,21 @@ import { assinaturaEmAtraso } from "@/src/server/assinatura";
 import { SalusLogo } from "@/components/brand/salus-logo";
 import { LSCodeBadge } from "@/components/brand/ls-code";
 import { PainelNav, type ItemNavegacao } from "@/components/painel-nav";
+import { modulosDoEspaco, type Modulo } from "@/src/server/modulos";
 import { BotaoAjudaTutorial, TutorialPrimeiroAcesso } from "@/components/tutorial-primeiro-acesso";
 import { BotaoSair } from "./botao-sair";
 import { SeletorClinica } from "@/components/seletor-clinica";
 
-const NAVEGACAO: { href: string; rotulo: string; permissao?: Permissao }[] = [
+const NAVEGACAO: { href: string; rotulo: string; permissao?: Permissao; modulo?: Modulo }[] = [
   { href: "/painel", rotulo: "Início" },
   { href: "/painel/atendimentos", rotulo: "Atendimentos", permissao: "agenda.propria" },
   { href: "/painel/agenda", rotulo: "Agenda de salas", permissao: "agenda.ver" },
   { href: "/painel/pacientes", rotulo: "Pacientes", permissao: "pacientes.ver" },
   { href: "/painel/espera", rotulo: "Lista de espera", permissao: "agenda.gerenciar" },
-  { href: "/painel/prontuario", rotulo: "Prontuário", permissao: "prontuario.menu" },
-  { href: "/painel/agendamento-online", rotulo: "Agenda online", permissao: "agenda_online.configurar" },
+  { href: "/painel/prontuario", rotulo: "Prontuário", permissao: "prontuario.menu", modulo: "prontuario" },
+  { href: "/painel/agendamento-online", rotulo: "Agenda online", permissao: "agenda_online.configurar", modulo: "agendaOnline" },
   { href: "/painel/financeiro", rotulo: "Financeiro", permissao: "financeiro.ver" },
-  { href: "/painel/fiscal", rotulo: "Notas fiscais", permissao: "fiscal.ver" },
+  { href: "/painel/fiscal", rotulo: "Notas fiscais", permissao: "fiscal.ver", modulo: "fiscal" },
   { href: "/painel/extrato", rotulo: "Meu extrato", permissao: "extrato.proprio" },
   { href: "/painel/unidades", rotulo: "Unidades e salas", permissao: "salas.gerenciar" },
   { href: "/painel/contratos", rotulo: "Contratos", permissao: "contratos.ver" },
@@ -33,19 +34,15 @@ const NAVEGACAO: { href: string; rotulo: string; permissao?: Permissao }[] = [
 
 export default async function PainelLayout({ children }: LayoutProps<"/painel">) {
   const ctx = await obterContextoTenant();
-  const { ehSuperadmin } = await import("@/src/server/plataforma");
-  const ehDono = await ehSuperadmin(ctx.userId);
 
+  const modulos = await modulosDoEspaco(ctx);
   const itens: ItemNavegacao[] = NAVEGACAO.filter(
-    (item) => !item.permissao || pode(ctx.role, item.permissao)
+    (item) => (!item.permissao || pode(ctx.role, item.permissao)) && (!item.modulo || modulos[item.modulo])
   ).map((item) =>
     // O profissional só vê o próprio contrato.
     item.href === "/painel/contratos" && ctx.role === "profissional" ? { ...item, rotulo: "Meu contrato" } : item,
   );
 
-  if (ehDono) {
-    itens.push({ href: "/plataforma", rotulo: "Plataforma (LS Code)" });
-  }
 
   const atraso = pode(ctx.role, "assinatura.ver") && (await assinaturaEmAtraso(ctx));
 

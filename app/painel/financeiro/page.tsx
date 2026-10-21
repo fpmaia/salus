@@ -57,13 +57,18 @@ export default async function FinanceiroPage({ searchParams }: PageProps<"/paine
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <NavCompetencia competencia={competencia} href={(x) => `/painel/financeiro?competencia=${x}`} />
-          <FormAcao
-            acao={reprocessarAcao.bind(null, competencia)}
-            textoBotao="Reprocessar mês"
-            textoPendente="Reprocessando…"
-            variante="outline"
-            className="flex flex-wrap items-center gap-2"
-          />
+          {pode(ctx.role, "financeiro.reprocessar") && (
+            <FormAcao
+              acao={reprocessarAcao.bind(null, competencia)}
+              textoBotao="Recalcular mês"
+              textoPendente="Recalculando…"
+              variante="outline"
+              className="flex flex-wrap items-center gap-2"
+            />
+          )}
+          <Button asChild variant="outline">
+            <a href={`/api/financeiro/fechamento?competencia=${competencia.slice(0, 7)}`}>Exportar CSV</a>
+          </Button>
         </div>
       </div>
 

@@ -7,6 +7,7 @@ import { type ContextoTenant, withTenant } from "../../src/db/tenant";
 import { criarAgendamento } from "../../src/server/agendamentos";
 import { agendarOnline, configurarAgendamentoOnline, obterPaginaPublica } from "../../src/server/agendamento-online";
 import { lerTokenAgendamento } from "../../src/server/links";
+import { definirModulos } from "../../src/server/modulos";
 import { criarTenantComAdmin } from "../../src/server/onboarding";
 import { criarPaciente } from "../../src/server/pacientes";
 import { criarProfissional } from "../../src/server/profissionais";
@@ -46,6 +47,8 @@ beforeAll(async () => {
   const adminId = await criarUsuario(db, "Admin Online");
   const { tenantId } = await criarTenantComAdmin(adminId, { nomeTenant: "Coworking Online", documento: "11.222.333/0001-81" }, db);
   admin = { tenantId, userId: adminId, role: "admin" };
+  // Módulo opcional: o espaço liga o agendamento online.
+  await definirModulos(admin, { fiscal: false, agendaOnline: true, prontuario: false }, db);
   const { id: unidade } = await criarUnidade(admin, { nome: "Centro", endereco: "Rua A, 10" }, db); // seg–sex 08–18, slot 30
   ({ id: sala } = await criarSala(admin, unidade, { nome: "Sala 1" }, db));
   ({ id: ana } = await criarProfissional(admin, { nome: "Dra. Ana Lima", email: `ana.${randomUUID()}@teste.dev`, especialidade: "Psicologia" }, db));
@@ -77,6 +80,13 @@ describe("configuração", () => {
       db,
     )) as { slug: string });
     expect(slug).toMatch(/^dra-ana-lima-[0-9a-f]{6}$/);
+  });
+
+  it("com o módulo desligado no espaço, a página pública não abre", async () => {
+    await definirModulos(admin, { fiscal: false, agendaOnline: false, prontuario: false }, db);
+    expect(await obterPaginaPublica(slug, AGORA, db)).toBeNull();
+    await definirModulos(admin, { fiscal: false, agendaOnline: true, prontuario: false }, db);
+    expect(await obterPaginaPublica(slug, AGORA, db)).not.toBeNull();
   });
 
   it("slug inválido ou inexistente não abre página", async () => {

@@ -1,4 +1,5 @@
 "use server";
+import { definirModulos } from "@/src/server/modulos";
 
 import { obterContextoTenant } from "@/src/auth/sessao";
 import { decisaoReservas, sufixoCanceladas, type EstadoAcao, executarAcao, texto } from "@/src/server/acao";
@@ -117,5 +118,17 @@ export async function definirPoliticaCancelamentoAcao(_estado: EstadoAcao, formD
     const ctx = await obterContextoTenant();
     await definirPoliticaCancelamento(ctx, texto(formData, "horas"));
     return "Política de cancelamento salva";
+  });
+}
+
+export async function definirModulosAcao(_estado: EstadoAcao, formData: FormData) {
+  return executarAcao(async () => {
+    const ctx = await obterContextoTenant();
+    await definirModulos(ctx, {
+      fiscal: formData.get("fiscal") === "on",
+      agendaOnline: formData.get("agendaOnline") === "on",
+      prontuario: formData.get("prontuario") === "on",
+    });
+    return "Módulos salvos";
   });
 }

@@ -29,6 +29,7 @@ export default async function MeuExtratoPage({ searchParams }: PageProps<"/paine
     pagamentoOnlineAtivo(ctx),
   ]);
   const saldo = dados.saldoFinal;
+  const saldoPrevisto = saldo + dados.previsto.reduce((acc, p) => acc + p.valorCentavos, 0);
   const contrato = contratos.find((c) => c.situacao === "vigente");
   const emAberto = cobrancas.find((c) => c.status === "pendente" || c.status === "vencida");
   // No mês corrente, o saldo final é o que se deve hoje.
@@ -50,6 +51,22 @@ export default async function MeuExtratoPage({ searchParams }: PageProps<"/paine
             {saldo === 0 ? "Em dia" : saldo > 0 ? `${formatarMoeda(saldo)} a pagar` : `${formatarMoeda(-saldo)} a receber`}
           </CardTitle>
         </CardHeader>
+        {dados.previsto.length > 0 && (
+          <CardContent className="text-sm">
+            <p className="text-muted-foreground">Ainda entra no fechamento do mês:</p>
+            <ul className="mt-1">
+              {dados.previsto.map((p) => (
+                <li key={p.descricao} className="flex justify-between gap-3 tabular-nums">
+                  <span>{p.descricao}</span>
+                  <span>{formatarMoeda(p.valorCentavos)}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-2 font-medium tabular-nums">
+              Saldo previsto: {saldoPrevisto >= 0 ? `${formatarMoeda(saldoPrevisto)} a pagar` : `${formatarMoeda(-saldoPrevisto)} a receber`}
+            </p>
+          </CardContent>
+        )}
       </Card>
       {podePagar && (
         <Card className="border-primary/40">

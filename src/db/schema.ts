@@ -236,6 +236,10 @@ export const tenantSettings = pgTable(
     preferencias: jsonb("preferencias").$type<Record<string, unknown>>().notNull().default({}),
     // Política de cancelamento: abaixo desta antecedência o cancelamento é "tardio".
     antecedenciaCancelamentoHoras: integer("antecedencia_cancelamento_horas").notNull().default(24),
+    // Módulos opcionais, desligados por padrão (menos tela e menos risco até o espaço precisar).
+    moduloFiscal: boolean("modulo_fiscal").notNull().default(false),
+    moduloAgendaOnline: boolean("modulo_agenda_online").notNull().default(false),
+    moduloProntuario: boolean("modulo_prontuario").notNull().default(false),
     criadoEm: criadoEm(),
     atualizadoEm: atualizadoEm(),
   },

@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
-import { exigirPermissaoNaPagina } from "@/src/auth/permissao";
+import { exigirModuloNaPagina, exigirPermissaoNaPagina } from "@/src/auth/permissao";
 import { obterContextoTenant } from "@/src/auth/sessao";
 import { formatarMoeda, formatarPercentual } from "@/src/domain/dinheiro";
 import { pode } from "@/src/domain/rbac";
@@ -28,6 +28,7 @@ const AMBIENTES = [
 
 export default async function FiscalPage({ searchParams }: PageProps<"/painel/fiscal">) {
   const ctx = await obterContextoTenant();
+  await exigirModuloNaPagina(ctx, "fiscal");
   exigirPermissaoNaPagina(ctx.role, "fiscal.ver");
   const brutos = await searchParams;
   const informada = typeof brutos.competencia === "string" ? competenciaSchema.safeParse(brutos.competencia) : null;

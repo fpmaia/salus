@@ -67,6 +67,11 @@ test("admin fecha o mês anterior e o extrato fica congelado", async ({ page }) 
 
   await page.goto(`/painel/financeiro?competencia=${competenciaAnterior}`);
   await expect(page.getByRole("row", { name: /Dra\. E2E/ })).toContainText("Fechado");
+
+  // Exportação para a contabilidade (CSV para o Excel em português).
+  const csv = await page.request.get(`/api/financeiro/fechamento?competencia=${competenciaAnterior}`);
+  expect(csv.headers()["content-type"]).toContain("text/csv");
+  expect(await csv.text()).toMatch(/Dra\. E2E;.*;90,00;0,00;90,00;Fechado/);
 });
 
 test("cadastro pede a confirmação do e-mail e não entra sem ela", async ({ page }) => {

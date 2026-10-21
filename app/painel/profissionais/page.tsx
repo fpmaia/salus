@@ -1,3 +1,4 @@
+import { pode } from "@/src/domain/rbac";
 import { DecisaoReservas } from "@/components/decisao-reservas";
 import { FormAcao } from "@/components/form-acao";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,6 +21,7 @@ export default async function ProfissionaisPage() {
   const ctx = await obterContextoTenant();
   exigirPermissaoNaPagina(ctx.role, "profissionais.gerenciar");
   const profissionais = await listarProfissionais(ctx);
+  const podeDesativar = pode(ctx.role, "profissionais.desativar");
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6">
@@ -50,10 +52,17 @@ export default async function ProfissionaisPage() {
               <div className="mt-4 flex flex-col gap-4">
                 <FormAcao acao={atualizarProfissionalAcao.bind(null, p.id)} textoBotao="Salvar">
                   <CamposProfissional valores={p} prefixo={p.id} emailBloqueado={p.situacao === "ativo"} />
-                  <label className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" name="ativo" defaultChecked={p.ativo} /> Ativo (inativar também remove o acesso)
-                  </label>
-                  {p.ativo && <DecisaoReservas id={`prof-${p.id}-decisao`} rotulo="Ao inativar, reservas futuras dele" />}
+                  {podeDesativar ? (
+                    <>
+                      <label className="flex items-center gap-2 text-sm">
+                        <input type="checkbox" name="ativo" defaultChecked={p.ativo} /> Ativo (inativar também remove o acesso)
+                      </label>
+                      {p.ativo && <DecisaoReservas id={`prof-${p.id}-decisao`} rotulo="Ao inativar, reservas futuras dele" />}
+                    </>
+                  ) : (
+                    // A recepção edita o cadastro; ativar e inativar ficam com o admin.
+                    p.ativo && <input type="hidden" name="ativo" value="on" />
+                  )}
                 </FormAcao>
                 {p.situacao !== "ativo" && p.ativo && (
                   <BotaoConvite acao={gerarConviteAcao.bind(null, p.id)} pendente={p.situacao === "convite_pendente"} />

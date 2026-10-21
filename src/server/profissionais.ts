@@ -110,6 +110,7 @@ export async function atualizarProfissional(
     async (tx) => {
       const [atual] = await tx.select().from(profissionais).where(eq(profissionais.id, profissionalId));
       if (!atual) throw new ErroNegocio("Profissional não encontrado");
+      if (valores.ativo !== atual.ativo) exigirPermissao(ctx.role, "profissionais.desativar");
       if (valores.ativo && !atual.ativo) await exigirLimite(tx, "profissionais");
       // Depois do acesso criado, o e-mail é o do login e não muda por aqui.
       if (atual.membershipId && valores.email !== atual.email) {

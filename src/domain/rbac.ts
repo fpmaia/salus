@@ -13,6 +13,9 @@ export const PERMISSOES = {
   "acordos.gerenciar": ["admin"],
   "financeiro.ver": ["admin", "recepcao"],
   "financeiro.fechar": ["admin"],
+  // Recalcular o mês e (des)ativar profissional mexem no que já foi combinado: só o admin.
+  "financeiro.reprocessar": ["admin"],
+  "profissionais.desativar": ["admin"],
   "financeiro.ajustar": ["admin"],
   "fiscal.configurar": ["admin"],
   "fiscal.emitir": ["admin"],

@@ -13,6 +13,7 @@ import { normalizarTelefoneBr, primeiroNome } from "../domain/notificacoes";
 import { exigirPermissao, pode } from "../domain/rbac";
 import { partesLocais } from "../domain/tempo";
 import { ErroNegocio } from "./erros";
+import { moduloAtivoNoTenant } from "./modulos";
 import { linkDoAgendamento } from "./links";
 import { vincularPaciente } from "./pacientes";
 import { profissionalDoUsuario } from "./profissionais";
@@ -114,7 +115,10 @@ async function resolverSlug(slug: string, database: Database) {
   const { rows } = await database.execute<{ tenant_id: string; profissional_id: string }>(
     sql`select * from app_profissional_publico(${slug})`,
   );
-  return rows[0] ? { tenantId: rows[0].tenant_id, profissionalId: rows[0].profissional_id } : null;
+  if (!rows[0]) return null;
+  // Espaço com o módulo desligado: a página pública fica indisponível.
+  if (!(await moduloAtivoNoTenant(rows[0].tenant_id, "agendaOnline", database))) return null;
+  return { tenantId: rows[0].tenant_id, profissionalId: rows[0].profissional_id };
 }
 
 type HorarioOferta = { inicio: Date; reservaId: string; unidadeNome: string; endereco: string | null; timezone: string };

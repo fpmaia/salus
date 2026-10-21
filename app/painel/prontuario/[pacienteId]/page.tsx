@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
-import { exigirPermissaoNaPagina } from "@/src/auth/permissao";
+import { exigirModuloNaPagina, exigirPermissaoNaPagina } from "@/src/auth/permissao";
 import { obterContextoTenant } from "@/src/auth/sessao";
 import { ErroNegocio } from "@/src/server/erros";
 import { horarioLocal, obterProntuario, type RegistroLido } from "@/src/server/prontuario";
@@ -28,6 +28,7 @@ const textarea =
 export default async function ProntuarioPacientePage({ params }: PageProps<"/painel/prontuario/[pacienteId]">) {
   const { pacienteId } = await params;
   const ctx = await obterContextoTenant();
+  await exigirModuloNaPagina(ctx, "prontuario");
   exigirPermissaoNaPagina(ctx.role, "prontuario.proprio");
   if (!UUID.test(pacienteId)) notFound();
   const dados = await obterProntuario(ctx, pacienteId).catch((erro) => {

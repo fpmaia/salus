@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
-import { exigirPermissaoNaPagina } from "@/src/auth/permissao";
+import { exigirModuloNaPagina, exigirPermissaoNaPagina } from "@/src/auth/permissao";
 import { obterContextoTenant } from "@/src/auth/sessao";
 import { pode } from "@/src/domain/rbac";
 import { obterConfigOnline } from "@/src/server/agendamento-online";
@@ -17,6 +17,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export default async function AgendamentoOnlinePage({ searchParams }: PageProps<"/painel/agendamento-online">) {
   const ctx = await obterContextoTenant();
+  await exigirModuloNaPagina(ctx, "agendaOnline");
   exigirPermissaoNaPagina(ctx.role, "agenda_online.configurar");
   const admin = pode(ctx.role, "profissionais.gerenciar");
   const { profissional } = await searchParams;
