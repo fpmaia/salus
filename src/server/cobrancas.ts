@@ -3,15 +3,16 @@ import { and, desc, eq, inArray, isNotNull, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 import { registrarAuditoria } from "../db/audit";
 import { getDb, type Database, type Transaction } from "../db/client";
-import { cobrancasProfissional, configuracoesCobranca, eventosWebhook, lancamentos, profissionais, tenantSettings } from "../db/schema";
+import { cobrancasProfissional, configuracoesCobranca, eventosWebhook, lancamentos, profissionais } from "../db/schema";
 import { type ContextoTenant, withSistema, withTenant } from "../db/tenant";
 import { formaDaBaixa, mapearStatusAsaas, vencimentoPadrao, type StatusCobranca } from "../domain/cobranca";
 import { formatarMoeda } from "../domain/dinheiro";
 import { exigirPermissao, pode } from "../domain/rbac";
-import { dataValida, hojeNoFuso, partesLocais } from "../domain/tempo";
+import { dataValida } from "../domain/tempo";
 import { ErroGateway, GatewayAsaas, GatewaySimulado, type CobrancaGateway, type GatewayCobranca } from "./asaas";
 import { cifrar, decifrar } from "./cripto";
 import { ErroNegocio } from "./erros";
+import { hojeDoEspaco } from "./fuso";
 import { estornarPagamento, inserirPagamento } from "./financeiro";
 import { urlPublica } from "./links";
 import { profissionalDoUsuario } from "./profissionais";
@@ -196,8 +197,7 @@ async function registrarCobranca(tx: Transaction, d: z.output<typeof novaCobranc
   const [p] = await tx.select().from(profissionais).where(eq(profissionais.id, d.profissionalId));
   if (!p) throw new ErroNegocio("Profissional não encontrado");
   if (!p.documento) throw new ErroNegocio(`Cadastre o CPF ou CNPJ de ${p.nome} para emitir a cobrança`);
-  const [settings] = await tx.select({ timezone: tenantSettings.timezone }).from(tenantSettings);
-  const hoje = hojeNoFuso(settings?.timezone ?? "America/Sao_Paulo", agora);
+  const hoje = await hojeDoEspaco(tx, agora);
   const vencimento = d.vencimento ?? vencimentoPadrao(hoje, config.diasVencimento);
   if (vencimento < hoje) throw new ErroNegocio("O vencimento não pode estar no passado");
   const [c] = await tx
@@ -329,8 +329,7 @@ async function aplicarSituacao(tx: Transaction, cobranca: LinhaCobranca, status:
   if (cobranca.status === "cancelada" || cobranca.status === "estornada") return false;
   if (cobranca.status === "paga" && status !== "estornada") return false;
 
-  const [settings] = await tx.select({ timezone: tenantSettings.timezone }).from(tenantSettings);
-  const hoje = partesLocais(agora, settings?.timezone ?? "America/Sao_Paulo").data;
+  const hoje = await hojeDoEspaco(tx, agora);
   const mudancas: Partial<LinhaCobranca> = { status };
 
   if (status === "paga" && !cobranca.pagamentoId) {
@@ -503,7 +502,6 @@ export async function listarCobrancas(ctx: ContextoTenant, profissionalId?: stri
     database,
   );
 }
-
 
 /** O espaço aceita pagamento online (Asaas ativo)? Sem expor a configuração. */
 export async function pagamentoOnlineAtivo(ctx: ContextoTenant, database?: Database): Promise<boolean> {

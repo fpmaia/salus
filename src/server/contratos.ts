@@ -9,6 +9,7 @@ import { ROTULOS_MODELO } from "../domain/financeiro";
 import { exigirPermissao, pode } from "../domain/rbac";
 import { dataValida, hojeNoFuso, somarDias, type DataLocal } from "../domain/tempo";
 import { ErroNegocio } from "./erros";
+import { hojeDoEspaco } from "./fuso";
 import { acordoSchema, inserirVersaoDoContrato } from "./financeiro";
 import { profissionalDoUsuario } from "./profissionais";
 import { encerrarRegraNaTransacao, materializarRecorrencias } from "./reservas";
@@ -142,7 +143,7 @@ export async function listarContratos(
         .leftJoin(salas, eq(salas.id, acordosFinanceiros.salaId))
         .where(somente ? eq(acordosFinanceiros.profissionalId, somente) : undefined)
         .orderBy(asc(profissionais.nome), desc(acordosFinanceiros.vigenteDe));
-      const hoje = hojeNoFuso("America/Sao_Paulo", agora);
+      const hoje = await hojeDoEspaco(tx, agora);
       return linhas.map(({ contrato, profissionalNome, salaNome }) => ({
         id: contrato.id,
         codigo: contrato.codigo,
@@ -180,7 +181,7 @@ export async function obterContrato(ctx: ContextoTenant, contratoId: string, ago
         .from(acordosFinanceiros)
         .where(eq(acordosFinanceiros.profissionalId, linha.contrato.profissionalId))
         .orderBy(desc(acordosFinanceiros.vigenteDe));
-      const hoje = hojeNoFuso("America/Sao_Paulo", agora);
+      const hoje = await hojeDoEspaco(tx, agora);
       return {
         contrato: linha.contrato,
         profissional: { id: linha.profissional.id, nome: linha.profissional.nome, conselho: linha.profissional.conselho, registro: linha.profissional.registro },

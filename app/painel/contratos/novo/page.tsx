@@ -2,9 +2,10 @@ import Link from "next/link";
 import { asc, eq } from "drizzle-orm";
 import { exigirPermissaoNaPagina } from "@/src/auth/permissao";
 import { obterContextoTenant } from "@/src/auth/sessao";
+import { hojeNoEspaco } from "@/src/server/fuso";
 import { profissionais, tenants, tenantSettings } from "@/src/db/schema";
 import { withTenant } from "@/src/db/tenant";
-import { hojeNoFuso } from "@/src/domain/tempo";
+
 import { listarContratos, obterContrato } from "@/src/server/contratos";
 import { listarTodasSalasAtivas } from "@/src/server/unidades";
 import { FormularioNovoContrato, type ContratoAtual } from "./formulario-novo-contrato";
@@ -66,7 +67,7 @@ export default async function NovoContratoPage({ searchParams }: PageProps<"/pai
           profissionalInicial={selecionado ?? lista[0].id}
           atual={atual}
           prazoPadrao={prazoPadrao}
-          hoje={hojeNoFuso("America/Sao_Paulo")}
+          hoje={await hojeNoEspaco(ctx)}
           espaco={{ nome: espaco?.nome ?? ctx.tenantNome, documento: espaco?.documento ?? null }}
         />
       )}

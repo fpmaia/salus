@@ -3,20 +3,15 @@ import { and, asc, count, desc, eq, inArray, isNotNull } from "drizzle-orm";
 import { z } from "zod";
 import { registrarAuditoria } from "../db/audit";
 import { getDb, type Database, type Transaction } from "../db/client";
-import { eventosWebhook, faturasSaas, planosSaas, profissionais, salas, tenantSettings, tenants, unidades } from "../db/schema";
+import { eventosWebhook, faturasSaas, planosSaas, profissionais, salas, tenants, unidades } from "../db/schema";
 import { type ContextoTenant, withSistema, withTenant } from "../db/tenant";
-import {
-  excedeLimite,
-  mapearStatusAsaas,
-  usoAcimaDosLimites,
-  vencimentoDaFaturaSaas,
-  type RecursoLimitado,
-} from "../domain/cobranca";
+import { excedeLimite, mapearStatusAsaas, usoAcimaDosLimites, vencimentoDaFaturaSaas, type RecursoLimitado } from "../domain/cobranca";
 import { competenciaDe } from "../domain/financeiro";
 import { exigirPermissao } from "../domain/rbac";
-import { hojeNoFuso, somarDias } from "../domain/tempo";
+import { somarDias } from "../domain/tempo";
 import { ErroGateway, gatewayDaPlataforma, type GatewayCobranca } from "./asaas";
 import { ErroNegocio } from "./erros";
+import { hojeDoEspaco } from "./fuso";
 
 // Cobrança do SaaS (Salus → espaço) na conta Asaas da PLATAFORMA (variáveis ASAAS_*),
 // e limites de uso por plano.
@@ -114,8 +109,7 @@ export async function gerarFaturaDoMes(tenantId: string, opcoes: Opcoes = {}) {
     async (tx) => {
       const [tenant] = await tx.select().from(tenants);
       if (!tenant || tenant.status !== "ativo") return null;
-      const [settings] = await tx.select({ timezone: tenantSettings.timezone }).from(tenantSettings);
-      const hoje = hojeNoFuso(settings?.timezone ?? "America/Sao_Paulo", agora);
+          const hoje = await hojeDoEspaco(tx, agora);
       const competencia = competenciaDe(hoje);
       // Fatura gerada depois do dia 10 (ex.: primeiro mês) vence em 3 dias, nunca no passado.
       const vencimentoBase = vencimentoDaFaturaSaas(competencia);

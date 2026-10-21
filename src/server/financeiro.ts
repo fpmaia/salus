@@ -3,39 +3,14 @@ import { z } from "zod";
 import { registrarAuditoria } from "../db/audit";
 import type { Database, Transaction } from "../db/client";
 import { erroPostgres, PG } from "../db/erros";
-import {
-  acordosFinanceiros,
-  agendamentos,
-  regrasRecorrencia,
-  fechamentos,
-  lancamentos,
-  pagamentos,
-  profissionais,
-  reservasSala,
-  salas,
-  tenantSettings,
-  unidades,
-} from "../db/schema";
+import { acordosFinanceiros, agendamentos, regrasRecorrencia, fechamentos, lancamentos, pagamentos, profissionais, reservasSala, salas, tenantSettings, unidades } from "../db/schema";
 import { type ContextoTenant, withTenant } from "../db/tenant";
-import {
-  acordoVigente,
-  competenciaDe,
-  conciliar,
-  lancamentosDaMensalidade,
-  lancamentosDaReserva,
-  lancamentosDaReservaCancelada,
-  lancamentosDoAgendamento,
-  MODELOS,
-  proximaCompetencia,
-  ultimoDiaDaCompetencia,
-  type LancamentoDesejado,
-  type Natureza,
-  type TipoLancamento,
-} from "../domain/financeiro";
+import { acordoVigente, competenciaDe, conciliar, lancamentosDaMensalidade, lancamentosDaReserva, lancamentosDaReservaCancelada, lancamentosDoAgendamento, MODELOS, proximaCompetencia, ultimoDiaDaCompetencia, type LancamentoDesejado, type Natureza, type TipoLancamento } from "../domain/financeiro";
 import { exigirPermissao, pode } from "../domain/rbac";
 import { intervalosDoDia } from "../domain/reservas";
-import { dataValida, hojeNoFuso, instanteLocal, partesLocais, somarDias, type DataLocal } from "../domain/tempo";
+import { dataValida, instanteLocal, partesLocais, somarDias, type DataLocal } from "../domain/tempo";
 import { ErroNegocio } from "./erros";
+import { hojeDoEspaco } from "./fuso";
 import type { RegraDePreco } from "../domain/contratos";
 import { profissionalDoUsuario } from "./profissionais";
 import { carregarConfigUnidade } from "./unidades";
@@ -434,11 +409,6 @@ export async function reprocessarCompetencia(
   return total;
 }
 
-async function timezoneDoTenant(tx: Transaction): Promise<string> {
-  const [config] = await tx.select({ timezone: tenantSettings.timezone }).from(tenantSettings);
-  return config?.timezone ?? "America/Sao_Paulo";
-}
-
 export const competenciaSchema = z
   .string()
   .regex(/^\d{4}-\d{2}(-01)?$/, "Competência inválida")
@@ -499,7 +469,7 @@ export async function fecharCompetencia(
   return withTenant(
     ctx,
     async (tx) => {
-      const hoje = hojeNoFuso(await timezoneDoTenant(tx), agora);
+      const hoje = await hojeDoEspaco(tx, agora);
       if (hoje < proximaCompetencia(c)) throw new ErroNegocio("Só é possível fechar um mês depois que ele terminar");
       const [ja] = await tx
         .select({ status: fechamentos.status })
@@ -931,7 +901,7 @@ export async function ocupacaoSalas(ctx: ContextoTenant, unidadeId: string, comp
 
 /** Competência atual no fuso do tenant. */
 export async function competenciaAtual(ctx: ContextoTenant, agora = new Date(), database?: Database): Promise<DataLocal> {
-  return withTenant(ctx, async (tx) => competenciaDe(hojeNoFuso(await timezoneDoTenant(tx), agora)), database);
+  return withTenant(ctx, async (tx) => competenciaDe(await hojeDoEspaco(tx, agora)), database);
 }
 
 /** Últimos pagamentos do profissional (tela do financeiro). */
@@ -944,7 +914,6 @@ export async function listarPagamentos(ctx: ContextoTenant, profissionalId: stri
     database,
   );
 }
-
 
 /**
  * Regra de preço do contrato vigente hoje para o próprio profissional (estimativa antes de
@@ -961,7 +930,7 @@ export async function minhaRegraDePreco(
     async (tx) => {
       const proprio = await profissionalDoUsuario(tx, ctx.userId);
       if (!proprio) return null;
-      const hoje = hojeNoFuso(await timezoneDoTenant(tx), agora);
+      const hoje = await hojeDoEspaco(tx, agora);
       const acordo = acordoVigente(await carregarAcordos(tx, proprio.id), hoje);
       if (!acordo) return null;
       const uso = await usoDoMes(tx, proprio.id, competenciaDe(hoje), acordo.id);

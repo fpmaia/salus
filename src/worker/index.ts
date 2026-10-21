@@ -56,10 +56,11 @@ async function enviarFila(tenantId: string, agora: Date) {
 }
 
 const JOBS: Job[] = [
+  // Horários em UTC (06:00 UTC = 03:00 em Brasília).
   // Diário, de madrugada: estende as recorrências até o fim da janela de 8 semanas.
-  { fila: "agenda.materializar-recorrencias", cron: "0 3 * * *", executar: materializarRecorrencias },
+  { fila: "agenda.materializar-recorrencias", cron: "0 6 * * *", executar: materializarRecorrencias },
   // Datas da série que ficaram sem sala: e-mail ao profissional (fora da transação da materialização).
-  { fila: "agenda.avisar-datas-nao-reservadas", cron: "30 3 * * *", porTenant: (tenantId, agora) => avisarDatasNaoReservadas(tenantId, { agora }) },
+  { fila: "agenda.avisar-datas-nao-reservadas", cron: "30 6 * * *", porTenant: (tenantId, agora) => avisarDatasNaoReservadas(tenantId, { agora }) },
   // Reservas que terminaram passam a "concluida" (base para o financeiro da Fase 3).
   { fila: "agenda.concluir-reservas", cron: "*/15 * * * *", executar: concluirReservasPassadas },
   // Lembretes D-1 (janela de 2h a 24h antes) e envio da outbox com retentativas.
@@ -68,11 +69,11 @@ const JOBS: Job[] = [
   // NFS-e: reenvia pendentes (consultando antes, sem duplicar) e acompanha as em processamento.
   { fila: "fiscal.processar-notas", cron: "*/2 * * * *", porTenant: (tenantId, agora) => processarNotasFiscais(tenantId, agora) },
   // Asaas: fatura mensal do SaaS (idempotente, roda todo dia) e sincronização de reserva dos webhooks.
-  { fila: "assinatura.gerar-faturas", cron: "0 6 * * *", porTenant: (tenantId, agora) => gerarFaturaDoMes(tenantId, { agora }) },
+  { fila: "assinatura.gerar-faturas", cron: "0 9 * * *", porTenant: (tenantId, agora) => gerarFaturaDoMes(tenantId, { agora }) },
   { fila: "assinatura.sincronizar", cron: "*/30 * * * *", porTenant: (tenantId, agora) => sincronizarFaturas(tenantId, { agora }) },
   { fila: "cobrancas.sincronizar", cron: "*/15 * * * *", porTenant: (tenantId, agora) => sincronizarCobrancas(tenantId, { agora }) },
   // Contadores de rate limit parados há mais de 1 dia.
-  { fila: "manutencao.limpar-rate-limits", cron: "30 4 * * *", global: (agora) => limparLimitesAntigos(agora.getTime()) },
+  { fila: "manutencao.limpar-rate-limits", cron: "30 7 * * *", global: (agora) => limparLimitesAntigos(agora.getTime()) },
   // Outbox com falhas ou parada: alerta (Sentry e, com ALERTAS_EMAIL, e-mail).
   { fila: "monitoramento.verificar-alertas", cron: "*/15 * * * *", global: (agora) => verificarAlertas({ agora }) },
 ];
@@ -119,7 +120,8 @@ async function main() {
   await boss.start();
   for (const job of JOBS) {
     await boss.createQueue(job.fila);
-    await boss.schedule(job.fila, job.cron, {}, { tz: "America/Sao_Paulo" });
+    // Cron em UTC: cada job calcula datas pelo fuso de cada unidade (C13).
+    await boss.schedule(job.fila, job.cron, {}, { tz: "UTC" });
     await boss.work(job.fila, () => porTenant(job));
   }
   // Fila da Fase 0, substituída pelos jobs acima.

@@ -8,10 +8,11 @@ import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { exigirPermissaoNaPagina } from "@/src/auth/permissao";
 import { obterContextoTenant } from "@/src/auth/sessao";
+import { hojeNoEspaco } from "@/src/server/fuso";
 import { formatarMoeda } from "@/src/domain/dinheiro";
 import { proximaCompetencia } from "@/src/domain/financeiro";
 import { pode } from "@/src/domain/rbac";
-import { hojeNoFuso } from "@/src/domain/tempo";
+
 import { competenciaAtual, competenciaSchema, extrato, listarPagamentos } from "@/src/server/financeiro";
 import { listarContratos } from "@/src/server/contratos";
 import { descreverCondicoes } from "@/src/domain/contratos";
@@ -47,7 +48,7 @@ export default async function FinanceiroProfissionalPage({ params, searchParams 
   const [configCobranca, cobrancas] = gerenciaCobranca
     ? await Promise.all([obterConfigCobranca(ctx), listarCobrancas(ctx, profissionalId)])
     : [null, []];
-  const hoje = hojeNoFuso("America/Sao_Paulo");
+  const hoje = await hojeNoEspaco(ctx);
   const podeFechar = pode(ctx.role, "financeiro.fechar") && !dados.fechamento?.fechadoEm && proximaCompetencia(competencia) <= atual;
   const c = competencia.slice(0, 7);
 

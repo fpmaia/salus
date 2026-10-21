@@ -6,10 +6,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { obterContextoTenant } from "@/src/auth/sessao";
+import { hojeNoEspaco } from "@/src/server/fuso";
 import { DIAS_SEMANA_NOMES } from "@/src/domain/contratos";
 import { ROTULOS_MODELO } from "@/src/domain/financeiro";
 import { pode } from "@/src/domain/rbac";
-import { hojeNoFuso } from "@/src/domain/tempo";
+
 import { obterContrato } from "@/src/server/contratos";
 import { mensagemDeErro } from "@/src/server/erros";
 import { formatarDataBr } from "@/src/server/reservas";
@@ -167,7 +168,7 @@ export default async function ContratoPage({ params, searchParams }: PageProps<"
             >
               <div className="flex max-w-xs flex-col gap-2">
                 <Label htmlFor="ultimoDia">Último dia de vigência</Label>
-                <Input id="ultimoDia" name="ultimoDia" type="date" required defaultValue={hojeNoFuso("America/Sao_Paulo")} min={contrato.vigenteDe} />
+                <Input id="ultimoDia" name="ultimoDia" type="date" required defaultValue={await hojeNoEspaco(ctx)} min={contrato.vigenteDe} />
               </div>
             </FormAcao>
           </CardContent>
