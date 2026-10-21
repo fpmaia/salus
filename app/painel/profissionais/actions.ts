@@ -1,7 +1,7 @@
 "use server";
 
 import { obterContextoTenant } from "@/src/auth/sessao";
-import { type EstadoAcao, executarAcao, texto } from "@/src/server/acao";
+import { decisaoReservas, sufixoCanceladas, type EstadoAcao, executarAcao, texto } from "@/src/server/acao";
 import { enviarEmailConvite } from "@/src/server/convites-email";
 import { emailConviteProfissional } from "@/src/server/email-modelos";
 import { atualizarProfissional, criarProfissional, gerarConvite } from "@/src/server/profissionais";
@@ -30,11 +30,12 @@ export async function criarProfissionalAcao(_estado: EstadoAcao, formData: FormD
 export async function atualizarProfissionalAcao(profissionalId: string, _estado: EstadoAcao, formData: FormData) {
   return executarAcao(async () => {
     const ctx = await obterContextoTenant();
-    await atualizarProfissional(ctx, profissionalId, {
+    const { canceladas } = await atualizarProfissional(ctx, profissionalId, {
       ...dadosProfissional(formData),
       ativo: formData.get("ativo") === "on",
+      decisaoReservas: decisaoReservas(formData),
     });
-    return "Profissional atualizado";
+    return `Profissional atualizado.${sufixoCanceladas(canceladas)}`;
   });
 }
 

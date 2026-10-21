@@ -22,6 +22,13 @@ const ROTULO_STATUS: Record<string, string> = {
   cancelado: "Cancelada",
 };
 
+const ROTULO_TIPO: Record<string, string> = {
+  lembrete_agendamento: "Lembrete ao paciente",
+  lembrete_reserva: "Lembrete de reserva",
+  cancelamento_agendamento: "Aviso de cancelamento ao paciente",
+  cancelamento_reserva: "Aviso de cancelamento de reserva",
+};
+
 export default async function NotificacoesPage({ searchParams }: PageProps<"/painel/notificacoes">) {
   const ctx = await obterContextoTenant();
   exigirPermissaoNaPagina(ctx.role, "auditoria.ver");
@@ -59,7 +66,7 @@ export default async function NotificacoesPage({ searchParams }: PageProps<"/pai
                 <li key={n.id} className="flex flex-col gap-1 py-3 text-sm">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="font-medium">
-                      {n.tipo === "lembrete_agendamento" ? "Lembrete ao paciente" : "Lembrete de reserva"} · {n.destinatario}
+                      {ROTULO_TIPO[n.tipo]} · {n.destinatario}
                     </span>
                     <span className="text-xs text-muted-foreground">
                       {ROTULO_STATUS[n.status]}

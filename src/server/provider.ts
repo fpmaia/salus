@@ -1,11 +1,11 @@
-import { textoDaMensagem } from "../domain/notificacoes";
+import { textoDaMensagem, type TipoMensagem } from "../domain/notificacoes";
 
 // Provider de envio. "console" (padrão) só registra no log — desenvolvimento e testes.
 // "meta" usa a WhatsApp Cloud API com templates aprovados no WhatsApp Manager.
 
 export type MensagemTemplate = {
   para: string; // E.164
-  tipo: "lembrete_agendamento" | "lembrete_reserva";
+  tipo: TipoMensagem;
   parametros: Record<string, string>;
 };
 
@@ -39,6 +39,8 @@ export class ConsoleProvider implements NotificationProvider {
 const ORDEM_PARAMETROS: Record<MensagemTemplate["tipo"], string[]> = {
   lembrete_agendamento: ["paciente", "profissional", "data", "hora", "local", "link"],
   lembrete_reserva: ["profissional", "sala", "data", "hora", "local"],
+  cancelamento_agendamento: ["paciente", "profissional", "data", "hora", "motivo"],
+  cancelamento_reserva: ["profissional", "sala", "data", "hora", "motivo"],
 };
 
 export class WhatsAppCloudProvider implements NotificationProvider {
@@ -103,6 +105,8 @@ export function providerDoAmbiente(): NotificationProvider {
     templates: {
       lembrete_agendamento: process.env.WHATSAPP_TEMPLATE_AGENDAMENTO ?? "lembrete_agendamento",
       lembrete_reserva: process.env.WHATSAPP_TEMPLATE_RESERVA ?? "lembrete_reserva",
+      cancelamento_agendamento: process.env.WHATSAPP_TEMPLATE_CANCELAMENTO_AGENDAMENTO ?? "cancelamento_agendamento",
+      cancelamento_reserva: process.env.WHATSAPP_TEMPLATE_CANCELAMENTO_RESERVA ?? "cancelamento_reserva",
     },
     idioma: process.env.WHATSAPP_TEMPLATE_IDIOMA ?? "pt_BR",
   });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { datasDaRecorrencia, limiteDaJanela } from "./recorrencia";
+import { datasDaRecorrencia, descreverRecorrencia, limiteDaJanela, semanaDoMesDe } from "./recorrencia";
 import { calcularHorariosVagos, ErroReserva, segmentarReserva, slotAberto, slotsDaGrade, validarJanela, type ConfigUnidade } from "./reservas";
 
 // Segunda a sexta 08–12 e 14–18; sábado 08–12; domingo fechado.
@@ -266,3 +266,31 @@ describe("segmentarReserva", () => {
   });
 });
 
+
+describe("recorrência quinzenal e mensal", () => {
+  // 2026-10-05 é segunda-feira.
+  it("quinzenal alterna semanas a partir da semana de início, mesmo materializando depois", () => {
+    const regra = { diaSemana: 3, dataInicio: "2026-10-05", dataFim: null, frequencia: "quinzenal" as const };
+    expect(datasDaRecorrencia(regra, "2026-10-05", "2026-11-05")).toEqual(["2026-10-07", "2026-10-21", "2026-11-04"]);
+    // Continuação a partir de uma semana "ímpar": a paridade não muda.
+    expect(datasDaRecorrencia(regra, "2026-10-12", "2026-10-25")).toEqual(["2026-10-21"]);
+  });
+
+  it("mensal: N-ª ocorrência do dia da semana, e a última", () => {
+    const primeiraSegunda = { diaSemana: 1, dataInicio: "2026-10-01", dataFim: null, frequencia: "mensal" as const, semanaDoMes: 1 };
+    expect(datasDaRecorrencia(primeiraSegunda, "2026-10-01", "2026-12-31")).toEqual(["2026-10-05", "2026-11-02", "2026-12-07"]);
+    const ultimaSexta = { ...primeiraSegunda, diaSemana: 5, semanaDoMes: 5 };
+    expect(datasDaRecorrencia(ultimaSexta, "2026-10-01", "2026-12-31")).toEqual(["2026-10-30", "2026-11-27", "2026-12-25"]);
+  });
+
+  it("semana do mês e descrição", () => {
+    expect(semanaDoMesDe("2026-10-05")).toBe(1);
+    expect(semanaDoMesDe("2026-10-21")).toBe(3);
+    expect(semanaDoMesDe("2026-10-26")).toBe(4);
+    expect(semanaDoMesDe("2026-10-30")).toBe(5);
+    expect(descreverRecorrencia({ diaSemana: 1, frequencia: "mensal", semanaDoMes: 1 })).toBe("toda 1ª segunda do mês");
+    expect(descreverRecorrencia({ diaSemana: 6, frequencia: "mensal", semanaDoMes: 5 })).toBe("todo último sábado do mês");
+    expect(descreverRecorrencia({ diaSemana: 3, frequencia: "quinzenal" })).toBe("a cada 2 semanas, na quarta");
+    expect(descreverRecorrencia({ diaSemana: 0, frequencia: "semanal" })).toBe("todo domingo");
+  });
+});

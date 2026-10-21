@@ -10,6 +10,7 @@ import { analisarDocumento } from "../domain/documentos";
 import { exigirPermissao } from "../domain/rbac";
 import { exigirLimite } from "./assinatura";
 import { ErroNegocio } from "./erros";
+import { decidirImpacto, reservasAfetadas, type DecisaoImpacto } from "./impacto";
 
 export const VALIDADE_CONVITE_DIAS = 7;
 
@@ -98,12 +99,13 @@ export async function criarProfissional(
 export async function atualizarProfissional(
   ctx: ContextoTenant,
   profissionalId: string,
-  dados: z.input<typeof profissionalSchema> & { ativo: boolean },
+  dados: z.input<typeof profissionalSchema> & { ativo: boolean; decisaoReservas?: DecisaoImpacto },
   database?: Database,
-): Promise<void> {
+  agora = new Date(),
+): Promise<{ canceladas: number }> {
   exigirPermissao(ctx.role, "profissionais.gerenciar");
   const valores = { ...colunas(profissionalSchema.parse(dados)), ativo: dados.ativo };
-  await withTenant(
+  return withTenant(
     ctx,
     async (tx) => {
       const [atual] = await tx.select().from(profissionais).where(eq(profissionais.id, profissionalId));
@@ -112,6 +114,17 @@ export async function atualizarProfissional(
       // Depois do acesso criado, o e-mail é o do login e não muda por aqui.
       if (atual.membershipId && valores.email !== atual.email) {
         throw new ErroNegocio("O e-mail não pode ser alterado depois que o profissional aceitou o convite");
+      }
+      // Desativando: as reservas futuras dele ficam ou saem, conforme a decisão do admin.
+      let canceladas = 0;
+      if (!valores.ativo && atual.ativo) {
+        ({ canceladas } = await decidirImpacto(
+          tx,
+          await reservasAfetadas(tx, { profissionalId }, agora),
+          dados.decisaoReservas,
+          { titulo: `${atual.nome} tem reservas futuras`, motivo: "profissional não atende mais no espaço" },
+          agora,
+        ));
       }
       await tx.update(profissionais).set(valores).where(eq(profissionais.id, profissionalId)).catch(traduzirErroProfissional);
       // Desativar o profissional também tira o acesso dele ao espaço.
@@ -122,8 +135,9 @@ export async function atualizarProfissional(
         acao: "profissional.atualizado",
         entidade: "profissionais",
         entidadeId: profissionalId,
-        dados: valores,
+        dados: canceladas ? { ...valores, reservasCanceladas: canceladas } : valores,
       });
+      return { canceladas };
     },
     database,
   );

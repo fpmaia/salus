@@ -47,7 +47,15 @@ export type ParametrosLembreteReserva = {
 };
 
 /** Texto equivalente ao template aprovado (usado pelo provider de console e na tela da outbox). */
-export function textoDaMensagem(tipo: "lembrete_agendamento" | "lembrete_reserva", p: Record<string, string>): string {
+export type TipoMensagem = "lembrete_agendamento" | "lembrete_reserva" | "cancelamento_agendamento" | "cancelamento_reserva";
+
+export function textoDaMensagem(tipo: TipoMensagem, p: Record<string, string>): string {
+  if (tipo === "cancelamento_agendamento") {
+    return `Olá, ${p.paciente}! Seu atendimento com ${p.profissional} em ${p.data} às ${p.hora} foi cancelado pelo espaço (${p.motivo}). Entre em contato para remarcar.`;
+  }
+  if (tipo === "cancelamento_reserva") {
+    return `Olá, ${p.profissional}! Sua reserva da ${p.sala} em ${p.data} às ${p.hora} foi cancelada pelo espaço (${p.motivo}).`;
+  }
   if (tipo === "lembrete_agendamento") {
     return `Olá, ${p.paciente}! Lembrete: seu atendimento com ${p.profissional} é em ${p.data} às ${p.hora} (${p.local}). Confirme ou cancele: ${p.link}`;
   }

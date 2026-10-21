@@ -474,6 +474,8 @@ export const convitesMembro = pgTable(
 );
 
 // Recorrência semanal; o worker materializa as reservas numa janela à frente.
+export const frequenciaRecorrencia = pgEnum("frequencia_recorrencia", ["semanal", "quinzenal", "mensal"]);
+
 export const regrasRecorrencia = pgTable(
   "regras_recorrencia",
   {
@@ -484,6 +486,12 @@ export const regrasRecorrencia = pgTable(
     salaId: uuid("sala_id").notNull(),
     profissionalId: uuid("profissional_id").notNull(),
     diaSemana: smallint("dia_semana").notNull(),
+    // Quinzenal: semanas pares contadas da semana de data_inicio. Mensal: a N-ª ocorrência do
+    // dia da semana no mês (5 = a última).
+    frequencia: frequenciaRecorrencia("frequencia").notNull().default("semanal"),
+    semanaDoMes: smallint("semana_do_mes"),
+    // Regras criadas juntas (vários dias da semana num pedido) são encerradas juntas.
+    grupoId: uuid("grupo_id"),
     horaInicio: time("hora_inicio").notNull(),
     horaFim: time("hora_fim").notNull(),
     dataInicio: date("data_inicio", { mode: "string" }).notNull(),
@@ -500,6 +508,11 @@ export const regrasRecorrencia = pgTable(
     foreignKey({ columns: [t.tenantId, t.profissionalId], foreignColumns: [profissionais.tenantId, profissionais.id] }),
     check("regras_recorrencia_dia_check", sql`${t.diaSemana} between 0 and 6`),
     check("regras_recorrencia_intervalo_check", sql`${t.horaFim} > ${t.horaInicio}`),
+    check(
+      "regras_recorrencia_mensal_check",
+      sql`(${t.frequencia} = 'mensal') = (${t.semanaDoMes} is not null) and (${t.semanaDoMes} is null or ${t.semanaDoMes} between 1 and 5)`,
+    ),
+    index("regras_recorrencia_grupo_idx").on(t.grupoId),
   ],
 );
 
@@ -826,7 +839,13 @@ export const fechamentos = pgTable(
 // Fase 4: notificações (RLS)
 // ---------------------------------------------------------------------------
 
-export const tipoNotificacao = pgEnum("tipo_notificacao", ["lembrete_agendamento", "lembrete_reserva"]);
+export const tipoNotificacao = pgEnum("tipo_notificacao", [
+  "lembrete_agendamento",
+  "lembrete_reserva",
+  // Avisos de cancelamento pelo espaço (feriado, sala ou profissional desativado).
+  "cancelamento_agendamento",
+  "cancelamento_reserva",
+]);
 export const statusNotificacao = pgEnum("status_notificacao", ["pendente", "enviando", "enviado", "falhou", "cancelado"]);
 
 // Outbox: gravada na mesma transação do fato; o worker envia, com retentativas.

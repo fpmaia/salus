@@ -363,7 +363,7 @@ export default async function AgendaPage({ searchParams }: PageProps<"/painel/ag
                     </p>
                     <span className="block text-xs text-muted-foreground mt-0.5">
                       {reservaAberta.status === "ativa" ? "Ativa" : reservaAberta.status === "concluida" ? "Concluída" : "Cancelada"}
-                      {reservaAberta.recorrenciaId && " · reserva semanal"}
+                      {reservaAberta.recorrenciaId && " · reserva recorrente"}
                     </span>
                   </div>
                   <div className="flex flex-col items-end gap-1">
@@ -611,9 +611,26 @@ export default async function AgendaPage({ searchParams }: PageProps<"/painel/ag
                     </div>
                   </div>
                   {precoEstimado}
-                  <label className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" name="repetir" /> Repetir toda semana
-                  </label>
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="repetir">Repetir</Label>
+                    <NativeSelect id="repetir" name="repetir" defaultValue="">
+                      <option value="">Não repetir</option>
+                      <option value="semanal">Toda semana</option>
+                      <option value="quinzenal">A cada 2 semanas</option>
+                      <option value="mensal">Todo mês (mesma semana do mês da data, ex.: 1ª segunda)</option>
+                    </NativeSelect>
+                  </div>
+                  <fieldset className="flex flex-col gap-2">
+                    <legend className="text-sm font-medium">Dias da semana (ao repetir)</legend>
+                    <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm">
+                      {["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map((nome, dia) => (
+                        <label key={dia} className="flex items-center gap-1">
+                          <input type="checkbox" name="diasSemana" value={dia} /> {nome}
+                        </label>
+                      ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground">Sem marcar nenhum, repete no dia da semana da data.</p>
+                  </fieldset>
                   <div className="flex flex-col gap-2">
                     <Label htmlFor="dataFim">Repetir até (opcional)</Label>
                     <Input id="dataFim" name="dataFim" type="date" min={novaData} />

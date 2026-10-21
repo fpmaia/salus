@@ -1,3 +1,4 @@
+import { DecisaoReservas } from "@/components/decisao-reservas";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { FormAcao } from "@/components/form-acao";
@@ -148,6 +149,7 @@ export default async function UnidadePage({ params }: PageProps<"/painel/unidade
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" name="todasUnidades" /> Vale para todas as unidades
             </label>
+            <DecisaoReservas id="feriado-decisao" rotulo="Se já houver reservas nesse dia" />
           </FormAcao>
         </CardContent>
       </Card>
@@ -165,6 +167,7 @@ export default async function UnidadePage({ params }: PageProps<"/painel/unidade
                 <label className="flex items-center gap-2 text-sm">
                   <input type="checkbox" name="ativo" defaultChecked={s.ativo} /> Sala ativa
                 </label>
+                {s.ativo && <DecisaoReservas id={`sala-${s.id}-decisao`} rotulo="Ao desativar, reservas futuras da sala" />}
               </FormAcao>
             </div>
           ))}

@@ -10,6 +10,7 @@ import { SLOTS_PERMITIDOS, type ConfigUnidade } from "../domain/reservas";
 import { dataValida, horaValida, minutosDoDia, timezoneValido } from "../domain/tempo";
 import { exigirLimite } from "./assinatura";
 import { ErroNegocio } from "./erros";
+import { decidirImpacto, reservasAfetadas, type DecisaoImpacto } from "./impacto";
 
 const textoOpcional = (max: number) =>
   z
@@ -148,19 +149,37 @@ export async function definirHorarios(
   );
 }
 
+/**
+ * Feriado novo. Com reservas já marcadas no dia, o admin decide (`decisaoReservas`): mantê-las
+ * ou cancelá-las pelo espaço, avisando. Sem decisão, a lista vem no erro e nada é gravado.
+ */
 export async function adicionarFeriado(
   ctx: ContextoTenant,
-  dados: z.input<typeof feriadoSchema>,
+  dados: z.input<typeof feriadoSchema> & { decisaoReservas?: DecisaoImpacto },
   database?: Database,
-): Promise<{ id: string }> {
+  agora = new Date(),
+): Promise<{ id: string; canceladas: number }> {
   exigirPermissao(ctx.role, "salas.gerenciar");
   const valores = feriadoSchema.parse(dados);
   return withTenant(
     ctx,
     async (tx) => {
       const [feriado] = await tx.insert(feriados).values(valores).returning({ id: feriados.id });
-      await registrarAuditoria(tx, { acao: "feriado.criado", entidade: "feriados", entidadeId: feriado.id, dados: valores });
-      return feriado;
+      const afetadas = await reservasAfetadas(tx, { data: valores.data, unidadeId: valores.unidadeId }, agora);
+      const { canceladas, avisos } = await decidirImpacto(
+        tx,
+        afetadas,
+        dados.decisaoReservas,
+        { titulo: "Já há reservas nesse dia", motivo: `feriado: ${valores.descricao}` },
+        agora,
+      );
+      await registrarAuditoria(tx, {
+        acao: "feriado.criado",
+        entidade: "feriados",
+        entidadeId: feriado.id,
+        dados: { ...valores, afetadas: afetadas.length, decisao: dados.decisaoReservas ?? null, canceladas, avisos },
+      });
+      return { id: feriado.id, canceladas };
     },
     database,
   );
@@ -230,17 +249,27 @@ export async function criarSala(
 export async function atualizarSala(
   ctx: ContextoTenant,
   salaId: string,
-  dados: z.input<typeof salaSchema> & { ativo: boolean },
+  dados: z.input<typeof salaSchema> & { ativo: boolean; decisaoReservas?: DecisaoImpacto },
   database?: Database,
-): Promise<void> {
+  agora = new Date(),
+): Promise<{ canceladas: number }> {
   exigirPermissao(ctx.role, "salas.gerenciar");
   const { recursos, ...valores } = salaSchema.parse(dados);
-  await withTenant(
+  return withTenant(
     ctx,
     async (tx) => {
-      if (dados.ativo) {
-        const [atual] = await tx.select({ ativo: salas.ativo }).from(salas).where(eq(salas.id, salaId));
-        if (atual && !atual.ativo) await exigirLimite(tx, "salas");
+      const [atual] = await tx.select({ ativo: salas.ativo, nome: salas.nome }).from(salas).where(eq(salas.id, salaId));
+      if (dados.ativo && atual && !atual.ativo) await exigirLimite(tx, "salas");
+      // Desativando: as reservas futuras da sala ficam ou saem, conforme a decisão do admin.
+      let canceladas = 0;
+      if (!dados.ativo && atual?.ativo) {
+        ({ canceladas } = await decidirImpacto(
+          tx,
+          await reservasAfetadas(tx, { salaId }, agora),
+          dados.decisaoReservas,
+          { titulo: "A sala tem reservas futuras", motivo: `sala ${atual.nome} desativada` },
+          agora,
+        ));
       }
       const alteradas = await tx
         .update(salas)
@@ -254,8 +283,9 @@ export async function atualizarSala(
         acao: "sala.atualizada",
         entidade: "salas",
         entidadeId: salaId,
-        dados: { ...valores, ativo: dados.ativo, recursos },
+        dados: { ...valores, ativo: dados.ativo, recursos, ...(canceladas ? { reservasCanceladas: canceladas } : {}) },
       });
+      return { canceladas };
     },
     database,
   );

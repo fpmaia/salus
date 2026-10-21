@@ -238,6 +238,18 @@ export async function processarFila(
 
 /** Revalida antes de enviar: o compromisso ainda vale e o paciente ainda consente? */
 async function motivoParaNaoEnviar(tx: Transaction, n: Reivindicada, agora: Date): Promise<string | null> {
+  // Aviso de cancelamento: o compromisso já saiu da agenda; só o consentimento do paciente vale.
+  if (n.tipo === "cancelamento_agendamento" || n.tipo === "cancelamento_reserva") {
+    if (n.agendamentoId) {
+      const [a] = await tx
+        .select({ consentimento: pacientes.consentimentoLembretes })
+        .from(agendamentos)
+        .innerJoin(pacientes, eq(pacientes.id, agendamentos.pacienteId))
+        .where(eq(agendamentos.id, n.agendamentoId));
+      if (!a?.consentimento) return "Paciente retirou o consentimento";
+    }
+    return null;
+  }
   if (n.agendamentoId) {
     const [a] = await tx
       .select({ status: agendamentos.status, periodo: agendamentos.periodo, consentimento: pacientes.consentimentoLembretes })

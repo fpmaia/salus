@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { and, asc, eq, gte, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { registrarAuditoria } from "../db/audit";
@@ -6,7 +7,7 @@ import { erroPostgres, PG } from "../db/erros";
 import { agendamentos, acordosFinanceiros, pacientes, profissionais, regrasRecorrencia, reservasSala, salas, unidades } from "../db/schema";
 import { type ContextoTenant, withTenant } from "../db/tenant";
 import { exigirPermissao, pode } from "../domain/rbac";
-import { datasDaRecorrencia, limiteDaJanela } from "../domain/recorrencia";
+import { datasDaRecorrencia, FREQUENCIAS, limiteDaJanela, semanaDoMesDe } from "../domain/recorrencia";
 import { calcularHorariosVagos, ErroReserva, validarJanela, type ConfigUnidade, type HorarioVago, type JanelaLocal } from "../domain/reservas";
 import {
   dataValida,
@@ -42,6 +43,12 @@ export const recorrenciaSchema = z
     dataFim: dataSchema.nullable().default(null),
     horaInicio: horaSchema,
     horaFim: horaSchema,
+    frequencia: z.enum(FREQUENCIAS).default("semanal"),
+    /** Dias da semana (0 = domingo). Omitidos = o dia da data inicial. */
+    diasSemana: z
+      .array(z.coerce.number().int().min(0).max(6))
+      .optional()
+      .transform((dias) => (dias?.length ? [...new Set(dias)].sort() : undefined)),
   })
   .refine((r) => !r.dataFim || r.dataFim >= r.dataInicio, "A data final deve ser depois da inicial");
 
@@ -247,7 +254,8 @@ function janelaDaOcorrencia(
 }
 
 /**
- * Cria a regra semanal e materializa as ocorrências da janela (8 semanas).
+ * Cria a recorrência (semanal, quinzenal ou mensal; uma regra por dia da semana, no mesmo grupo)
+ * e materializa as ocorrências da janela (8 semanas).
  * Se qualquer ocorrência da janela conflitar, nada é gravado e as datas são informadas.
  */
 export async function criarRecorrencia(
@@ -265,50 +273,57 @@ export async function criarRecorrencia(
       const hoje = hojeNoFuso(sala.config.timezone, agora);
       if (pedido.dataInicio < hoje) throw new ErroReserva("no_passado", "A recorrência não pode começar no passado");
 
-      const regraSemanal = { diaSemana: diaSemana(pedido.dataInicio), dataInicio: pedido.dataInicio, dataFim: pedido.dataFim };
+      // Mensal: a mesma semana do mês da data inicial (ex.: 1ª segunda), para cada dia escolhido.
+      const semanaDoMes = pedido.frequencia === "mensal" ? semanaDoMesDe(pedido.dataInicio) : null;
+      const dias = pedido.diasSemana ?? [diaSemana(pedido.dataInicio)];
+      const grupoId = dias.length > 1 ? randomUUID() : null;
       const limite = limiteDaJanela(hoje);
-      const datas = datasDaRecorrencia(regraSemanal, hoje, limite);
-      // Valida o horário (slot, funcionamento) antes de gravar qualquer coisa.
-      const janelas = datas.map((data) => ({
-        data,
-        periodo: janelaDaOcorrencia({ data, horaInicio: pedido.horaInicio, horaFim: pedido.horaFim }, sala.config, agora),
-      }));
-
-      const [regra] = await tx
-        .insert(regrasRecorrencia)
-        .values({
-          salaId: sala.id,
-          profissionalId,
-          diaSemana: regraSemanal.diaSemana,
-          horaInicio: pedido.horaInicio,
-          horaFim: pedido.horaFim,
-          dataInicio: pedido.dataInicio,
-          dataFim: pedido.dataFim,
-          materializadaAte: limite,
-        })
-        .returning({ id: regrasRecorrencia.id });
 
       const conflitos: DataLocal[] = [];
       let ocorrencias = 0;
-      for (const { data, periodo } of janelas) {
-        if (!periodo) continue;
-        const resultado = await inserirOcorrencia(tx, { id: regra.id, salaId: sala.id, profissionalId }, data, periodo);
-        if (resultado === "conflito") conflitos.push(data);
-        if (resultado === "criada") ocorrencias++;
+      let primeiraId: string | null = null;
+      for (const dia of dias) {
+        const regraNova = { diaSemana: dia, dataInicio: pedido.dataInicio, dataFim: pedido.dataFim, frequencia: pedido.frequencia, semanaDoMes };
+        // Valida o horário (slot, funcionamento) antes de gravar qualquer coisa.
+        const janelas = datasDaRecorrencia(regraNova, hoje, limite).map((data) => ({
+          data,
+          periodo: janelaDaOcorrencia({ data, horaInicio: pedido.horaInicio, horaFim: pedido.horaFim }, sala.config, agora),
+        }));
+        const [regra] = await tx
+          .insert(regrasRecorrencia)
+          .values({
+            salaId: sala.id,
+            profissionalId,
+            ...regraNova,
+            grupoId,
+            horaInicio: pedido.horaInicio,
+            horaFim: pedido.horaFim,
+            materializadaAte: limite,
+          })
+          .returning({ id: regrasRecorrencia.id });
+        primeiraId ??= regra.id;
+        for (const { data, periodo } of janelas) {
+          if (!periodo) continue;
+          const resultado = await inserirOcorrencia(tx, { id: regra.id, salaId: sala.id, profissionalId }, data, periodo);
+          if (resultado === "conflito") conflitos.push(data);
+          if (resultado === "criada") ocorrencias++;
+        }
       }
       if (conflitos.length > 0) {
+        conflitos.sort();
         throw new ErroReserva(
           "conflito_recorrencia",
           `Há conflito de horário em: ${conflitos.map(formatarDataBr).join(", ")}`,
           { datas: conflitos },
         );
       }
+      const regra = { id: primeiraId! };
 
       await registrarAuditoria(tx, {
         acao: "recorrencia.criada",
         entidade: "regras_recorrencia",
         entidadeId: regra.id,
-        dados: { ...pedido, profissionalId, ocorrencias },
+        dados: { ...pedido, profissionalId, ocorrencias, grupoId },
       });
       return { id: regra.id, ocorrencias };
     },
@@ -341,7 +356,21 @@ export async function encerrarRecorrencia(
         }
       }
 
-      return encerrarRegraNaTransacao(tx, regra, aPartirDe, agora, pode(ctx.role, "reservas.gerenciar") ? "espaco" : "profissional");
+      // Vários dias criados juntos: a série é uma só para quem usa.
+      const doGrupo = regra.grupoId
+        ? await tx
+            .select()
+            .from(regrasRecorrencia)
+            .where(and(eq(regrasRecorrencia.grupoId, regra.grupoId), isNull(regrasRecorrencia.encerradaEm)))
+            .for("update")
+        : [regra];
+      const total = { canceladas: 0, mantidas: 0 };
+      for (const r of doGrupo) {
+        const parcial = await encerrarRegraNaTransacao(tx, r, aPartirDe, agora, pode(ctx.role, "reservas.gerenciar") ? "espaco" : "profissional");
+        total.canceladas += parcial.canceladas;
+        total.mantidas += parcial.mantidas;
+      }
+      return total;
     },
     database,
   );

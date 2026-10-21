@@ -209,3 +209,20 @@ test("profissional abre o próprio contrato pelo menu", async ({ page }) => {
   await expect(page.getByText(/por hora reservada/).first()).toBeVisible();
   await expect(page.getByRole("link", { name: "Reajustar (nova versão)" })).toHaveCount(0);
 });
+
+// Por último: o feriado de amanhã bloquearia as reservas dos outros testes.
+test("feriado num dia com reservas mostra a lista e só grava com a decisão do admin", async ({ page }) => {
+  const { amanha } = dados();
+  await entrar(page, "admin");
+  await page.goto("/painel/unidades");
+  await page.getByRole("link", { name: "Unidade E2E" }).first().click();
+  const formulario = page.locator("form", { has: page.getByRole("button", { name: "Adicionar feriado" }) });
+  await formulario.getByLabel("Data").fill(amanha);
+  await formulario.getByLabel("Descrição").fill("Feriado E2E");
+  await formulario.getByRole("button", { name: "Adicionar feriado" }).click();
+  await expect(formulario.getByText(/Já há reservas nesse dia: .*Sala 2 · Dra\. E2E/)).toBeVisible();
+
+  await formulario.getByLabel("Se já houver reservas nesse dia").selectOption("manter");
+  await formulario.getByRole("button", { name: "Adicionar feriado" }).click();
+  await expect(page.getByText("Feriado E2E")).toBeVisible();
+});

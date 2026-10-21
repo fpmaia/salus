@@ -20,13 +20,16 @@ export async function criarReservaAcao(_estado: EstadoAcao, formData: FormData) 
       horaFim: texto(formData, "horaFim"),
     };
     const data = texto(formData, "data");
-    if (formData.get("repetir") === "on") {
+    const repetir = texto(formData, "repetir");
+    if (repetir === "semanal" || repetir === "quinzenal" || repetir === "mensal") {
       const { ocorrencias } = await criarRecorrencia(ctx, {
         ...base,
         dataInicio: data,
         dataFim: textoOuUndefined(formData, "dataFim") ?? null,
+        frequencia: repetir,
+        diasSemana: formData.getAll("diasSemana").map(Number),
       });
-      return `Reserva semanal criada (${ocorrencias} ocorrências nas próximas 8 semanas; as seguintes são geradas automaticamente)`;
+      return `Reserva recorrente criada (${ocorrencias} ocorrência(s) nas próximas 8 semanas; as seguintes são geradas automaticamente)`;
     }
     await criarReserva(ctx, { ...base, data });
     return `Reserva criada para ${formatarDataBr(data)}, ${base.horaInicio}–${base.horaFim}`;

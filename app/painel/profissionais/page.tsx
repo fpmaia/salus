@@ -1,3 +1,4 @@
+import { DecisaoReservas } from "@/components/decisao-reservas";
 import { FormAcao } from "@/components/form-acao";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -52,6 +53,7 @@ export default async function ProfissionaisPage() {
                   <label className="flex items-center gap-2 text-sm">
                     <input type="checkbox" name="ativo" defaultChecked={p.ativo} /> Ativo (inativar também remove o acesso)
                   </label>
+                  {p.ativo && <DecisaoReservas id={`prof-${p.id}-decisao`} rotulo="Ao inativar, reservas futuras dele" />}
                 </FormAcao>
                 {p.situacao !== "ativo" && p.ativo && (
                   <BotaoConvite acao={gerarConviteAcao.bind(null, p.id)} pendente={p.situacao === "convite_pendente"} />

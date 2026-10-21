@@ -44,3 +44,14 @@ export function texto(formData: FormData, campo: string): string {
 export function textoOuUndefined(formData: FormData, campo: string): string | undefined {
   return texto(formData, campo).trim() || undefined;
 }
+
+/** Decisão sobre as reservas já marcadas (feriado/desativação): vazio = mostrar a lista. */
+export function decisaoReservas(formData: FormData): "manter" | "cancelar" | undefined {
+  const valor = texto(formData, "decisaoReservas");
+  return valor === "manter" || valor === "cancelar" ? valor : undefined;
+}
+
+/** Complemento da mensagem de sucesso quando reservas foram canceladas. */
+export function sufixoCanceladas(canceladas: number): string {
+  return canceladas ? ` ${canceladas} reserva(s) cancelada(s), com aviso por WhatsApp a quem aceita receber.` : "";
+}

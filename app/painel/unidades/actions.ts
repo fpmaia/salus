@@ -1,7 +1,7 @@
 "use server";
 
 import { obterContextoTenant } from "@/src/auth/sessao";
-import { type EstadoAcao, executarAcao, texto } from "@/src/server/acao";
+import { decisaoReservas, sufixoCanceladas, type EstadoAcao, executarAcao, texto } from "@/src/server/acao";
 import { definirPoliticaCancelamento } from "@/src/server/configuracoes";
 import {
   adicionarFeriado,
@@ -65,12 +65,13 @@ export async function salvarHorariosAcao(unidadeId: string, _estado: EstadoAcao,
 export async function adicionarFeriadoAcao(unidadeId: string, _estado: EstadoAcao, formData: FormData) {
   return executarAcao(async () => {
     const ctx = await obterContextoTenant();
-    await adicionarFeriado(ctx, {
+    const { canceladas } = await adicionarFeriado(ctx, {
       unidadeId: formData.get("todasUnidades") === "on" ? null : unidadeId,
       data: texto(formData, "data"),
       descricao: texto(formData, "descricao"),
+      decisaoReservas: decisaoReservas(formData),
     });
-    return "Feriado adicionado";
+    return `Feriado adicionado.${sufixoCanceladas(canceladas)}`;
   });
 }
 
@@ -102,11 +103,12 @@ export async function criarSalaAcao(unidadeId: string, _estado: EstadoAcao, form
 export async function atualizarSalaAcao(salaId: string, _estado: EstadoAcao, formData: FormData) {
   return executarAcao(async () => {
     const ctx = await obterContextoTenant();
-    await atualizarSala(ctx, salaId, {
+    const { canceladas } = await atualizarSala(ctx, salaId, {
       ...dadosSala(formData),
       ativo: formData.get("ativo") === "on",
+      decisaoReservas: decisaoReservas(formData),
     });
-    return "Sala atualizada";
+    return `Sala atualizada.${sufixoCanceladas(canceladas)}`;
   });
 }
 
