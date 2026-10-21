@@ -517,6 +517,8 @@ export const reservasSala = pgTable(
     recorrenciaId: uuid("recorrencia_id"),
     // Data local da ocorrência (só para reservas de recorrência).
     dataOcorrencia: date("data_ocorrencia", { mode: "string" }),
+    // Criada sozinha ao agendar num horário vazio: é liberada quando a consulta sai dela.
+    criadaPeloAgendamento: boolean("criada_pelo_agendamento").notNull().default(false),
     canceladaEm: timestamp("cancelada_em", { withTimezone: true }),
     // profissional | espaco (só o primeiro pode gerar multa de turno fixo).
     canceladaPor: text("cancelada_por").$type<"profissional" | "espaco">(),
@@ -611,7 +613,10 @@ export const agendamentos = pgTable(
     pacienteId: uuid("paciente_id").notNull(),
     periodo: tstzrange("periodo").notNull(),
     status: agendamentoStatus("status").notNull().default("agendado"),
+    // Status antes da última mudança: permite desfazer um clique errado (até 24h, pela equipe).
+    statusAnterior: agendamentoStatus("status_anterior"),
     observacao: text("observacao"),
+    remarcadoEm: timestamp("remarcado_em", { withTimezone: true }),
     statusAtualizadoEm: timestamp("status_atualizado_em", { withTimezone: true }).notNull().defaultNow(),
     canceladoEm: timestamp("cancelado_em", { withTimezone: true }),
     // paciente | profissional | espaco (cancelamento tardio pelo espaço não cobra).
@@ -638,6 +643,33 @@ export const agendamentos = pgTable(
     index("agendamentos_paciente_idx").on(t.pacienteId),
     check("agendamentos_periodo_check", sql`not isempty(${t.periodo}) and lower_inc(${t.periodo}) and not upper_inc(${t.periodo})`),
     check("agendamentos_valor_check", sql`${t.valorCentavos} is null or ${t.valorCentavos} >= 0`),
+  ],
+);
+
+export const statusEspera = pgEnum("status_espera", ["aguardando", "agendado", "removido"]);
+
+// Pacientes esperando horário (com um profissional ou qualquer um). A recepção vê quem espera
+// quando um horário abre; nada é enviado automaticamente ao paciente.
+export const listaEspera = pgTable(
+  "lista_espera",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: tenantIdDoContexto(),
+    pacienteId: uuid("paciente_id").notNull(),
+    // null = qualquer profissional.
+    profissionalId: uuid("profissional_id"),
+    preferencia: text("preferencia"),
+    status: statusEspera("status").notNull().default("aguardando"),
+    agendamentoId: uuid("agendamento_id"),
+    criadoPor: uuid("criado_por").default(sql`app_current_user_id()`).references(() => users.id, { onDelete: "set null" }),
+    criadoEm: criadoEm(),
+    atualizadoEm: atualizadoEm(),
+  },
+  (t) => [
+    foreignKey({ columns: [t.tenantId, t.pacienteId], foreignColumns: [pacientes.tenantId, pacientes.id] }),
+    foreignKey({ columns: [t.tenantId, t.profissionalId], foreignColumns: [profissionais.tenantId, profissionais.id] }),
+    foreignKey({ columns: [t.tenantId, t.agendamentoId], foreignColumns: [agendamentos.tenantId, agendamentos.id] }),
+    index("lista_espera_aguardando_idx").on(t.tenantId, t.status, t.criadoEm),
   ],
 );
 

@@ -218,6 +218,13 @@
       "when": 1792585563201,
       "tag": "0030_grade_do_contrato",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1792588185644,
+      "tag": "0031_recepcao",
+      "breakpoints": true
     }
   ]
 }
