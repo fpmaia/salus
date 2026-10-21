@@ -1,5 +1,6 @@
 "use client";
 
+import { InputMascara } from "@/components/input-mascara";
 import { useState } from "react";
 import { FormAcao } from "@/components/form-acao";
 import { Turnstile } from "@/components/turnstile";
@@ -78,7 +79,7 @@ export function FormularioAgendamento({
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="ag-tel">Celular (WhatsApp)</Label>
-          <Input id="ag-tel" name="telefone" type="tel" autoComplete="tel" placeholder="(11) 99999-0000" required />
+          <InputMascara mascara="telefone" id="ag-tel" name="telefone" type="tel" autoComplete="tel" placeholder="(11) 99999-0000" required />
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="ag-email">E-mail (opcional)</Label>

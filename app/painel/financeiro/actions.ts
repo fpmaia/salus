@@ -44,7 +44,7 @@ export async function fecharCompetenciaAcao(profissionalId: string, competencia:
   return executarAcao(async () => {
     const ctx = await obterContextoTenant();
     await fecharCompetencia(ctx, profissionalId, competencia);
-    return "Competência fechada";
+    return "Mês fechado";
   });
 }
 

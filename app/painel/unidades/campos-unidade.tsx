@@ -37,7 +37,7 @@ export function CamposUnidade({ valores = {} }: { valores?: Valores }) {
         </NativeSelect>
       </div>
       <div className="flex flex-col gap-2">
-        <Label htmlFor="slotMinutos">Duração mínima da reserva (slot)</Label>
+        <Label htmlFor="slotMinutos">Intervalo da agenda (duração mínima da reserva)</Label>
         <NativeSelect id="slotMinutos" name="slotMinutos" defaultValue={String(valores.slotMinutos ?? 30)}>
           <option value="15">15 minutos</option>
           <option value="30">30 minutos</option>

@@ -211,7 +211,7 @@ export function FormularioEntrar({
                     {demoCarregando === "Recepção" ? "Acessando..." : "Recepção"}
                   </span>
                   <span className="text-[10px] text-muted-foreground leading-none">
-                    Check-in e agenda
+                    Chegada e agenda
                   </span>
                 </div>
               </button>

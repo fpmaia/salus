@@ -28,8 +28,8 @@ export async function criarAgendamentoAcao(_estado: EstadoAcao, formData: FormDa
 
 const MENSAGENS: Partial<Record<StatusAgendamento, string>> = {
   confirmado: "Confirmado",
-  presente: "Check-in feito",
-  realizado: "Atendimento realizado",
+  presente: "Chegada registrada",
+  realizado: "Consulta realizada",
   falta: "Falta registrada",
 };
 

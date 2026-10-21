@@ -226,7 +226,7 @@ export default function Home() {
                   Agenda da Recepção
                 </h3>
                 <p className="mt-2 text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                  Pacientes são agendados dentro das reservas do profissional. Check-in rápido e confirmações de presença com poucos cliques.
+                  Pacientes são agendados dentro das reservas do profissional. Chegada do paciente e confirmações com poucos cliques.
                 </p>
               </div>
 

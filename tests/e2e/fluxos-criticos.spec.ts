@@ -53,7 +53,7 @@ test("admin fecha o mês anterior e o extrato fica congelado", async ({ page }) 
   const { profissionalId, competenciaAnterior } = dados();
   await entrar(page, "admin");
   await page.goto(`/painel/financeiro/${profissionalId}?competencia=${competenciaAnterior}`);
-  await expect(page.getByText("Competência aberta")).toBeVisible();
+  await expect(page.getByText("Mês em aberto")).toBeVisible();
 
   await page.getByRole("button", { name: /^Fechar / }).click();
   // Confirmação com o impacto explicado (diálogo da página, não o do navegador).
@@ -239,6 +239,16 @@ test("profissional emite o recibo do atendimento pago e a recepção cadastra pa
   await novo.getByLabel("Parentesco").fill("Pai");
   await novo.getByRole("button", { name: "Cadastrar paciente" }).click();
   await expect(page.getByRole("link", { name: "Lia Criança" })).toBeVisible();
+});
+
+test("máscaras formatam CPF e telefone enquanto o usuário digita", async ({ page }) => {
+  await entrar(page, "admin");
+  await page.goto("/painel/pacientes");
+  const novo = page.locator("form", { has: page.getByRole("button", { name: "Cadastrar paciente" }) });
+  await novo.getByLabel("CPF (opcional)").pressSequentially("52998224725");
+  await expect(novo.getByLabel("CPF (opcional)")).toHaveValue("529.982.247-25");
+  await novo.getByLabel("Telefone / WhatsApp").pressSequentially("11999990000");
+  await expect(novo.getByLabel("Telefone / WhatsApp")).toHaveValue("(11) 99999-0000");
 });
 
 // Por último: o feriado de amanhã bloquearia as reservas dos outros testes.

@@ -1,3 +1,4 @@
+import { InputMascara } from "@/components/input-mascara";
 import { pode } from "@/src/domain/rbac";
 import { DecisaoReservas } from "@/components/decisao-reservas";
 import { FormAcao } from "@/components/form-acao";
@@ -126,7 +127,7 @@ function CamposProfissional({
       </div>
       <div className="flex flex-col gap-2">
         <Label htmlFor={campo("telefone")}>Telefone / WhatsApp</Label>
-        <Input id={campo("telefone")} name="telefone" type="tel" defaultValue={valores.telefone ?? ""} />
+        <InputMascara mascara="telefone" id={campo("telefone")} name="telefone" type="tel" defaultValue={valores.telefone ?? ""} />
       </div>
       <div className="flex flex-col gap-2">
         <Label htmlFor={campo("conselho")}>Conselho</Label>
@@ -149,7 +150,7 @@ function CamposProfissional({
       </div>
       <div className="flex flex-col gap-2">
         <Label htmlFor={campo("documento")}>CPF ou CNPJ (para a NFS-e)</Label>
-        <Input id={campo("documento")} name="documento" inputMode="numeric" defaultValue={valores.documento ?? ""} />
+        <InputMascara mascara="cpfCnpj" id={campo("documento")} name="documento" defaultValue={valores.documento ?? ""} />
       </div>
     </div>
   );

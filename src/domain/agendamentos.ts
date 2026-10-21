@@ -6,7 +6,7 @@ export type StatusAgendamento = (typeof STATUS_AGENDAMENTO)[number];
 export const ROTULOS_STATUS: Record<StatusAgendamento, string> = {
   agendado: "Agendado",
   confirmado: "Confirmado",
-  presente: "Presente",
+  presente: "Chegou",
   realizado: "Realizado",
   falta: "Falta",
   cancelado: "Cancelado",
@@ -73,7 +73,7 @@ export function validarTransicao(
   const t = agora.getTime();
   const inicio = periodo.inicio.getTime();
   if (para === "presente" && t < inicio - CHECKIN_ANTECEDENCIA_MIN * 60_000) {
-    throw new ErroAgendamento("cedo_demais", "O check-in abre 1 hora antes do horário");
+    throw new ErroAgendamento("cedo_demais", "A chegada pode ser registrada a partir de 1 hora antes do horário");
   }
   if ((para === "realizado" || para === "falta") && t < inicio) {
     throw new ErroAgendamento("cedo_demais", "Só é possível registrar depois do início do atendimento");

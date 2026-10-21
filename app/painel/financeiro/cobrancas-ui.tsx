@@ -1,3 +1,4 @@
+import { InputMascara } from "@/components/input-mascara";
 import { FormAcao } from "@/components/form-acao";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -82,10 +83,10 @@ export function FormCobranca({ profissionalId, competencia, valorSugerido }: { p
       <div className="grid grid-cols-3 gap-3">
         <div className="flex flex-col gap-2">
           <Label htmlFor="cb-valor">Valor (R$)</Label>
-          <Input
+          <InputMascara
+            mascara="moeda"
             id="cb-valor"
             name="valor"
-            inputMode="decimal"
             required
             defaultValue={valorSugerido > 0 ? (valorSugerido / 100).toFixed(2).replace(".", ",") : ""}
           />

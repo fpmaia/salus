@@ -1,5 +1,6 @@
 "use client";
 
+import { InputMascara } from "@/components/input-mascara";
 import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { CardContent, CardFooter } from "@/components/ui/card";
@@ -31,10 +32,10 @@ export function FormularioOnboarding() {
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="documento">CNPJ ou CPF</Label>
-          <Input
+          <InputMascara
+            mascara="cpfCnpj"
             id="documento"
             name="documento"
-            inputMode="numeric"
             placeholder="00.000.000/0000-00"
             defaultValue={estado.valores.documento}
             required

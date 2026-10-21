@@ -4,6 +4,7 @@ import { useEffect, useId, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { mascaraTelefone } from "@/src/domain/mascaras";
 import { buscarPacientesAcao, cadastroRapidoPacienteAcao, type PacienteEncontrado } from "../pacientes/actions";
 
 /**
@@ -78,7 +79,7 @@ export function CampoPaciente({ name = "pacienteId", label = "Paciente" }: { nam
           <Input
             id={`${id}-telefone`}
             value={novo.telefone}
-            onChange={(e) => setNovo({ ...novo, telefone: e.target.value })}
+            onChange={(e) => setNovo({ ...novo, telefone: mascaraTelefone(e.target.value) })}
             inputMode="tel"
             maxLength={30}
             placeholder="(11) 99999-0000"
@@ -121,7 +122,7 @@ export function CampoPaciente({ name = "pacienteId", label = "Paciente" }: { nam
               <button
                 type="button"
                 className="w-full px-3 py-1.5 text-left text-primary hover:bg-muted"
-                onClick={() => setNovo({ nome: /\d/.test(termo) ? "" : termo, telefone: /\d/.test(termo) ? termo : "" })}
+                onClick={() => setNovo({ nome: /\d/.test(termo) ? "" : termo, telefone: /\d/.test(termo) ? mascaraTelefone(termo) : "" })}
               >
                 + Novo paciente{termo && !/\d/.test(termo) ? ` “${termo}”` : ""}
               </button>

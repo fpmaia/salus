@@ -76,7 +76,7 @@ export default async function FiscalPage({ searchParams }: PageProps<"/painel/fi
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
           {pendentes.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nada pendente nesta competência.</p>
+            <p className="text-sm text-muted-foreground">Nada pendente neste mês.</p>
           ) : (
             <>
               <ul className="divide-y text-sm">

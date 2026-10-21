@@ -78,7 +78,7 @@ async function SecaoHoje({ ctx }: { ctx: Awaited<ReturnType<typeof obterContexto
           Hoje
         </h2>
         <Button asChild size="sm">
-          <Link href="/painel/atendimentos">Abrir atendimentos do dia</Link>
+          <Link href="/painel/atendimentos">Abrir as consultas do dia</Link>
         </Button>
       </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

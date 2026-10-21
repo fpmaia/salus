@@ -53,7 +53,7 @@ export default async function FinanceiroPage({ searchParams }: PageProps<"/paine
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Financeiro</h1>
-          <p className="text-sm text-muted-foreground">Competência {rotuloCompetencia(competencia)}</p>
+          <p className="text-sm text-muted-foreground">Mês de {rotuloCompetencia(competencia)}</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <NavCompetencia competencia={competencia} href={(x) => `/painel/financeiro?competencia=${x}`} />
@@ -96,7 +96,7 @@ export default async function FinanceiroPage({ searchParams }: PageProps<"/paine
       <Card>
         <CardHeader>
           <CardTitle>Profissionais</CardTitle>
-          <CardDescription>Movimento do mês e saldo acumulado até o fim da competência.</CardDescription>
+          <CardDescription>Movimento do mês e saldo acumulado até o fim do mês.</CardDescription>
           {podeFecharTodos && (
             <FormAcao
               acao={fecharTodosAcao.bind(null, competencia)}

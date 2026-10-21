@@ -67,7 +67,7 @@ export default async function AtendimentosPage({ searchParams }: PageProps<"/pai
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Atendimentos</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Consultas</h1>
           <p className="text-sm text-muted-foreground">
             {formatarDataBr(data)}
             {data === hoje && " (hoje)"} · {unidade.nome}
@@ -120,7 +120,7 @@ export default async function AtendimentosPage({ searchParams }: PageProps<"/pai
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Na agenda ({ativos.length})</CardTitle>
-              <CardDescription>Confirme, faça o check-in e registre o atendimento ou a falta.</CardDescription>
+              <CardDescription>Confirme, marque a chegada e registre a consulta ou a falta.</CardDescription>
             </CardHeader>
             <CardContent>
               <ListaAtendimentos atendimentos={ativos} {...propsLista} />
@@ -179,7 +179,7 @@ export default async function AtendimentosPage({ searchParams }: PageProps<"/pai
 
         <Card className="h-fit">
           <CardHeader>
-            <CardTitle className="text-base">Novo agendamento</CardTitle>
+            <CardTitle className="text-base">Nova consulta</CardTitle>
             <CardDescription>Encaixa na reserva do profissional ou reserva a sala escolhida.</CardDescription>
           </CardHeader>
           <CardContent>

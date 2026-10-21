@@ -302,7 +302,7 @@ export function TabelaEquipe({ membros, convites, usuarioAtualId }: Props) {
                     <div>
                       <span className="text-xs font-bold text-foreground block">Recepção</span>
                       <span className="text-[11px] text-muted-foreground">
-                        Realiza check-in, gerencia fila de espera, agenda consultas e registra pagamentos.
+                        Registra a chegada dos pacientes, cuida da lista de espera, agenda consultas e registra pagamentos.
                       </span>
                     </div>
                   </label>

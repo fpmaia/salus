@@ -1,3 +1,4 @@
+import { InputMascara } from "@/components/input-mascara";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { FormAcao } from "@/components/form-acao";
@@ -58,7 +59,7 @@ export default async function FinanceiroProfissionalPage({ params, searchParams 
             ← Financeiro
           </Link>
           <h1 className="text-2xl font-semibold tracking-tight">{dados.profissional.nome}</h1>
-          <p className="text-sm text-muted-foreground">{dados.acordo ? descreverCondicoes(dados.acordo).slice(0, 2).join(" · ") : "Sem contrato vigente nesta competência"}</p>
+          <p className="text-sm text-muted-foreground">{dados.acordo ? descreverCondicoes(dados.acordo).slice(0, 2).join(" · ") : "Sem contrato vigente neste mês"}</p>
         </div>
         <NavCompetencia competencia={competencia} href={(x) => `/painel/financeiro/${profissionalId}?competencia=${x}`} />
       </div>
@@ -69,7 +70,7 @@ export default async function FinanceiroProfissionalPage({ params, searchParams 
           <CardDescription>
             {dados.fechamento?.fechadoEm
               ? `Fechado em ${dados.fechamento.fechadoEm.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}.`
-              : "Competência aberta: os valores ainda podem mudar."}{" "}
+              : "Mês em aberto: os valores ainda podem mudar."}{" "}
             Saldo final: <Saldo centavos={dados.saldoFinal} />
           </CardDescription>
         </CardHeader>
@@ -138,7 +139,7 @@ export default async function FinanceiroProfissionalPage({ params, searchParams 
             <FormAcao acao={registrarPagamentoAcao.bind(null, profissionalId)} textoBotao="Registrar">
               <div className="grid grid-cols-2 gap-3">
                 <div className="col-span-2 flex flex-col gap-2">
-                  <Label htmlFor="pg-direcao">Sentido</Label>
+                  <Label htmlFor="pg-direcao">Quem pagou</Label>
                   <NativeSelect id="pg-direcao" name="direcao" defaultValue={dados.saldoFinal < 0 ? "espaco_para_profissional" : "profissional_para_espaco"}>
                     <option value="profissional_para_espaco">Profissional pagou ao espaço</option>
                     <option value="espaco_para_profissional">Espaço repassou ao profissional</option>
@@ -146,7 +147,7 @@ export default async function FinanceiroProfissionalPage({ params, searchParams 
                 </div>
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="pg-valor">Valor (R$)</Label>
-                  <Input id="pg-valor" name="valor" inputMode="decimal" placeholder="0,00" defaultValue={dados.saldoFinal ? (Math.abs(dados.saldoFinal) / 100).toFixed(2).replace(".", ",") : ""} required />
+                  <InputMascara mascara="moeda" id="pg-valor" name="valor" placeholder="0,00" defaultValue={dados.saldoFinal ? (Math.abs(dados.saldoFinal) / 100).toFixed(2).replace(".", ",") : ""} required />
                 </div>
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="pg-data">Data</Label>
@@ -191,7 +192,7 @@ export default async function FinanceiroProfissionalPage({ params, searchParams 
               <CardDescription>Descontos, multas ou correções que não vêm da agenda.</CardDescription>
             </CardHeader>
             <CardContent>
-              <FormAcao acao={lancarAjusteAcao.bind(null, profissionalId)} textoBotao="Lançar ajuste">
+              <FormAcao acao={lancarAjusteAcao.bind(null, profissionalId)} textoBotao="Fazer ajuste">
                 <div className="grid grid-cols-2 gap-3">
                   <div className="flex flex-col gap-2">
                     <Label htmlFor="aj-natureza">Tipo</Label>
@@ -202,7 +203,7 @@ export default async function FinanceiroProfissionalPage({ params, searchParams 
                   </div>
                   <div className="flex flex-col gap-2">
                     <Label htmlFor="aj-valor">Valor (R$)</Label>
-                    <Input id="aj-valor" name="valor" inputMode="decimal" placeholder="0,00" required />
+                    <InputMascara mascara="moeda" id="aj-valor" name="valor" placeholder="0,00" required />
                   </div>
                   <div className="flex flex-col gap-2">
                     <Label htmlFor="aj-data">Data</Label>

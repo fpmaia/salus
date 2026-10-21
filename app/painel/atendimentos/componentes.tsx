@@ -1,3 +1,4 @@
+import { InputMascara } from "@/components/input-mascara";
 import Link from "next/link";
 import { FormAcao } from "@/components/form-acao";
 import { Input } from "@/components/ui/input";
@@ -14,7 +15,7 @@ import { CampoPaciente } from "./campo-paciente";
 const ROTULO_ACAO: Record<StatusAgendamento, string> = {
   agendado: "Agendar",
   confirmado: "Confirmar",
-  presente: "Check-in",
+  presente: "Chegou",
   realizado: "Realizado",
   falta: "Falta",
   cancelado: "Cancelar",
@@ -40,7 +41,7 @@ export function SeloStatus({ status, tardio }: { status: StatusAgendamento; tard
       )}
     >
       {status === "presente" && <span className="size-1.5 rounded-full bg-amber-500 animate-pulse" />}
-      {status === "presente" ? "Na Recepção" : ROTULOS_STATUS[status]}
+      {ROTULOS_STATUS[status]}
       {tardio && " · tardio"}
     </span>
   );
@@ -108,16 +109,16 @@ export function ListaAtendimentos({
             {a.status !== "cancelado" && (
               <FormAcao
                 acao={definirValorAcao.bind(null, a.id)}
-                textoBotao={a.valorCentavos === null ? "Registrar Pagamento" : "Alterar Valor"}
+                textoBotao={a.valorCentavos === null ? "Salvar valor" : "Alterar valor"}
                 textoPendente="Salvando…"
                 variante={a.valorCentavos === null ? "secondary" : "outline"}
                 className="flex flex-wrap items-center gap-1.5"
               >
                 <div className="flex items-center gap-1">
-                  <span className="text-xs text-muted-foreground">R$</span>
-                  <Input
+                  <span className="text-xs text-muted-foreground">Valor da consulta R$</span>
+                  <InputMascara
+                    mascara="moeda"
                     name="valor"
-                    inputMode="decimal"
                     placeholder="0,00"
                     aria-label="Valor cobrado do paciente"
                     defaultValue={a.valorCentavos === null ? "" : (a.valorCentavos / 100).toFixed(2).replace(".", ",")}
@@ -135,7 +136,7 @@ export function ListaAtendimentos({
                 <FormAcao
                   key={s}
                   acao={alterarStatusAcao.bind(null, a.id, s)}
-                  textoBotao={s === "presente" ? "✓ Check-in" : ROTULO_ACAO[s]}
+                  textoBotao={s === "presente" ? "✓ Chegou" : ROTULO_ACAO[s]}
                   textoPendente="…"
                   variante={s === "presente" ? "default" : s === "falta" ? "outline" : "secondary"}
                   className={`flex items-center gap-2 ${

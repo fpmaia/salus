@@ -117,7 +117,7 @@ export default async function MeuExtratoPage({ searchParams }: PageProps<"/paine
 
       <Card>
         <CardHeader>
-          <CardTitle>Lançamentos</CardTitle>
+          <CardTitle>Movimentações</CardTitle>
           <CardDescription>
             {dados.fechamento?.fechadoEm ? "Mês fechado pelo espaço." : "Mês em aberto: os valores podem mudar até o fechamento."}
           </CardDescription>

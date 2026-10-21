@@ -13,7 +13,7 @@ import { SeletorClinica } from "@/components/seletor-clinica";
 
 const NAVEGACAO: (ItemNavegacao & { permissao?: Permissao; modulo?: Modulo })[] = [
   { href: "/painel", rotulo: "Início", grupo: "operacao" },
-  { href: "/painel/atendimentos", rotulo: "Atendimentos", grupo: "operacao", permissao: "agenda.propria" },
+  { href: "/painel/atendimentos", rotulo: "Consultas", grupo: "operacao", permissao: "agenda.propria" },
   { href: "/painel/agenda", rotulo: "Agenda de salas", grupo: "operacao", permissao: "agenda.ver" },
   { href: "/painel/pacientes", rotulo: "Pacientes", grupo: "operacao", permissao: "pacientes.ver" },
   { href: "/painel/espera", rotulo: "Lista de espera", grupo: "operacao", permissao: "agenda.gerenciar" },

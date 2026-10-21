@@ -91,7 +91,7 @@ export function TabelaExtrato({
           {linhas.length === 0 && (
             <tr>
               <td colSpan={5} className="py-4 text-center text-muted-foreground">
-                Nenhum lançamento nesta competência.
+                Nenhuma movimentação neste mês.
               </td>
             </tr>
           )}

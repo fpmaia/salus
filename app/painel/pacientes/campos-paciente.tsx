@@ -1,3 +1,4 @@
+import { InputMascara } from "@/components/input-mascara";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -41,11 +42,11 @@ export function CamposPaciente({ valores = {}, prefixo }: { valores?: Valores; p
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor={campo("cpf")}>CPF (opcional)</Label>
-          <Input id={campo("cpf")} name="cpf" inputMode="numeric" defaultValue={formatarCpf(valores.cpf ?? null)} />
+          <InputMascara mascara="cpf" id={campo("cpf")} name="cpf" defaultValue={formatarCpf(valores.cpf ?? null)} />
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor={campo("telefone")}>Telefone / WhatsApp</Label>
-          <Input id={campo("telefone")} name="telefone" type="tel" defaultValue={valores.telefone ?? ""} />
+          <InputMascara mascara="telefone" id={campo("telefone")} name="telefone" type="tel" defaultValue={valores.telefone ?? ""} />
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor={campo("email")}>E-mail</Label>
@@ -67,7 +68,7 @@ export function CamposPaciente({ valores = {}, prefixo }: { valores?: Valores; p
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor={campo("responsavelCpf")}>CPF do responsável</Label>
-              <Input id={campo("responsavelCpf")} name="responsavelCpf" inputMode="numeric" defaultValue={formatarCpf(valores.responsavelCpf ?? null)} />
+              <InputMascara mascara="cpf" id={campo("responsavelCpf")} name="responsavelCpf" defaultValue={formatarCpf(valores.responsavelCpf ?? null)} />
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor={campo("responsavelParentesco")}>Parentesco</Label>
@@ -89,7 +90,7 @@ export function CamposPaciente({ valores = {}, prefixo }: { valores?: Valores; p
             <legend className="mb-1 text-xs font-medium text-muted-foreground">Endereço</legend>
             <div className="flex flex-col gap-2 sm:col-span-2">
               <Label htmlFor={campo("cep")}>CEP</Label>
-              <Input id={campo("cep")} name="cep" inputMode="numeric" defaultValue={formatarCep(valores.cep ?? null)} />
+              <InputMascara mascara="cep" id={campo("cep")} name="cep" defaultValue={formatarCep(valores.cep ?? null)} />
             </div>
             <div className="flex flex-col gap-2 sm:col-span-4">
               <Label htmlFor={campo("endereco")}>Rua, número e complemento</Label>
