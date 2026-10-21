@@ -210,6 +210,30 @@ test("profissional abre o próprio contrato pelo menu", async ({ page }) => {
   await expect(page.getByRole("link", { name: "Reajustar (nova versão)" })).toHaveCount(0);
 });
 
+test("profissional emite o recibo do atendimento pago e a recepção cadastra paciente menor com responsável", async ({ page }) => {
+  const { atendimentoPago } = dados();
+  await entrar(page, "profissional");
+  await page.goto(`/painel/atendimentos/${atendimentoPago}/recibo`);
+  await expect(page.getByRole("heading", { name: "Recibo" })).toBeVisible();
+  await expect(page.getByText(/Recebi de Ana Paciente, a quantia de R\$\s200,00 \(duzentos reais\)/)).toBeVisible();
+  await expect(page.getByText("CRP 06/000001")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Imprimir / Salvar PDF" })).toBeVisible();
+
+  await page.context().clearCookies();
+  await entrar(page, "admin");
+  await page.goto("/painel/pacientes");
+  const novo = page.locator("form", { has: page.getByRole("button", { name: "Cadastrar paciente" }) });
+  await novo.getByLabel("Nome", { exact: true }).fill("Lia Criança");
+  await novo.getByLabel("Nascimento").fill("2019-04-02");
+  await novo.getByRole("button", { name: "Cadastrar paciente" }).click();
+  await expect(novo.getByText("Paciente menor de idade: informe o responsável legal")).toBeVisible();
+  await novo.getByText("Responsável, convênio e endereço").click();
+  await novo.getByLabel("Nome do responsável").fill("Rui Pai");
+  await novo.getByLabel("Parentesco").fill("Pai");
+  await novo.getByRole("button", { name: "Cadastrar paciente" }).click();
+  await expect(page.getByRole("link", { name: "Lia Criança" })).toBeVisible();
+});
+
 // Por último: o feriado de amanhã bloquearia as reservas dos outros testes.
 test("feriado num dia com reservas mostra a lista e só grava com a decisão do admin", async ({ page }) => {
   const { amanha } = dados();

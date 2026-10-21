@@ -15,6 +15,16 @@ function dadosPaciente(formData: FormData) {
     dataNascimento: texto(formData, "dataNascimento"),
     telefone: texto(formData, "telefone"),
     email: texto(formData, "email"),
+    responsavelNome: texto(formData, "responsavelNome"),
+    responsavelCpf: texto(formData, "responsavelCpf"),
+    responsavelParentesco: texto(formData, "responsavelParentesco"),
+    convenioNome: texto(formData, "convenioNome"),
+    convenioCarteirinha: texto(formData, "convenioCarteirinha"),
+    cep: texto(formData, "cep"),
+    endereco: texto(formData, "endereco"),
+    bairro: texto(formData, "bairro"),
+    cidade: texto(formData, "cidade"),
+    uf: texto(formData, "uf"),
     consentimentoLembretes: formData.get("consentimentoLembretes") === "on",
   };
 }

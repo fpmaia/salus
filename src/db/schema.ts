@@ -579,6 +579,19 @@ export const pacientes = pgTable(
     dataNascimento: date("data_nascimento", { mode: "string" }),
     telefone: text("telefone"),
     email: text("email"),
+    // Responsável legal (obrigatório para menores de 18): é quem paga e aparece no recibo.
+    responsavelNome: text("responsavel_nome"),
+    responsavelCpf: text("responsavel_cpf"),
+    responsavelParentesco: text("responsavel_parentesco"),
+    // Convênio: só cadastro (o Salus não fatura convênios).
+    convenioNome: text("convenio_nome"),
+    convenioCarteirinha: text("convenio_carteirinha"),
+    // Endereço (recibo e cadastro). CEP só dígitos.
+    cep: text("cep"),
+    endereco: text("endereco"),
+    bairro: text("bairro"),
+    cidade: text("cidade"),
+    uf: text("uf"),
     // Consentimento para lembretes (WhatsApp na Fase 4).
     consentimentoLembretes: boolean("consentimento_lembretes").notNull().default(false),
     consentimentoEm: timestamp("consentimento_em", { withTimezone: true }),

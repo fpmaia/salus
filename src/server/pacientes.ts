@@ -19,13 +19,16 @@ const textoOpcional = (max: number) =>
     .optional()
     .transform((v) => (v ? v : null));
 
-export const pacienteSchema = z.object({
-  nome: z.string().trim().min(2, "Informe o nome do paciente").max(120),
-  cpf: z
+const cpfOpcional = (mensagem: string) =>
+  z
     .string()
     .optional()
     .transform((v) => (v ? somenteDigitos(v) : null))
-    .refine((v) => v === null || cpfValido(v), "CPF inválido"),
+    .refine((v) => v === null || cpfValido(v), mensagem);
+
+export const pacienteSchema = z.object({
+  nome: z.string().trim().min(2, "Informe o nome do paciente").max(120),
+  cpf: cpfOpcional("CPF inválido"),
   dataNascimento: z
     .string()
     .optional()
@@ -40,7 +43,42 @@ export const pacienteSchema = z.object({
     .transform((v) => (v ? v : null))
     .refine((v) => v === null || z.email().safeParse(v).success, "E-mail inválido"),
   consentimentoLembretes: z.boolean().default(false),
+  responsavelNome: textoOpcional(120),
+  responsavelCpf: cpfOpcional("CPF do responsável inválido"),
+  responsavelParentesco: textoOpcional(40),
+  convenioNome: textoOpcional(80),
+  convenioCarteirinha: textoOpcional(40),
+  cep: z
+    .string()
+    .optional()
+    .transform((v) => (v ? somenteDigitos(v) : null))
+    .refine((v) => v === null || v.length === 8, "CEP inválido"),
+  endereco: textoOpcional(200),
+  bairro: textoOpcional(80),
+  cidade: textoOpcional(80),
+  uf: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .optional()
+    .transform((v) => (v ? v : null))
+    .refine((v) => v === null || UFS.includes(v), "UF inválida"),
 });
+
+const UFS = "AC AL AP AM BA CE DF ES GO MA MT MS MG PA PB PR PE PI RJ RN RS RO RR SC SP SE TO".split(" ");
+
+/** Idade completa em `hoje` (datas AAAA-MM-DD). */
+export function idadeEm(nascimento: string, hoje: string): number {
+  const anos = Number(hoje.slice(0, 4)) - Number(nascimento.slice(0, 4));
+  return hoje.slice(5) < nascimento.slice(5) ? anos - 1 : anos;
+}
+
+/** Menor de 18 anos precisa de responsável legal (é quem consta no recibo). */
+function exigirResponsavelSeMenor(valores: z.output<typeof pacienteSchema>, agora: Date) {
+  if (valores.dataNascimento && idadeEm(valores.dataNascimento, agora.toISOString().slice(0, 10)) < 18 && !valores.responsavelNome) {
+    throw new ErroNegocio("Paciente menor de idade: informe o responsável legal");
+  }
+}
 
 function traduzirErroPaciente(erro: unknown): never {
   const pg = erroPostgres(erro);
@@ -83,6 +121,7 @@ export async function criarPaciente(
   database?: Database,
 ): Promise<{ id: string }> {
   const valores = pacienteSchema.parse(dados);
+  exigirResponsavelSeMenor(valores, agora);
   return withTenant(
     ctx,
     async (tx) => {
@@ -109,6 +148,7 @@ export async function atualizarPaciente(
   database?: Database,
 ): Promise<void> {
   const valores = pacienteSchema.parse(dados);
+  exigirResponsavelSeMenor(valores, agora);
   await withTenant(
     ctx,
     async (tx) => {
@@ -218,6 +258,7 @@ export async function obterPaciente(ctx: ContextoTenant, pacienteId: string, dat
           periodo: agendamentos.periodo,
           status: agendamentos.status,
           cancelamentoTardio: agendamentos.cancelamentoTardio,
+          valorCentavos: agendamentos.valorCentavos,
           profissionalNome: profissionais.nome,
           salaNome: salas.nome,
           timezone: unidades.timezone,
@@ -246,6 +287,8 @@ export async function obterPaciente(ctx: ContextoTenant, pacienteId: string, dat
             horaFim: partesLocais(h.periodo.fim, h.timezone).hora,
             status: h.status,
             cancelamentoTardio: h.cancelamentoTardio,
+            // Recibo: atendimento realizado com o valor registrado.
+            temRecibo: h.status === "realizado" && Boolean(h.valorCentavos),
             profissionalNome: h.profissionalNome,
             salaNome: h.salaNome,
           };

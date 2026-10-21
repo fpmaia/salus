@@ -68,6 +68,13 @@ export async function exportarDadosPaciente(ctx: ContextoTenant, pacienteId: str
       dataNascimento: paciente.dataNascimento,
       telefone: paciente.telefone,
       email: paciente.email,
+      responsavel: paciente.responsavelNome
+        ? { nome: paciente.responsavelNome, cpf: paciente.responsavelCpf, parentesco: paciente.responsavelParentesco }
+        : null,
+      convenio: paciente.convenioNome ? { nome: paciente.convenioNome, carteirinha: paciente.convenioCarteirinha } : null,
+      endereco: paciente.endereco || paciente.cep
+        ? { endereco: paciente.endereco, bairro: paciente.bairro, cidade: paciente.cidade, uf: paciente.uf, cep: paciente.cep }
+        : null,
       consentimentoLembretes: paciente.consentimentoLembretes,
       consentimentoEm: paciente.consentimentoEm?.toISOString() ?? null,
       ativo: paciente.ativo,
@@ -154,6 +161,16 @@ export async function anonimizarPaciente(
           dataNascimento: null,
           telefone: null,
           email: null,
+          responsavelNome: null,
+          responsavelCpf: null,
+          responsavelParentesco: null,
+          convenioNome: null,
+          convenioCarteirinha: null,
+          cep: null,
+          endereco: null,
+          bairro: null,
+          cidade: null,
+          uf: null,
           consentimentoLembretes: false,
           consentimentoEm: null,
           ativo: false,

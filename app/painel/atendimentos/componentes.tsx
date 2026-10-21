@@ -86,6 +86,11 @@ export function ListaAtendimentos({
               </span>
               {a.observacao && <span className="block text-xs text-muted-foreground italic">Obs.: {a.observacao}</span>}
               {a.remarcadoEm && <span className="block text-xs text-muted-foreground">Remarcado</span>}
+              {a.status === "realizado" && a.valorCentavos !== null && a.valorCentavos > 0 && (
+                <Link href={`/painel/atendimentos/${a.id}/recibo`} className="mr-3 mt-1 inline-block text-xs font-medium text-primary underline-offset-4 hover:underline">
+                  Recibo (PDF)
+                </Link>
+              )}
               {linkProntuario && (
                 <Link href={`/painel/prontuario/${a.pacienteId}`} className="text-xs text-primary font-medium underline-offset-4 hover:underline inline-block mt-1">
                   Ver Prontuário →

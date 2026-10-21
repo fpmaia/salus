@@ -6,7 +6,7 @@ import { obterContextoTenant } from "@/src/auth/sessao";
 import { gerarMinutaContratoPadrao } from "@/src/domain/contratos";
 import { dadosDaMinuta, obterContrato } from "@/src/server/contratos";
 import { mensagemDeErro } from "@/src/server/erros";
-import { BotaoDispararImpressao } from "./botao-disparar-impressao";
+import { BotaoDispararImpressao } from "@/components/botao-imprimir";
 
 // Impressão / PDF: os termos do contrato ou, sem eles, a minuta padrão com as condições atuais.
 export default async function ImprimirContratoPage({ params }: PageProps<"/painel/contratos/[id]/imprimir">) {

@@ -239,6 +239,13 @@
       "when": 1792605008708,
       "tag": "0033_recorrencia_e_avisos",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1792606751183,
+      "tag": "0034_paciente_responsavel_convenio_endereco",
+      "breakpoints": true
     }
   ]
 }

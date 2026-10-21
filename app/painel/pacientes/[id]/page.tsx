@@ -72,9 +72,16 @@ export default async function PacientePage({ params }: PageProps<"/painel/pacien
                       {h.profissionalNome} · {h.salaNome}
                     </span>
                   </span>
-                  <span className="text-xs text-muted-foreground">
-                    {ROTULOS_STATUS[h.status]}
-                    {h.cancelamentoTardio && " (tardio)"}
+                  <span className="flex items-center gap-3 text-xs text-muted-foreground">
+                    {h.temRecibo && (
+                      <Link href={`/painel/atendimentos/${h.id}/recibo`} className="font-medium text-primary underline-offset-4 hover:underline">
+                        Recibo
+                      </Link>
+                    )}
+                    <span>
+                      {ROTULOS_STATUS[h.status]}
+                      {h.cancelamentoTardio && " (tardio)"}
+                    </span>
                   </span>
                 </li>
               ))}

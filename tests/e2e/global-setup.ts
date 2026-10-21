@@ -11,7 +11,8 @@ import { type ContextoTenant, withTenant } from "../../src/db/tenant";
 import { hojeNoFuso, somarDias } from "../../src/domain/tempo";
 import { definirProvedorEmail, EmailMemoria } from "../../src/server/email";
 import { registrarAceite } from "../../src/server/aceites";
-import { criarAcordo } from "../../src/server/financeiro";
+import { alterarStatusAgendamento, criarAgendamento } from "../../src/server/agendamentos";
+import { criarAcordo, definirValorAgendamento } from "../../src/server/financeiro";
 import { listarMembershipsDoUsuario } from "../../src/server/memberships";
 import { criarTenantComAdmin } from "../../src/server/onboarding";
 import { criarPaciente } from "../../src/server/pacientes";
@@ -87,7 +88,7 @@ export default async function setup() {
     await definirHorarios(admin, unidadeId, [0, 1, 2, 3, 4, 5, 6].map((diaSemana) => ({ diaSemana, abre: "06:00", fecha: "22:00" })), db);
     const { id: sala1 } = await criarSala(admin, unidadeId, { nome: "Sala 1" }, db);
     const { id: sala2 } = await criarSala(admin, unidadeId, { nome: "Sala 2" }, db);
-    await criarPaciente(admin, { nome: "Ana Paciente", telefone: "11 90000-0001" }, new Date(), db);
+    const { id: anaPaciente } = await criarPaciente(admin, { nome: "Ana Paciente", telefone: "11 90000-0001" }, new Date(), db);
 
     // Mês anterior: acordo por hora (R$ 45) e uma reserva de 2h, para o fechamento.
     const hoje = hojeNoFuso("America/Sao_Paulo");
@@ -95,12 +96,24 @@ export default async function setup() {
     const mesAnterior = `${somarDias(mesAtual, -1).slice(0, 7)}-01`;
     await criarAcordo(admin, { profissionalId, modelo: "hora", valorHoraCentavos: 4500, vigenteDe: mesAnterior }, db);
     const diaPassado = `${mesAnterior.slice(0, 7)}-10`;
-    await criarReserva(
+    const criadaEm = new Date(`${mesAnterior.slice(0, 7)}-01T03:00:00Z`);
+    const { id: reservaPassada } = await criarReserva(
       admin,
       { salaId: sala1, profissionalId, data: diaPassado, horaInicio: "09:00", horaFim: "11:00" },
-      new Date(`${mesAnterior.slice(0, 7)}-01T03:00:00Z`),
+      criadaEm,
       db,
     );
+    // Atendimento realizado e pago (R$ 200) nessa reserva: base do recibo.
+    const { id: atendimentoPago } = await criarAgendamento(
+      admin,
+      { pacienteId: anaPaciente, reservaId: reservaPassada, data: diaPassado, horaInicio: "09:00", horaFim: "10:00" },
+      criadaEm,
+      db,
+    );
+    const duranteAtendimento = new Date(`${diaPassado}T12:30:00Z`);
+    await alterarStatusAgendamento(admin, atendimentoPago, "presente", null, duranteAtendimento, db);
+    await alterarStatusAgendamento(admin, atendimentoPago, "realizado", null, duranteAtendimento, db);
+    await definirValorAgendamento(admin, atendimentoPago, 20000, duranteAtendimento, db);
 
     // Amanhã: reserva na Sala 2 para a recepção encaixar um paciente.
     const amanha = somarDias(hoje, 1);
@@ -111,7 +124,7 @@ export default async function setup() {
       db,
     );
 
-    const dados: DadosE2E = { profissionalId, reservaAmanha, amanha, competenciaAnterior: mesAnterior.slice(0, 7), sala1 };
+    const dados: DadosE2E = { profissionalId, reservaAmanha, amanha, competenciaAnterior: mesAnterior.slice(0, 7), sala1, atendimentoPago };
     writeFileSync(path.resolve(ARQUIVO_DADOS), JSON.stringify(dados, null, 2));
   } finally {
     await db.$client.end();

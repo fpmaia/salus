@@ -41,3 +41,11 @@ export function analisarDocumento(
   if (digitos.length === 14) return cnpjValido(digitos) ? { tipo: "cnpj", digitos } : null;
   return null;
 }
+
+/** CPF (11 dígitos) ou CNPJ (14) com a máscara; outros valores voltam como vieram. */
+export function formatarCpfCnpj(documento: string): string {
+  const d = somenteDigitos(documento);
+  if (d.length === 11) return d.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, "$1.$2.$3-$4");
+  if (d.length === 14) return d.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5");
+  return documento;
+}
