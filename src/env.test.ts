@@ -8,6 +8,9 @@ const VALIDO = {
   SECRETS_KEY: Buffer.alloc(32, 1).toString("base64"),
   APP_URL: "https://app.exemplo.com",
   BETTER_AUTH_URL: "https://app.exemplo.com",
+  EMAIL_PROVIDER: "resend",
+  RESEND_API_KEY: "re_teste",
+  EMAIL_FROM: "Salus <nao-responda@exemplo.com>",
 };
 
 afterEach(() => vi.unstubAllEnvs());
@@ -29,6 +32,17 @@ describe("validação do ambiente", () => {
     );
     definir({ LINKS_SECRET: VALIDO.BETTER_AUTH_SECRET });
     expect(errosDoAmbiente("app")).toContain("BETTER_AUTH_SECRET, LINKS_SECRET e SECRETS_KEY devem ser diferentes");
+  });
+
+  it("exige provedor de e-mail real, salvo em ambiente de demonstração", () => {
+    definir({ EMAIL_PROVIDER: "console" });
+    expect(errosDoAmbiente("app")).toEqual([]); // dev: console é o padrão
+    vi.stubEnv("NODE_ENV", "production");
+    expect(errosDoAmbiente("app")).toEqual([expect.stringContaining("EMAIL_PROVIDER=console não envia")]);
+    vi.stubEnv("SALUS_DEMO", "true");
+    expect(errosDoAmbiente("app")).toEqual([]);
+    definir({ RESEND_API_KEY: "" });
+    expect(errosDoAmbiente("app")).toEqual(["RESEND_API_KEY não definida (EMAIL_PROVIDER=resend)"]);
   });
 
   it("em produção impede o boot; fora dela só avisa", () => {

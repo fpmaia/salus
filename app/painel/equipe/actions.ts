@@ -10,7 +10,10 @@ import {
   reativarMembro,
   revogarConvite,
 } from "@/src/server/equipe";
-import type { Role } from "@/src/domain/rbac";
+import { ROTULOS_ROLE, type Role } from "@/src/domain/rbac";
+import { enviarEmailConvite } from "@/src/server/convites-email";
+import { emailConviteEquipe } from "@/src/server/email-modelos";
+import { urlPublica } from "@/src/server/url-publica";
 
 export async function convidarMembroAction(
   _anterior: unknown,
@@ -24,9 +27,19 @@ export async function convidarMembroAction(
   return executarAcao(async () => {
     const resultado = await convidarMembro(ctx, { email, role, profissionalId });
     revalidatePath("/painel/equipe");
+    const enviado = await enviarEmailConvite(
+      emailConviteEquipe(email, {
+        espaco: ctx.tenantNome,
+        papel: ROTULOS_ROLE[role] ?? role,
+        url: `${await urlPublica()}${resultado.link}`,
+        expiraEm: resultado.expiraEm,
+      }),
+    );
     return {
       erro: null,
-      sucesso: `Convite enviado com sucesso para ${email}!`,
+      sucesso: enviado
+        ? `Convite enviado para ${email}. Se preferir, copie o link abaixo.`
+        : `Não foi possível enviar o e-mail para ${email}; copie o link abaixo e envie você mesmo.`,
       dados: { link: resultado.link },
     };
   });

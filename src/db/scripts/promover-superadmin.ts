@@ -33,7 +33,8 @@ async function main() {
       console.log(`Conta criada. Senha inicial (exibida só agora, troque no primeiro acesso): ${senha}`);
     }
 
-    await db.update(users).set({ role: "superadmin", banned: false }).where(eq(users.id, usuario.id));
+    // Conta criada por script, pelo dono da plataforma: dispensa o link de confirmação.
+    await db.update(users).set({ role: "superadmin", banned: false, emailVerified: true }).where(eq(users.id, usuario.id));
     console.log(`${usuario.email} agora é superadmin. Acesso: /plataforma`);
   } finally {
     await db.$client.end();

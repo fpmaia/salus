@@ -78,7 +78,7 @@ Ledger (livro-razão) **append-only**, gerado por um serviço de domínio a part
 Pré-requisitos: Node 22 (`.nvmrc`) e Docker.
 
 ```bash
-cp .env.example .env          # ajuste BETTER_AUTH_SECRET
+cp .env.example .env          # ajuste BETTER_AUTH_SECRET (e-mails saem no log: EMAIL_PROVIDER=console)
 npm install
 npm run db:up                 # Postgres 16 em 127.0.0.1:5433 (cria papéis e bancos)
 docker compose up -d s3       # S3 local (SeaweedFS) para anexos do prontuário
@@ -86,6 +86,8 @@ npm run db:migrate
 npm run db:seed               # 2 espaços demo; senha: salus-dev-123
 npm run dev                   # http://localhost:3000
 ```
+
+Contas novas precisam confirmar o e-mail antes de entrar; em dev, o link aparece no log do servidor. Em produção, configure `EMAIL_PROVIDER=resend`, `RESEND_API_KEY` e `EMAIL_FROM` (o boot recusa subir sem isso, ver `src/env.ts`).
 
 Usuários do seed: `admin|recepcao|profissional@alfa.salus.dev` e `...@beta.salus.dev`. Cada espaço vem com a "Unidade Centro" (3 salas) um profissional sem acesso (`convidado@...`) para testar o convite e três pacientes fictícios.
 

@@ -54,13 +54,13 @@ export default function RecuperarSenhaPage() {
           <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-emerald-700 dark:text-emerald-400 text-sm space-y-2">
             <div className="flex items-center gap-2 font-semibold">
               <CheckCircle2 className="size-5 shrink-0" />
-              <span>Instruções enviadas!</span>
+              <span>Verifique seu e-mail</span>
             </div>
             <p className="text-xs">
               Se houver uma conta associada a <strong>{email}</strong>, enviamos um link para redefinir sua senha.
             </p>
             <p className="text-[11px] text-muted-foreground pt-1 border-t border-emerald-500/20">
-              Em ambiente de desenvolvimento, o link também é registrado no log do servidor.
+              O link vale por 1 hora. Não chegou? Confira a caixa de spam.
             </p>
           </div>
           <div className="pt-2">

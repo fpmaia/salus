@@ -55,7 +55,14 @@ export function FormularioEntrar({
     if (error) {
       setEnviando(false);
       setDemoCarregando(null);
-      setErro(error.message || "E-mail ou senha inválidos.");
+      // Conta sem e-mail confirmado: o Better Auth reenvia o link (sendOnSignIn).
+      setErro(
+        error.code === "EMAIL_NOT_VERIFIED"
+          ? "Confirme seu e-mail para entrar. Enviamos um novo link de confirmação para a sua caixa de entrada."
+          : error.status === 429
+            ? "Muitas tentativas seguidas. Aguarde alguns segundos e tente de novo."
+            : "E-mail ou senha inválidos.",
+      );
       return;
     }
 

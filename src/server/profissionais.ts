@@ -178,12 +178,12 @@ export async function gerarConvite(
   profissionalId: string,
   agora = new Date(),
   database?: Database,
-): Promise<{ token: string; expiraEm: Date }> {
+): Promise<{ token: string; expiraEm: Date; email: string; nome: string }> {
   exigirPermissao(ctx.role, "profissionais.gerenciar");
   const token = randomBytes(32).toString("base64url");
   const expiraEm = new Date(agora.getTime() + VALIDADE_CONVITE_DIAS * 86_400_000);
 
-  await withTenant(
+  const destinatario = await withTenant(
     ctx,
     async (tx) => {
       const [profissional] = await tx.select().from(profissionais).where(eq(profissionais.id, profissionalId));
@@ -211,10 +211,11 @@ export async function gerarConvite(
         entidadeId: profissionalId,
         dados: { conviteId: convite.id, expiraEm: expiraEm.toISOString() },
       });
+      return { email: profissional.email, nome: profissional.nome };
     },
     database,
   );
-  return { token, expiraEm };
+  return { token, expiraEm, ...destinatario };
 }
 
 export type SituacaoConvite = "valido" | "expirado" | "aceito" | "revogado";

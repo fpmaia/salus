@@ -169,6 +169,13 @@
       "when": 1792500000000,
       "tag": "0023_convites_membro_e_admin",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1792552106772,
+      "tag": "0024_contas_existentes_verificadas",
+      "breakpoints": true
     }
   ]
 }

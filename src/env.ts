@@ -23,6 +23,16 @@ export function errosDoAmbiente(processo: "app" | "worker"): string[] {
   const auth = variavel("BETTER_AUTH_SECRET");
   if (auth && auth.length < 32) erros.push("BETTER_AUTH_SECRET deve ter ao menos 32 caracteres");
   if (auth && (auth === links || auth === secretsKey)) erros.push("BETTER_AUTH_SECRET, LINKS_SECRET e SECRETS_KEY devem ser diferentes");
+
+  // E-mail: sem ele ninguém confirma a conta nem redefine a senha. "console" só em ambiente de demonstração.
+  const provedorEmail = variavel("EMAIL_PROVIDER") ?? "console";
+  if (provedorEmail === "resend") {
+    for (const nome of ["RESEND_API_KEY", "EMAIL_FROM"]) if (!variavel(nome)) erros.push(`${nome} não definida (EMAIL_PROVIDER=resend)`);
+  } else if (provedorEmail !== "console") {
+    erros.push(`EMAIL_PROVIDER inválido: ${provedorEmail} (use resend ou console)`);
+  } else if (emProducao() && !["true", "1"].includes(process.env.SALUS_DEMO ?? "")) {
+    erros.push("EMAIL_PROVIDER=console não envia e-mails: use resend (ou SALUS_DEMO=true num ambiente de demonstração)");
+  }
   return erros;
 }
 

@@ -52,6 +52,8 @@ async function main() {
     const [existente] = await db.select({ id: users.id }).from(users).where(eq(users.email, email));
     if (existente) return existente.id;
     const { user } = await auth.api.signUpEmail({ body: { name: nome, email, password: SENHA_DEV } });
+    // Contas de dev já nascem confirmadas (o login exige e-mail verificado).
+    await db.update(users).set({ emailVerified: true }).where(eq(users.id, user.id));
     return user.id;
   }
 

@@ -65,3 +65,26 @@ test("admin fecha o mês anterior e o extrato fica congelado", async ({ page }) 
   await page.goto(`/painel/financeiro?competencia=${competenciaAnterior}`);
   await expect(page.getByRole("row", { name: /Dra\. E2E/ })).toContainText("Fechado");
 });
+
+test("cadastro pede a confirmação do e-mail e não entra sem ela", async ({ page }) => {
+  const email = `novo.${Date.now()}@e2e.salus.dev`;
+  await page.goto("/cadastro");
+  await page.waitForLoadState("networkidle");
+  await page.locator("#nome").fill("Dono Novo");
+  await page.locator("#email").fill(email);
+  await page.locator("#senha").fill("senha-forte-123");
+  await page.getByRole("button", { name: "Prosseguir com o Cadastro" }).click();
+  await expect(page.getByText("Confirme seu e-mail")).toBeVisible();
+  await expect(page.getByText(email)).toBeVisible();
+
+  // Sem confirmar, o login avisa (e reenvia o link) em vez de abrir o painel.
+  // Espera a janela do rate limit de login (3 tentativas / 10 s em produção) dos testes anteriores.
+  await page.waitForTimeout(10_000);
+  await page.goto("/entrar");
+  await page.waitForLoadState("networkidle");
+  await page.getByLabel("E-mail").fill(email);
+  await page.getByLabel("Senha").fill("senha-forte-123");
+  await page.getByRole("button", { name: "Entrar" }).click();
+  await expect(page.getByText(/Confirme seu e-mail para entrar/)).toBeVisible();
+  await expect(page).toHaveURL(/\/entrar/);
+});

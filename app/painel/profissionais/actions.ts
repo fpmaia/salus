@@ -1,9 +1,11 @@
 "use server";
 
-import { headers } from "next/headers";
 import { obterContextoTenant } from "@/src/auth/sessao";
 import { type EstadoAcao, executarAcao, texto } from "@/src/server/acao";
+import { enviarEmailConvite } from "@/src/server/convites-email";
+import { emailConviteProfissional } from "@/src/server/email-modelos";
 import { atualizarProfissional, criarProfissional, gerarConvite } from "@/src/server/profissionais";
+import { urlPublica } from "@/src/server/url-publica";
 
 function dadosProfissional(formData: FormData) {
   return {
@@ -36,23 +38,19 @@ export async function atualizarProfissionalAcao(profissionalId: string, _estado:
   });
 }
 
-/** Base pública do app para montar o link (BETTER_AUTH_URL ou o host da requisição). */
-async function urlBase(): Promise<string> {
-  if (process.env.BETTER_AUTH_URL) return process.env.BETTER_AUTH_URL.replace(/\/$/, "");
-  const h = await headers();
-  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";
-  const protocolo = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
-  return `${protocolo}://${host}`;
-}
-
 export async function gerarConviteAcao(profissionalId: string) {
   return executarAcao(async () => {
     const ctx = await obterContextoTenant();
-    const { token, expiraEm } = await gerarConvite(ctx, profissionalId);
+    const { token, expiraEm, email, nome } = await gerarConvite(ctx, profissionalId);
+    const link = `${await urlPublica()}/convite/${token}`;
+    const enviado = await enviarEmailConvite(emailConviteProfissional(email, { nomeProfissional: nome, espaco: ctx.tenantNome, url: link, expiraEm }));
+    const validade = expiraEm.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
     return {
       erro: null,
-      sucesso: `Link válido até ${expiraEm.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}. Ele só é exibido agora.`,
-      dados: { link: `${await urlBase()}/convite/${token}` },
+      sucesso: enviado
+        ? `Convite enviado para ${email}. O link abaixo vale até ${validade} e só é exibido agora.`
+        : `Não foi possível enviar o e-mail; copie o link abaixo (válido até ${validade}) e envie ao profissional.`,
+      dados: { link },
     };
   });
 }

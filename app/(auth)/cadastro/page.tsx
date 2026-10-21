@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { use, useState } from "react";
 import { ArrowRight, Lock, Mail, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -23,25 +22,49 @@ export default function CadastroPage({
   const parametros = use(searchParams);
   const destino = destinoDoConvite(parametros.convite);
   const valorInicial = (campo: string) => (typeof parametros[campo] === "string" ? parametros[campo] : undefined);
-  const router = useRouter();
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
+  const [emailEnviado, setEmailEnviado] = useState<string | null>(null);
 
   async function cadastrar(formData: FormData) {
     setEnviando(true);
     setErro(null);
+    const email = String(formData.get("email"));
     const { error } = await authClient.signUp.email({
       name: String(formData.get("nome")),
-      email: String(formData.get("email")),
+      email,
       password: String(formData.get("senha")),
+      // Depois de confirmar o e-mail, a pessoa entra direto e segue para cá.
+      callbackURL: destino ?? "/onboarding",
     });
     setEnviando(false);
     if (error) {
       setErro(error.message ?? "Não foi possível criar a conta.");
       return;
     }
-    router.push(destino ?? "/onboarding");
-    router.refresh();
+    setEmailEnviado(email);
+  }
+
+  if (emailEnviado) {
+    return (
+      <Card className="border-border/70 bg-card/90 shadow-xl backdrop-blur-xl">
+        <CardHeader className="space-y-1.5">
+          <CardTitle className="font-heading text-xl font-bold tracking-tight text-foreground sm:text-2xl">Confirme seu e-mail</CardTitle>
+          <CardDescription>
+            Enviamos um link de confirmação para <strong>{emailEnviado}</strong>. Abra o e-mail e clique no link para ativar a
+            conta; ele vale por 24 horas.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="text-sm text-muted-foreground">
+          Não chegou? Confira a caixa de spam ou tente entrar: se a conta ainda não estiver confirmada, enviamos um novo link.
+        </CardContent>
+        <CardFooter>
+          <Button asChild variant="outline" className="w-full">
+            <Link href={destino ? `/entrar?convite=${String(parametros.convite)}` : "/entrar"}>Ir para o login</Link>
+          </Button>
+        </CardFooter>
+      </Card>
+    );
   }
 
   return (

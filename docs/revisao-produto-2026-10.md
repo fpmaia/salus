@@ -3,6 +3,13 @@
 > Outubro de 2026. Documento de alto nível: diagnóstico, erros, propostas, o que retirar e plano de evolução.
 > Base: leitura completa do código (commitado até `b741c50` **e** o trabalho não commitado do working tree), CI, testes e as decisões de produto tomadas com o fundador nesta revisão.
 
+## Progresso
+
+| Data | Fase | Itens resolvidos |
+|---|---|---|
+| 21/10/2026 | A | Triagem do working tree em 8 commits pelo CI. Corrigidos S1, S2, S5, S6, C2 e C4; contratos desligados (`SALUS_CONTRATOS`). |
+| 21/10/2026 | B | E-mail transacional (Resend, com `console` em dev): confirmação obrigatória da conta, redefinição de senha sem token no log e convites de profissional e de equipe por e-mail. Corrigidos S3, S4 e S9 e a mensagem de rate limit no login. |
+
 ---
 
 ## 1. Resumo executivo

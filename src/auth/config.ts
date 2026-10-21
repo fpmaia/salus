@@ -3,6 +3,18 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { admin } from "better-auth/plugins";
 import type { Database } from "../db/client";
 import * as schema from "../db/schema";
+import { emailDoAmbiente, type MensagemEmail } from "../server/email";
+import { emailRedefinirSenha, emailVerificacao } from "../server/email-modelos";
+
+/** Falha de envio vai para o log sem o conteúdo (o link carrega o token). */
+async function enviarSemVazar(mensagem: MensagemEmail) {
+  try {
+    await emailDoAmbiente().enviar(mensagem);
+  } catch (erro) {
+    console.error(`[e-mail] falha ao enviar "${mensagem.assunto}":`, erro instanceof Error ? erro.message : erro);
+    throw erro;
+  }
+}
 
 /** Opções do Better Auth compartilhadas entre o app Next.js e scripts (seed). */
 export function opcoesAuth(database: Database) {
@@ -12,9 +24,23 @@ export function opcoesAuth(database: Database) {
     emailAndPassword: {
       enabled: true,
       minPasswordLength: 8,
+      // Sem e-mail confirmado não há sessão: o aceite de convite compara e-mails, e isso só
+      // prova algo se o e-mail foi verificado.
+      requireEmailVerification: true,
+      resetPasswordTokenExpiresIn: 60 * 60,
+      revokeSessionsOnPasswordReset: true,
       sendResetPassword: async ({ user, url }) => {
-        // Em desenvolvimento/homologação loga no console; se houver SMTP/Resend no futuro, envia e-mail.
-        console.log(`[SALUS RESET SENHA] Para: ${user.email} -> URL: ${url}`);
+        await enviarSemVazar(emailRedefinirSenha(user.email, user.name, url));
+      },
+    },
+    emailVerification: {
+      sendOnSignUp: true,
+      // Tentou entrar sem confirmar: reenvia o link.
+      sendOnSignIn: true,
+      autoSignInAfterVerification: true,
+      expiresIn: 24 * 60 * 60,
+      sendVerificationEmail: async ({ user, url }) => {
+        await enviarSemVazar(emailVerificacao(user.email, user.name, url));
       },
     },
     plugins: [
@@ -35,8 +61,8 @@ export function opcoesAuth(database: Database) {
 
       const origens = [
         process.env.BETTER_AUTH_URL,
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
+        // localhost só fora de produção.
+        ...(process.env.NODE_ENV === "production" ? [] : ["http://localhost:3000", "http://127.0.0.1:3000"]),
         ...configuradas,
       ].filter((u): u is string => Boolean(u));
 

@@ -6,9 +6,10 @@ import { Client } from "pg";
 import { opcoesAuth } from "../../src/auth/config";
 import { createDb } from "../../src/db/client";
 import { aplicarMigrations } from "../../src/db/migrator";
-import { memberships, profissionais } from "../../src/db/schema";
+import { memberships, profissionais, users } from "../../src/db/schema";
 import { type ContextoTenant, withTenant } from "../../src/db/tenant";
 import { hojeNoFuso, somarDias } from "../../src/domain/tempo";
+import { definirProvedorEmail, EmailMemoria } from "../../src/server/email";
 import { criarAcordo } from "../../src/server/financeiro";
 import { listarMembershipsDoUsuario } from "../../src/server/memberships";
 import { criarTenantComAdmin } from "../../src/server/onboarding";
@@ -43,6 +44,7 @@ export default async function setup() {
 
   const db = createDb(app);
   const auth = betterAuth(opcoesAuth(db));
+  definirProvedorEmail(new EmailMemoria()); // o cadastro envia a confirmação; aqui não interessa
   try {
     const ids: Record<string, string> = {};
     for (const [role, nome] of [
@@ -51,6 +53,7 @@ export default async function setup() {
       ["profissional", "Dra. E2E"],
     ] as const) {
       const { user } = await auth.api.signUpEmail({ body: { name: nome, email: usuario(role), password: SENHA } });
+      await db.update(users).set({ emailVerified: true }).where(eq(users.id, user.id));
       ids[role] = user.id;
     }
 
