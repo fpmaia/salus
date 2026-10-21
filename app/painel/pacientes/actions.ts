@@ -2,7 +2,10 @@
 
 import { obterContextoTenant } from "@/src/auth/sessao";
 import { type EstadoAcao, executarAcao, texto } from "@/src/server/acao";
-import { atualizarPaciente, criarPaciente } from "@/src/server/pacientes";
+import { unstable_rethrow } from "next/navigation";
+import { mensagemDeErro } from "@/src/server/erros";
+import { atualizarPaciente, buscarPacientes, criarPaciente } from "@/src/server/pacientes";
+import { formatarDataBr } from "@/src/server/reservas";
 import { anonimizarPaciente } from "@/src/server/titular";
 
 function dadosPaciente(formData: FormData) {
@@ -38,4 +41,30 @@ export async function anonimizarPacienteAcao(pacienteId: string, _estado: Estado
     const { atendimentos } = await anonimizarPaciente(ctx, pacienteId, { justificativa: texto(formData, "justificativa") });
     return `Paciente anonimizado. ${atendimentos} atendimento(s) mantido(s) no histórico, sem identificação.`;
   });
+}
+
+export type PacienteEncontrado = { id: string; nome: string; detalhe: string };
+
+/** Busca para o seletor de paciente (até 8 resultados). */
+export async function buscarPacientesAcao(termo: string): Promise<PacienteEncontrado[]> {
+  const ctx = await obterContextoTenant();
+  const { itens } = await buscarPacientes(ctx, { busca: termo.slice(0, 80), porPagina: 8 });
+  return itens.map((p) => ({ id: p.id, nome: p.nome, detalhe: [p.telefone, p.dataNascimento && `nasc. ${formatarDataBr(p.dataNascimento)}`].filter(Boolean).join(" · ") }));
+}
+
+/** Cadastro rápido (nome e telefone) direto do agendamento. */
+export async function cadastroRapidoPacienteAcao(
+  nome: string,
+  telefone: string,
+): Promise<{ ok: true; paciente: PacienteEncontrado } | { ok: false; erro: string }> {
+  try {
+    const ctx = await obterContextoTenant();
+    const { id } = await criarPaciente(ctx, { nome, telefone });
+    return { ok: true, paciente: { id, nome: nome.trim(), detalhe: telefone.trim() } };
+  } catch (erro) {
+    unstable_rethrow(erro);
+    const mensagem = mensagemDeErro(erro);
+    if (!mensagem) throw erro;
+    return { ok: false, erro: mensagem };
+  }
 }

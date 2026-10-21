@@ -3,7 +3,8 @@
 import { obterContextoTenant } from "@/src/auth/sessao";
 import type { StatusAgendamento } from "@/src/domain/agendamentos";
 import { type EstadoAcao, executarAcao, texto, textoOuUndefined } from "@/src/server/acao";
-import { alterarStatusAgendamento, criarAgendamento } from "@/src/server/agendamentos";
+import { ROTULOS_STATUS } from "@/src/domain/agendamentos";
+import { alterarStatusAgendamento, criarAgendamento, desfazerStatus, remarcarAgendamento } from "@/src/server/agendamentos";
 import { formatarDataBr } from "@/src/server/reservas";
 
 export async function criarAgendamentoAcao(_estado: EstadoAcao, formData: FormData) {
@@ -55,5 +56,28 @@ export async function alterarStatusAcao(
     );
     if (para === "cancelado") return cancelamentoTardio ? "Cancelado (cancelamento tardio)" : "Cancelado";
     return MENSAGENS[para] ?? "Atualizado";
+  });
+}
+
+export async function remarcarAcao(agendamentoId: string, _estado: EstadoAcao, formData: FormData) {
+  return executarAcao(async () => {
+    const ctx = await obterContextoTenant();
+    const data = texto(formData, "data");
+    const { reservaCriada } = await remarcarAgendamento(ctx, agendamentoId, {
+      data,
+      horaInicio: texto(formData, "horaInicio"),
+      horaFim: texto(formData, "horaFim"),
+      salaId: textoOuUndefined(formData, "salaId"),
+    });
+    const base = `Remarcado para ${formatarDataBr(data)}, ${texto(formData, "horaInicio")}`;
+    return reservaCriada ? `${base} (sala reservada automaticamente)` : base;
+  });
+}
+
+export async function desfazerStatusAcao(agendamentoId: string) {
+  return executarAcao(async () => {
+    const ctx = await obterContextoTenant();
+    const { status } = await desfazerStatus(ctx, agendamentoId);
+    return `Desfeito: voltou para "${ROTULOS_STATUS[status]}"`;
   });
 }

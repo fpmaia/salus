@@ -15,6 +15,7 @@ const NAVEGACAO: { href: string; rotulo: string; permissao?: Permissao }[] = [
   { href: "/painel/atendimentos", rotulo: "Atendimentos", permissao: "agenda.propria" },
   { href: "/painel/agenda", rotulo: "Agenda de salas", permissao: "agenda.ver" },
   { href: "/painel/pacientes", rotulo: "Pacientes", permissao: "pacientes.ver" },
+  { href: "/painel/espera", rotulo: "Lista de espera", permissao: "agenda.gerenciar" },
   { href: "/painel/prontuario", rotulo: "Prontuário", permissao: "prontuario.menu" },
   { href: "/painel/agendamento-online", rotulo: "Agenda online", permissao: "agenda_online.configurar" },
   { href: "/painel/financeiro", rotulo: "Financeiro", permissao: "financeiro.ver" },

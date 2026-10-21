@@ -137,51 +137,71 @@ export async function atualizarPaciente(
   );
 }
 
-export async function listarPacientes(
+type FiltroPacientes = { busca?: string; incluirInativos?: boolean };
+
+/** Visibilidade + busca por nome, CPF ou telefone (dígitos, ignorando a formatação gravada). */
+function condicaoPacientes(acesso: Acesso, filtro: FiltroPacientes) {
+  const busca = filtro.busca?.trim();
+  const digitos = busca ? somenteDigitos(busca) : "";
+  return and(
+    filtro.incluirInativos ? undefined : eq(pacientes.ativo, true),
+    acesso.todos
+      ? undefined
+      : sql`exists (select 1 from ${pacientesProfissionais}
+          where ${pacientesProfissionais.pacienteId} = ${pacientes.id}
+            and ${pacientesProfissionais.profissionalId} = ${acesso.profissionalId})`,
+    busca
+      ? or(
+          ilike(pacientes.nome, `%${busca.replace(/[%_\\]/g, "\\$&")}%`),
+          digitos.length >= 3 ? ilike(pacientes.cpf, `%${digitos}%`) : undefined,
+          digitos.length >= 3 ? sql`regexp_replace(coalesce(${pacientes.telefone}, ''), '\\D', '', 'g') like ${`%${digitos}%`}` : undefined,
+        )
+      : undefined,
+  );
+}
+
+const colunasDaLista = {
+  id: pacientes.id,
+  nome: pacientes.nome,
+  cpf: pacientes.cpf,
+  telefone: pacientes.telefone,
+  email: pacientes.email,
+  dataNascimento: pacientes.dataNascimento,
+  consentimentoLembretes: pacientes.consentimentoLembretes,
+  ativo: pacientes.ativo,
+};
+
+export const PACIENTES_POR_PAGINA = 30;
+
+/** Página da lista de pacientes, com o total (para a paginação). */
+export async function buscarPacientes(
   ctx: ContextoTenant,
-  filtro: { busca?: string; incluirInativos?: boolean } = {},
+  filtro: FiltroPacientes & { pagina?: number; porPagina?: number } = {},
   database?: Database,
 ) {
+  const porPagina = Math.min(Math.max(filtro.porPagina ?? PACIENTES_POR_PAGINA, 1), 100);
+  const pagina = Math.max(Math.floor(filtro.pagina ?? 1), 1);
   return withTenant(
     ctx,
     async (tx) => {
-      const acesso = await acessoAPacientes(tx, ctx);
-      const busca = filtro.busca?.trim();
-      const digitos = busca ? somenteDigitos(busca) : "";
-      return tx
-        .select({
-          id: pacientes.id,
-          nome: pacientes.nome,
-          cpf: pacientes.cpf,
-          telefone: pacientes.telefone,
-          email: pacientes.email,
-          dataNascimento: pacientes.dataNascimento,
-          consentimentoLembretes: pacientes.consentimentoLembretes,
-          ativo: pacientes.ativo,
-        })
+      const condicao = condicaoPacientes(await acessoAPacientes(tx, ctx), filtro);
+      const [{ total }] = await tx.select({ total: sql<number>`count(*)::int` }).from(pacientes).where(condicao);
+      const itens = await tx
+        .select(colunasDaLista)
         .from(pacientes)
-        .where(
-          and(
-            filtro.incluirInativos ? undefined : eq(pacientes.ativo, true),
-            acesso.todos
-              ? undefined
-              : sql`exists (select 1 from ${pacientesProfissionais}
-                  where ${pacientesProfissionais.pacienteId} = ${pacientes.id}
-                    and ${pacientesProfissionais.profissionalId} = ${acesso.profissionalId})`,
-            busca
-              ? or(
-                  ilike(pacientes.nome, `%${busca.replace(/[%_\\]/g, "\\$&")}%`),
-                  digitos.length >= 3 ? ilike(pacientes.cpf, `%${digitos}%`) : undefined,
-                  digitos.length >= 3 ? ilike(pacientes.telefone, `%${digitos}%`) : undefined,
-                )
-              : undefined,
-          ),
-        )
-        .orderBy(asc(pacientes.nome))
-        .limit(200);
+        .where(condicao)
+        .orderBy(asc(pacientes.nome), asc(pacientes.id))
+        .limit(porPagina)
+        .offset((pagina - 1) * porPagina);
+      return { itens, total, pagina, porPagina, paginas: Math.max(Math.ceil(total / porPagina), 1) };
     },
     database,
   );
+}
+
+/** Lista curta (até 100), para seletores que ainda não usam a busca. */
+export async function listarPacientes(ctx: ContextoTenant, filtro: FiltroPacientes = {}, database?: Database) {
+  return (await buscarPacientes(ctx, { ...filtro, porPagina: 100 }, database)).itens;
 }
 
 /** Paciente + histórico de agendamentos (o profissional vê só os próprios atendimentos). */

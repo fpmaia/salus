@@ -5,10 +5,11 @@ import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { cn } from "cn";
 import { ROTULOS_STATUS, transicoesPossiveis, type StatusAgendamento } from "@/src/domain/agendamentos";
-import type { AtendimentoDoDia } from "@/src/server/agendamentos";
+import { podeDesfazerStatus, type AtendimentoDoDia } from "@/src/server/agendamentos";
 import { formatarMoeda } from "@/src/domain/dinheiro";
 import { definirValorAcao } from "../financeiro/actions";
-import { alterarStatusAcao, criarAgendamentoAcao } from "./actions";
+import { alterarStatusAcao, criarAgendamentoAcao, desfazerStatusAcao, remarcarAcao } from "./actions";
+import { CampoPaciente } from "./campo-paciente";
 
 const ROTULO_ACAO: Record<StatusAgendamento, string> = {
   agendado: "Agendar",
@@ -51,8 +52,16 @@ export function ListaAtendimentos({
   mostrarProfissional = true,
   linkProntuario = false,
   cancelamentoPeloEspaco = true,
+  salas = [],
+  slotMinutos = 30,
+  podeDesfazer = false,
 }: {
   atendimentos: AtendimentoDoDia[];
+  /** Salas da unidade, para remarcar em outra sala. */
+  salas?: Opcao[];
+  slotMinutos?: number;
+  /** Equipe: desfaz a última mudança de status (até 24h). */
+  podeDesfazer?: boolean;
   mostrarProfissional?: boolean;
   /** Profissional: atalho para o prontuário do paciente. */
   linkProntuario?: boolean;
@@ -76,6 +85,7 @@ export function ListaAtendimentos({
                 {[mostrarProfissional && a.profissionalNome, a.salaNome, a.pacienteTelefone].filter(Boolean).join(" · ")}
               </span>
               {a.observacao && <span className="block text-xs text-muted-foreground italic">Obs.: {a.observacao}</span>}
+              {a.remarcadoEm && <span className="block text-xs text-muted-foreground">Remarcado</span>}
               {linkProntuario && (
                 <Link href={`/painel/prontuario/${a.pacienteId}`} className="text-xs text-primary font-medium underline-offset-4 hover:underline inline-block mt-1">
                   Ver Prontuário →
@@ -129,6 +139,57 @@ export function ListaAtendimentos({
                 />
               ))}
 
+            {podeDesfazer && a.statusAnterior && podeDesfazerStatus(a) && (
+              <FormAcao
+                acao={desfazerStatusAcao.bind(null, a.id)}
+                textoBotao={`Desfazer (voltar a ${ROTULOS_STATUS[a.statusAnterior]})`}
+                textoPendente="…"
+                variante="outline"
+                confirmar={`Desfazer "${ROTULOS_STATUS[a.status]}" e voltar para "${ROTULOS_STATUS[a.statusAnterior]}"?`}
+                className="flex items-center gap-2"
+              />
+            )}
+
+            {(a.status === "agendado" || a.status === "confirmado") && (
+              <details className="w-full">
+                <summary className="cursor-pointer text-xs font-medium text-primary">Remarcar</summary>
+                <FormAcao
+                  acao={remarcarAcao.bind(null, a.id)}
+                  textoBotao="Remarcar"
+                  textoPendente="Remarcando…"
+                  variante="secondary"
+                  className="mt-2 flex flex-wrap items-end gap-2"
+                >
+                  <div className="flex flex-col gap-1">
+                    <Label htmlFor={`rm-${a.id}-data`} className="text-xs">Nova data</Label>
+                    <Input id={`rm-${a.id}-data`} name="data" type="date" required className="h-8 w-36 text-xs" />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <Label htmlFor={`rm-${a.id}-inicio`} className="text-xs">Início</Label>
+                    <Input id={`rm-${a.id}-inicio`} name="horaInicio" type="time" step={slotMinutos * 60} required defaultValue={a.horaInicio} className="h-8 w-28 text-xs" />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <Label htmlFor={`rm-${a.id}-fim`} className="text-xs">Fim</Label>
+                    <Input id={`rm-${a.id}-fim`} name="horaFim" type="time" step={slotMinutos * 60} required defaultValue={a.horaFim} className="h-8 w-28 text-xs" />
+                  </div>
+                  {salas.length > 0 && (
+                    <div className="flex flex-col gap-1">
+                      <Label htmlFor={`rm-${a.id}-sala`} className="text-xs">Sala</Label>
+                      <NativeSelect id={`rm-${a.id}-sala`} name="salaId" defaultValue="" className="h-8 w-40 text-xs">
+                        <option value="">A mesma ({a.salaNome})</option>
+                        {salas.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.nome}
+                          </option>
+                        ))}
+                      </NativeSelect>
+                    </div>
+                  )}
+                </FormAcao>
+                <p className="mt-1 text-xs text-muted-foreground">Remarcar não gera cobrança. O lembrete do horário antigo é descartado.</p>
+              </details>
+            )}
+
             {transicoesPossiveis(a.status).includes("cancelado") && (
               <FormAcao
                 acao={alterarStatusAcao.bind(null, a.id, "cancelado")}
@@ -160,7 +221,6 @@ type Opcao = { id: string; nome: string };
  * reserva do profissional no horário ou reserva a sala escolhida.
  */
 export function FormAgendamento({
-  pacientes,
   profissionais,
   salas,
   reservaId,
@@ -168,8 +228,8 @@ export function FormAgendamento({
   horaInicio,
   horaFim,
   slotMinutos,
+  salaId,
 }: {
-  pacientes: Opcao[];
   /** Vazio para o profissional (agenda para si). */
   profissionais: Opcao[];
   /** Vazio quando há reservaId. */
@@ -179,35 +239,14 @@ export function FormAgendamento({
   horaInicio: string;
   horaFim: string;
   slotMinutos: number;
+  /** Sala pré-escolhida (agendar direto num horário vago da grade). */
+  salaId?: string;
 }) {
   const id = (campo: string) => `ag-${reservaId ?? "novo"}-${campo}`;
-  if (pacientes.length === 0) {
-    return (
-      <p className="text-sm text-muted-foreground">
-        Nenhum paciente disponível.{" "}
-        <Link href="/painel/pacientes" className="text-primary underline-offset-4 hover:underline">
-          Cadastre um paciente
-        </Link>
-        .
-      </p>
-    );
-  }
   return (
-    <FormAcao key={`${reservaId}-${data}-${horaInicio}-${horaFim}`} acao={criarAgendamentoAcao} textoBotao="Agendar" textoPendente="Agendando…">
+    <FormAcao key={`${reservaId}-${salaId}-${data}-${horaInicio}-${horaFim}`} acao={criarAgendamentoAcao} textoBotao="Agendar" textoPendente="Agendando…">
       {reservaId && <input type="hidden" name="reservaId" value={reservaId} />}
-      <div className="flex flex-col gap-2">
-        <Label htmlFor={id("paciente")}>Paciente</Label>
-        <NativeSelect id={id("paciente")} name="pacienteId" required defaultValue="">
-          <option value="" disabled>
-            Escolha…
-          </option>
-          {pacientes.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.nome}
-            </option>
-          ))}
-        </NativeSelect>
-      </div>
+      <CampoPaciente />
       {profissionais.length > 0 && !reservaId && (
         <div className="flex flex-col gap-2">
           <Label htmlFor={id("profissional")}>Profissional</Label>
@@ -226,7 +265,7 @@ export function FormAgendamento({
       {salas.length > 0 && !reservaId && (
         <div className="flex flex-col gap-2">
           <Label htmlFor={id("sala")}>Sala</Label>
-          <NativeSelect id={id("sala")} name="salaId" defaultValue="">
+          <NativeSelect id={id("sala")} name="salaId" defaultValue={salaId ?? ""}>
             <option value="">Usar reserva existente do profissional</option>
             {salas.map((s) => (
               <option key={s.id} value={s.id}>

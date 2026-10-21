@@ -111,7 +111,7 @@ export default async function setup() {
       db,
     );
 
-    const dados: DadosE2E = { profissionalId, reservaAmanha, amanha, competenciaAnterior: mesAnterior.slice(0, 7) };
+    const dados: DadosE2E = { profissionalId, reservaAmanha, amanha, competenciaAnterior: mesAnterior.slice(0, 7), sala1 };
     writeFileSync(path.resolve(ARQUIVO_DADOS), JSON.stringify(dados, null, 2));
   } finally {
     await db.$client.end();

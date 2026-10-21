@@ -10,7 +10,7 @@ export type Papel = "admin" | "recepcao" | "profissional";
 export const usuario = (papel: Papel) => `${papel}@e2e.salus.dev`;
 
 /** Ids criados pelo global-setup. */
-export type DadosE2E = { profissionalId: string; reservaAmanha: string; amanha: string; competenciaAnterior: string };
+export type DadosE2E = { profissionalId: string; reservaAmanha: string; amanha: string; competenciaAnterior: string; sala1: string };
 
 export function dados(): DadosE2E {
   return JSON.parse(readFileSync(path.resolve(ARQUIVO_DADOS), "utf-8"));

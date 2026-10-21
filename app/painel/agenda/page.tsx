@@ -28,7 +28,6 @@ import {
 } from "@/src/server/reservas";
 import { listarUnidades } from "@/src/server/unidades";
 import { atendimentosDaReserva } from "@/src/server/agendamentos";
-import { listarPacientes } from "@/src/server/pacientes";
 import { cancelarReservaAcao, criarReservaAcao, encerrarRecorrenciaAcao } from "./actions";
 import { GradeAgenda, type ColunaGrade } from "./grade";
 import { FormAgendamento, ListaAtendimentos } from "../atendimentos/componentes";
@@ -136,9 +135,7 @@ export default async function AgendaPage({ searchParams }: PageProps<"/painel/ag
     parametros.reserva ? obterReserva(ctx, parametros.reserva) : Promise.resolve(null),
     gerencia ? obterPanoramaSalas(ctx, unidade.id, agoraInstante) : Promise.resolve(null),
   ]);
-  const [atendimentosReserva, pacientes] = reservaAberta
-    ? await Promise.all([atendimentosDaReserva(ctx, reservaAberta.id), listarPacientes(ctx)])
-    : [[], []];
+  const atendimentosReserva = reservaAberta ? await atendimentosDaReserva(ctx, reservaAberta.id) : [];
 
   // Pré-preenchimento ao clicar num horário livre.
   const novaSala = parametros.nova ?? (semana ? salaSemana?.id : salas[0]?.id);
@@ -475,7 +472,14 @@ export default async function AgendaPage({ searchParams }: PageProps<"/painel/ag
 
                 <div className="flex flex-col gap-2 border-t pt-3">
                   <p className="font-medium">Pacientes</p>
-                  <ListaAtendimentos atendimentos={atendimentosReserva} mostrarProfissional={false} cancelamentoPeloEspaco={gerencia} />
+                  <ListaAtendimentos
+                    atendimentos={atendimentosReserva}
+                    mostrarProfissional={false}
+                    cancelamentoPeloEspaco={gerencia}
+                    podeDesfazer={gerencia}
+                    salas={salas}
+                    slotMinutos={config.slotMinutos}
+                  />
                 </div>
                 {reservaAberta.status === "ativa" && reservaAberta.fim > new Date() && (() => {
                   const vagoPadrao = reservaAberta.horariosVagos?.[0];
@@ -486,7 +490,6 @@ export default async function AgendaPage({ searchParams }: PageProps<"/painel/ag
                     <div className="flex flex-col gap-2 border-t pt-3">
                       <p className="font-medium">Agendar paciente nesta reserva</p>
                       <FormAgendamento
-                        pacientes={pacientes.map((p) => ({ id: p.id, nome: p.nome }))}
                         profissionais={[]}
                         salas={[]}
                         reservaId={reservaAberta.id}
@@ -527,6 +530,27 @@ export default async function AgendaPage({ searchParams }: PageProps<"/painel/ag
                 <Link href={href({ reserva: undefined })} scroll={false} className="text-xs text-muted-foreground hover:underline">
                   Fechar
                 </Link>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Agendar em 1 passo: o horário livre clicado vira reserva + atendimento. */}
+          {parametros.nova && !reservaAberta && (
+            <Card className="border-primary/40">
+              <CardHeader>
+                <CardTitle className="text-base">Agendar paciente neste horário</CardTitle>
+                <CardDescription>A sala é reservada junto, se estiver livre. Só a sala, sem paciente? Use &quot;Nova reserva&quot; abaixo.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <FormAgendamento
+                  profissionais={gerencia ? profissionais : []}
+                  salas={salas}
+                  salaId={novaSala}
+                  data={novaData}
+                  horaInicio={novaInicio}
+                  horaFim={novaFim}
+                  slotMinutos={config.slotMinutos}
+                />
               </CardContent>
             </Card>
           )}

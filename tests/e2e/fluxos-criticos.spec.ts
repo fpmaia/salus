@@ -31,7 +31,8 @@ test("recepção agenda um paciente dentro da reserva do profissional", async ({
   await page.goto(`/painel/agenda?data=${amanha}&reserva=${reservaAmanha}`);
 
   const formulario = page.locator("form", { has: page.getByRole("button", { name: "Agendar" }) });
-  await formulario.getByLabel("Paciente").selectOption({ label: "Ana Paciente" });
+  await formulario.getByRole("combobox", { name: "Paciente" }).fill("Ana Pac");
+  await formulario.getByRole("option", { name: /Ana Paciente/ }).click();
   await formulario.getByLabel("Início").fill("14:00");
   await formulario.getByLabel("Fim").fill("15:00");
   await formulario.getByLabel("Observação (administrativa)").fill("Primeira consulta");
@@ -160,4 +161,40 @@ test("admin reajusta o contrato pela tela e o histórico mostra as duas versões
   await expect(page.getByText(/Contrato criado/)).toBeVisible();
   await expect(page.getByText(/R\$\s50,00 por hora reservada/).first()).toBeVisible();
   await expect(page.locator("li", { hasText: /→/ }).filter({ hasText: /CTR-/ })).toHaveCount(2);
+});
+
+test("equipe agenda em 1 passo com cadastro rápido, desfaz o status e remarca", async ({ page }) => {
+  const { amanha, sala1 } = dados();
+  // Admin (a recepção já ativou o 2FA no teste anterior); as ações são as mesmas da equipe.
+  await entrar(page, "admin");
+  // Horário vago clicado na grade: reserva a sala e agenda o paciente juntos.
+  await page.goto(`/painel/agenda?data=${amanha}&nova=${sala1}&inicio=17:00`);
+  const cartao = page.locator(`[data-slot="card"]`, { hasText: "Agendar paciente neste horário" });
+  const formulario = cartao.locator("form");
+  await formulario.getByLabel("Profissional").selectOption({ label: "Dra. E2E" });
+  await formulario.getByRole("combobox", { name: "Paciente" }).fill("Bruno Rápido");
+  await formulario.getByRole("button", { name: "+ Novo paciente “Bruno Rápido”" }).click();
+  await formulario.getByLabel("Telefone (WhatsApp)").fill("11 90000-0002");
+  await formulario.getByRole("button", { name: "Cadastrar e escolher" }).click();
+  await expect(formulario.getByRole("button", { name: "Trocar" })).toBeVisible();
+  await formulario.getByRole("button", { name: "Agendar" }).click();
+  await expect(formulario.getByText(/sala reservada automaticamente/)).toBeVisible();
+
+  await page.goto(`/painel/atendimentos?data=${amanha}`);
+  const item = page.getByRole("listitem").filter({ hasText: "17:00–18:00" }).filter({ hasText: "Bruno Rápido" });
+  await item.getByRole("button", { name: "Confirmar" }).click();
+  await expect(item.getByText("Confirmado", { exact: true })).toBeVisible();
+
+  // Clique errado: desfaz e volta para "Agendado".
+  page.once("dialog", (dialogo) => dialogo.accept());
+  await item.getByRole("button", { name: "Desfazer (voltar a Agendado)" }).click();
+  await expect(item.getByText("Agendado", { exact: true })).toBeVisible();
+
+  await item.locator("summary", { hasText: "Remarcar" }).click();
+  await item.getByLabel("Nova data").fill(amanha);
+  await item.getByLabel("Início").fill("18:00");
+  await item.getByLabel("Fim").fill("19:00");
+  await item.getByRole("button", { name: "Remarcar" }).click();
+  await expect(page.getByRole("listitem").filter({ hasText: "18:00–19:00" }).filter({ hasText: "Bruno Rápido" })).toBeVisible();
+  await expect(page.getByText("17:00–18:00")).toHaveCount(0);
 });

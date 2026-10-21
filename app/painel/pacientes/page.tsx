@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { exigirPermissaoNaPagina } from "@/src/auth/permissao";
 import { obterContextoTenant } from "@/src/auth/sessao";
 import { pode } from "@/src/domain/rbac";
-import { listarPacientes } from "@/src/server/pacientes";
+import { buscarPacientes } from "@/src/server/pacientes";
 import { formatarDataBr } from "@/src/server/reservas";
 import { criarPacienteAcao } from "./actions";
 import { CamposPaciente, formatarCpf } from "./campos-paciente";
@@ -14,10 +14,19 @@ import { CamposPaciente, formatarCpf } from "./campos-paciente";
 export default async function PacientesPage({ searchParams }: PageProps<"/painel/pacientes">) {
   const ctx = await obterContextoTenant();
   exigirPermissaoNaPagina(ctx.role, "pacientes.ver");
-  const { busca: buscaBruta, inativos } = await searchParams;
+  const { busca: buscaBruta, inativos, pagina: paginaBruta } = await searchParams;
   const busca = typeof buscaBruta === "string" ? buscaBruta : "";
   const incluirInativos = inativos === "1";
-  const pacientes = await listarPacientes(ctx, { busca, incluirInativos });
+  const paginaPedida = typeof paginaBruta === "string" && /^\d{1,5}$/.test(paginaBruta) ? Number(paginaBruta) : 1;
+  const { itens: pacientes, total, pagina, paginas } = await buscarPacientes(ctx, { busca, incluirInativos, pagina: paginaPedida });
+  const hrefPagina = (n: number) => {
+    const q = new URLSearchParams();
+    if (busca) q.set("busca", busca);
+    if (incluirInativos) q.set("inativos", "1");
+    if (n > 1) q.set("pagina", String(n));
+    const query = q.toString();
+    return query ? `/painel/pacientes?${query}` : "/painel/pacientes";
+  };
   const ehProfissional = !pode(ctx.role, "pacientes.gerenciar");
 
   return (
@@ -62,6 +71,28 @@ export default async function PacientesPage({ searchParams }: PageProps<"/painel
                 </li>
               ))}
             </ul>
+          )}
+          {total > 0 && (
+            <nav aria-label="Paginação" className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
+              <span>
+                {total} paciente{total === 1 ? "" : "s"}
+                {paginas > 1 && ` · página ${pagina} de ${paginas}`}
+              </span>
+              {paginas > 1 && (
+                <span className="flex gap-2">
+                  {pagina > 1 && (
+                    <Button asChild variant="outline" size="sm">
+                      <Link href={hrefPagina(pagina - 1)}>← Anterior</Link>
+                    </Button>
+                  )}
+                  {pagina < paginas && (
+                    <Button asChild variant="outline" size="sm">
+                      <Link href={hrefPagina(pagina + 1)}>Próxima →</Link>
+                    </Button>
+                  )}
+                </span>
+              )}
+            </nav>
           )}
         </CardContent>
       </Card>

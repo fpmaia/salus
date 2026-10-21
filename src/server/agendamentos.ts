@@ -9,15 +9,17 @@ import {
   cancelamentoTardio,
   ErroAgendamento,
   STATUS_AGENDAMENTO,
+  STATUS_ATIVOS,
   validarTransicao,
   type StatusAgendamento,
 } from "../domain/agendamentos";
 import { exigirPermissao, pode } from "../domain/rbac";
-import { validarJanela } from "../domain/reservas";
+import { ErroReserva, validarJanela } from "../domain/reservas";
 import { dataValida, horaValida, instanteLocal, partesLocais, somarDias, type DataLocal } from "../domain/tempo";
 import type { QuemCancelou } from "../domain/financeiro";
-import { gerarLancamentosAgendamento, prazoDeCancelamento } from "./financeiro";
-import { cancelarNotificacoesDoAgendamento } from "./outbox";
+import { gerarLancamentosAgendamento, gerarLancamentosReserva, prazoDeCancelamento } from "./financeiro";
+import { baixarDaEspera } from "./lista-espera";
+import { cancelarNotificacoesDoAgendamento, reativarNotificacoesDoAgendamento } from "./outbox";
 import { acessoAPacientes, pacienteVisivel, vincularPaciente } from "./pacientes";
 import { profissionalDoUsuario } from "./profissionais";
 import { carregarSala, resolverProfissional, traduzirConflito } from "./reservas";
@@ -86,6 +88,96 @@ async function reservaQueContem(
   return reserva ?? null;
 }
 
+type Encaixe = { data: DataLocal; horaInicio: string; horaFim: string; reservaId?: string; salaId?: string };
+
+/**
+ * Reserva onde o horário cabe: a indicada, uma do profissional que contenha o horário ou,
+ * sem nenhuma, uma nova na sala informada (marcada como criada pelo agendamento).
+ */
+async function encaixarNaReserva(
+  tx: Transaction,
+  profissionalId: string,
+  pedido: Encaixe,
+  agora: Date,
+): Promise<{ reservaId: string; periodo: { inicio: Date; fim: Date }; reservaCriada: boolean }> {
+  // Fuso/slot: da sala da reserva indicada, da sala informada ou da reserva encontrada.
+  let reservaId = pedido.reservaId ?? null;
+  let salaId = pedido.salaId;
+  if (reservaId) {
+    const [reserva] = await tx
+      .select({ salaId: reservasSala.salaId, profissionalId: reservasSala.profissionalId })
+      .from(reservasSala)
+      .where(eq(reservasSala.id, reservaId));
+    if (!reserva) throw new ErroAgendamento("fora_da_reserva", "Reserva não encontrada");
+    if (reserva.profissionalId !== profissionalId) {
+      throw new ErroAgendamento("fora_da_reserva", "A reserva é de outro profissional");
+    }
+    salaId = reserva.salaId;
+  }
+
+  let reservaCriada = false;
+  let periodo: { inicio: Date; fim: Date };
+  if (salaId) {
+    const sala = await carregarSala(tx, salaId);
+    periodo = validarJanela(pedido, sala.config, agora);
+    reservaId ??= (await reservaQueContem(tx, profissionalId, periodo, salaId))?.id ?? null;
+    if (!reservaId) {
+      const [reserva] = await tx
+        .insert(reservasSala)
+        .values({ salaId, profissionalId, periodo, criadaPeloAgendamento: true })
+        .returning({ id: reservasSala.id })
+        .catch(traduzirConflito);
+      reservaId = reserva.id;
+      reservaCriada = true;
+      await registrarAuditoria(tx, {
+        acao: "reserva.criada",
+        entidade: "reservas_sala",
+        entidadeId: reserva.id,
+        dados: { salaId, profissionalId, data: pedido.data, horaInicio: pedido.horaInicio, horaFim: pedido.horaFim, origem: "agendamento" },
+      });
+    }
+  } else {
+    // Sem sala: o horário local é interpretado no fuso de alguma reserva do profissional naquele dia.
+    const candidata = await reservaDoDia(tx, profissionalId, pedido.data, pedido.horaInicio, pedido.horaFim);
+    if (!candidata) {
+      throw new ErroAgendamento("fora_da_reserva", "Não há reserva de sala nesse horário: escolha uma sala para reservar");
+    }
+    periodo = validarJanela(pedido, candidata.config, agora);
+    reservaId = candidata.id;
+  }
+  return { reservaId: reservaId!, periodo, reservaCriada };
+}
+
+/** Motivo gravado na reserva automática liberada (permite reativá-la ao desfazer). */
+const MOTIVO_LIBERADA = "Liberada: o atendimento saiu deste horário";
+
+/**
+ * Libera a reserva criada sozinha pelo agendamento quando não sobra atendimento ativo nela
+ * e ela ainda não começou. Não gera cobrança (reserva fora da grade não tem multa).
+ */
+async function liberarReservaAutomatica(tx: Transaction, reservaId: string, agora: Date): Promise<boolean> {
+  const [reserva] = await tx.select().from(reservasSala).where(eq(reservasSala.id, reservaId)).for("update");
+  if (!reserva || !reserva.criadaPeloAgendamento || reserva.status !== "ativa") return false;
+  if (reserva.periodo.inicio.getTime() <= agora.getTime()) return false;
+  const [{ ativos }] = await tx
+    .select({ ativos: sql<number>`count(*)::int` })
+    .from(agendamentos)
+    .where(and(eq(agendamentos.reservaId, reservaId), inArray(agendamentos.status, [...STATUS_ATIVOS])));
+  if (ativos > 0) return false;
+  await tx
+    .update(reservasSala)
+    .set({ status: "cancelada", canceladaEm: agora, canceladaPor: "espaco", motivoCancelamento: MOTIVO_LIBERADA })
+    .where(eq(reservasSala.id, reservaId));
+  await gerarLancamentosReserva(tx, reservaId);
+  await registrarAuditoria(tx, {
+    acao: "reserva.liberada",
+    entidade: "reservas_sala",
+    entidadeId: reservaId,
+    dados: { motivo: MOTIVO_LIBERADA },
+  });
+  return true;
+}
+
 /**
  * Agenda o paciente dentro de uma reserva do profissional. Sem reserva no horário,
  * cria uma na sala informada (se estiver livre e dentro do funcionamento).
@@ -117,51 +209,7 @@ export async function criarAgendamento(
       const [paciente] = await tx.select({ ativo: pacientes.ativo }).from(pacientes).where(eq(pacientes.id, pedido.pacienteId));
       if (!paciente.ativo) throw new ErroAgendamento("nao_permitido", "Este paciente está inativo");
 
-      // Fuso/slot: da sala da reserva indicada, da sala informada ou da reserva encontrada.
-      let reservaId = pedido.reservaId ?? null;
-      let salaId = pedido.salaId;
-      if (reservaId) {
-        const [reserva] = await tx
-          .select({ salaId: reservasSala.salaId, profissionalId: reservasSala.profissionalId })
-          .from(reservasSala)
-          .where(eq(reservasSala.id, reservaId));
-        if (!reserva) throw new ErroAgendamento("fora_da_reserva", "Reserva não encontrada");
-        if (reserva.profissionalId !== profissionalId) {
-          throw new ErroAgendamento("fora_da_reserva", "A reserva é de outro profissional");
-        }
-        salaId = reserva.salaId;
-      }
-
-      let reservaCriada = false;
-      let periodo: { inicio: Date; fim: Date };
-      if (salaId) {
-        const sala = await carregarSala(tx, salaId);
-        periodo = validarJanela(pedido, sala.config, agora);
-        reservaId ??= (await reservaQueContem(tx, profissionalId, periodo, salaId))?.id ?? null;
-        if (!reservaId) {
-          const [reserva] = await tx
-            .insert(reservasSala)
-            .values({ salaId, profissionalId, periodo })
-            .returning({ id: reservasSala.id })
-            .catch(traduzirConflito);
-          reservaId = reserva.id;
-          reservaCriada = true;
-          await registrarAuditoria(tx, {
-            acao: "reserva.criada",
-            entidade: "reservas_sala",
-            entidadeId: reserva.id,
-            dados: { salaId, profissionalId, data: pedido.data, horaInicio: pedido.horaInicio, horaFim: pedido.horaFim, origem: "agendamento" },
-          });
-        }
-      } else {
-        // Sem sala: o horário local é interpretado no fuso de alguma reserva do profissional naquele dia.
-        const candidata = await reservaDoDia(tx, profissionalId, pedido.data, pedido.horaInicio, pedido.horaFim);
-        if (!candidata) {
-          throw new ErroAgendamento("fora_da_reserva", "Não há reserva de sala nesse horário: escolha uma sala para reservar");
-        }
-        periodo = validarJanela(pedido, candidata.config, agora);
-        reservaId = candidata.id;
-      }
+      const { reservaId, periodo, reservaCriada } = await encaixarNaReserva(tx, profissionalId, pedido, agora);
 
       const [agendamento] = await tx
         .insert(agendamentos)
@@ -169,6 +217,7 @@ export async function criarAgendamento(
         .returning({ id: agendamentos.id })
         .catch(traduzirErroAgendamento);
       await vincularPaciente(tx, pedido.pacienteId, profissionalId);
+      await baixarDaEspera(tx, pedido.pacienteId, profissionalId, agendamento.id);
       await registrarAuditoria(tx, {
         acao: "agendamento.criado",
         entidade: "agendamentos",
@@ -243,6 +292,7 @@ export async function aplicarStatusAgendamento(
     .update(agendamentos)
     .set({
       status: destino,
+      statusAnterior: agendamento.status,
       statusAtualizadoEm: agora,
       ...(destino === "cancelado"
         ? { canceladoEm: agora, canceladoPor, motivoCancelamento: motivo?.trim() || null, cancelamentoTardio: tardio }
@@ -253,6 +303,11 @@ export async function aplicarStatusAgendamento(
   // Fato gerador do financeiro (realizado, falta, cancelamento tardio).
   if (destino === "realizado" || destino === "falta" || destino === "cancelado") {
     await gerarLancamentosAgendamento(tx, agendamento.id);
+  }
+  // Cancelado com antecedência (ou pelo espaço): a sala reservada só para ele volta a ficar livre.
+  // Cancelado tarde pelo paciente/profissional, a reserva fica (o profissional paga a sala).
+  if (destino === "cancelado" && (!tardio || canceladoPor === "espaco")) {
+    await liberarReservaAutomatica(tx, agendamento.reservaId, agora);
   }
   // Lembretes pendentes perdem o sentido quando o agendamento sai do fluxo ativo.
   if (destino === "cancelado" || destino === "falta" || destino === "realizado") {
@@ -281,19 +336,176 @@ export async function alterarStatusAgendamento(
   return withTenant(
     ctx,
     async (tx) => {
-      const [agendamento] = await tx.select().from(agendamentos).where(eq(agendamentos.id, agendamentoId)).for("update");
-      if (!agendamento) throw new ErroAgendamento("nao_encontrado", "Agendamento não encontrado");
-
-      if (!pode(ctx.role, "agenda.gerenciar")) {
-        exigirPermissao(ctx.role, "agenda.propria");
-        const proprio = await profissionalDoUsuario(tx, ctx.userId);
-        if (!proprio || proprio.id !== agendamento.profissionalId) {
-          throw new ErroAgendamento("nao_permitido", "Você só pode alterar os seus atendimentos");
-        }
-      }
+      const agendamento = await agendamentoEditavel(tx, ctx, agendamentoId);
       // Só a equipe registra cancelamento pelo espaço (que isenta o profissional).
       const autor = quem === "espaco" && !pode(ctx.role, "agenda.gerenciar") ? "profissional" : quem;
       return aplicarStatusAgendamento(tx, agendamento, destino, motivo, agora, "equipe", autor);
+    },
+    database,
+  );
+}
+
+/** Carrega o agendamento travado e confere se o usuário pode mexer nele. */
+async function agendamentoEditavel(tx: Transaction, ctx: ContextoTenant, agendamentoId: string) {
+  const [agendamento] = await tx.select().from(agendamentos).where(eq(agendamentos.id, agendamentoId)).for("update");
+  if (!agendamento) throw new ErroAgendamento("nao_encontrado", "Agendamento não encontrado");
+  if (!pode(ctx.role, "agenda.gerenciar")) {
+    exigirPermissao(ctx.role, "agenda.propria");
+    const proprio = await profissionalDoUsuario(tx, ctx.userId);
+    if (!proprio || proprio.id !== agendamento.profissionalId) {
+      throw new ErroAgendamento("nao_permitido", "Você só pode alterar os seus atendimentos");
+    }
+  }
+  return agendamento;
+}
+
+export const remarcacaoSchema = z.object({
+  data: z.string().refine(dataValida, "Data inválida"),
+  horaInicio: horaSchema,
+  horaFim: horaSchema,
+  /** Sala do novo horário; omitida, fica a sala atual. */
+  salaId: z.uuid().optional(),
+});
+
+/**
+ * Move o atendimento para outro horário mantendo o mesmo registro (e o histórico).
+ * Volta a "agendado", descarta os lembretes do horário antigo e nunca gera cobrança;
+ * a reserva criada só para o horário antigo é liberada.
+ */
+export async function remarcarAgendamento(
+  ctx: ContextoTenant,
+  agendamentoId: string,
+  dados: z.input<typeof remarcacaoSchema>,
+  agora = new Date(),
+  database?: Database,
+): Promise<{ reservaId: string; reservaCriada: boolean }> {
+  const pedido = remarcacaoSchema.parse(dados);
+  return withTenant(
+    ctx,
+    async (tx) => {
+      const agendamento = await agendamentoEditavel(tx, ctx, agendamentoId);
+      if (agendamento.status !== "agendado" && agendamento.status !== "confirmado") {
+        throw new ErroAgendamento("transicao_invalida", "Só é possível remarcar um atendimento agendado ou confirmado");
+      }
+      const [atual] = await tx
+        .select({ salaId: reservasSala.salaId })
+        .from(reservasSala)
+        .where(eq(reservasSala.id, agendamento.reservaId));
+      const destino = await encaixarNaReserva(
+        tx,
+        agendamento.profissionalId,
+        { ...pedido, salaId: pedido.salaId ?? atual.salaId },
+        agora,
+      );
+      await tx
+        .update(agendamentos)
+        .set({
+          reservaId: destino.reservaId,
+          periodo: destino.periodo,
+          status: "agendado",
+          statusAnterior: null,
+          statusAtualizadoEm: agora,
+          remarcadoEm: agora,
+        })
+        .where(eq(agendamentos.id, agendamentoId))
+        .catch(traduzirErroAgendamento);
+      await cancelarNotificacoesDoAgendamento(tx, agendamentoId, "Agendamento remarcado");
+      if (destino.reservaId !== agendamento.reservaId) {
+        await liberarReservaAutomatica(tx, agendamento.reservaId, agora);
+      }
+      await registrarAuditoria(tx, {
+        acao: "agendamento.remarcado",
+        entidade: "agendamentos",
+        entidadeId: agendamentoId,
+        dados: {
+          de: { reservaId: agendamento.reservaId, inicio: agendamento.periodo.inicio.toISOString(), fim: agendamento.periodo.fim.toISOString() },
+          para: { reservaId: destino.reservaId, data: pedido.data, horaInicio: pedido.horaInicio, horaFim: pedido.horaFim },
+        },
+      });
+      return { reservaId: destino.reservaId, reservaCriada: destino.reservaCriada };
+    },
+    database,
+  );
+}
+
+/** Prazo para desfazer uma mudança de status feita por engano. */
+export const DESFAZER_STATUS_HORAS = 24;
+
+/** O status pode ser desfeito agora? (equipe, até 24h depois da mudança). */
+export function podeDesfazerStatus(
+  agendamento: { statusAnterior: StatusAgendamento | null; statusAtualizadoEm: Date },
+  agora = new Date(),
+): boolean {
+  return (
+    agendamento.statusAnterior !== null &&
+    agora.getTime() - agendamento.statusAtualizadoEm.getTime() <= DESFAZER_STATUS_HORAS * 3_600_000
+  );
+}
+
+/**
+ * Desfaz a última mudança de status (clique errado): volta ao status anterior, limpa os dados
+ * do cancelamento, reativa a reserva liberada e reconcilia o financeiro. Só a equipe, até 24h.
+ */
+export async function desfazerStatus(
+  ctx: ContextoTenant,
+  agendamentoId: string,
+  agora = new Date(),
+  database?: Database,
+): Promise<{ status: StatusAgendamento }> {
+  exigirPermissao(ctx.role, "agenda.gerenciar");
+  return withTenant(
+    ctx,
+    async (tx) => {
+      const agendamento = await agendamentoEditavel(tx, ctx, agendamentoId);
+      const anterior = agendamento.statusAnterior;
+      if (!anterior) throw new ErroAgendamento("nao_permitido", "Não há mudança de status para desfazer");
+      if (!podeDesfazerStatus(agendamento, agora)) {
+        throw new ErroAgendamento("nao_permitido", `Só é possível desfazer até ${DESFAZER_STATUS_HORAS}h depois da mudança`);
+      }
+
+      // A reserva liberada pelo cancelamento volta (se ninguém ocupou a sala nesse meio-tempo).
+      const [reserva] = await tx.select().from(reservasSala).where(eq(reservasSala.id, agendamento.reservaId)).for("update");
+      let reservaReativada = false;
+      if (reserva.status === "cancelada") {
+        if (!reserva.criadaPeloAgendamento || reserva.motivoCancelamento !== MOTIVO_LIBERADA) {
+          throw new ErroAgendamento("nao_permitido", "A reserva da sala foi cancelada: agende de novo");
+        }
+        await tx
+          .update(reservasSala)
+          .set({ status: "ativa", canceladaEm: null, canceladaPor: null, motivoCancelamento: null })
+          .where(eq(reservasSala.id, reserva.id))
+          .catch(traduzirConflito)
+          .catch((erro) => {
+            if (erro instanceof ErroReserva) throw new ErroAgendamento("sala_ocupada", erro.message);
+            throw erro;
+          });
+        reservaReativada = true;
+      }
+
+      await tx
+        .update(agendamentos)
+        .set({
+          status: anterior,
+          statusAnterior: null,
+          statusAtualizadoEm: agora,
+          ...(agendamento.status === "cancelado"
+            ? { canceladoEm: null, canceladoPor: null, motivoCancelamento: null, cancelamentoTardio: false }
+            : {}),
+        })
+        .where(eq(agendamentos.id, agendamentoId))
+        .catch(traduzirErroAgendamento);
+      await gerarLancamentosAgendamento(tx, agendamentoId);
+      if (reservaReativada) await gerarLancamentosReserva(tx, reserva.id);
+      if (STATUS_ATIVOS.includes(anterior)) {
+        await reativarNotificacoesDoAgendamento(tx, agendamentoId, `Agendamento ${agendamento.status}`);
+      }
+      await registrarAuditoria(tx, {
+        acao: "agendamento.status_desfeito",
+        entidade: "agendamentos",
+        entidadeId: agendamentoId,
+        dados: { de: agendamento.status, para: anterior, reservaReativada },
+      });
+      return { status: anterior };
     },
     database,
   );
@@ -311,6 +523,9 @@ export type AtendimentoDoDia = {
   inicio: Date;
   fim: Date;
   status: StatusAgendamento;
+  statusAnterior: StatusAgendamento | null;
+  statusAtualizadoEm: Date;
+  remarcadoEm: Date | null;
   cancelamentoTardio: boolean;
   valorCentavos: number | null;
   origem: "equipe" | "online";
@@ -318,7 +533,9 @@ export type AtendimentoDoDia = {
   pacienteId: string;
   pacienteNome: string;
   pacienteTelefone: string | null;
+  profissionalId: string;
   profissionalNome: string;
+  salaId: string;
   salaNome: string;
 };
 
@@ -340,6 +557,9 @@ async function listarAtendimentos(
       reservaId: agendamentos.reservaId,
       periodo: agendamentos.periodo,
       status: agendamentos.status,
+      statusAnterior: agendamentos.statusAnterior,
+      statusAtualizadoEm: agendamentos.statusAtualizadoEm,
+      remarcadoEm: agendamentos.remarcadoEm,
       cancelamentoTardio: agendamentos.cancelamentoTardio,
       valorCentavos: agendamentos.valorCentavos,
       origem: agendamentos.origem,
@@ -347,7 +567,9 @@ async function listarAtendimentos(
       pacienteId: pacientes.id,
       pacienteNome: pacientes.nome,
       pacienteTelefone: pacientes.telefone,
+      profissionalId: agendamentos.profissionalId,
       profissionalNome: profissionais.nome,
+      salaId: salas.id,
       salaNome: salas.nome,
     })
     .from(agendamentos)
