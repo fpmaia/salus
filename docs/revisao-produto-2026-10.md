@@ -2,6 +2,7 @@
 
 > Outubro de 2026. Documento de alto nível: diagnóstico, erros, propostas, o que retirar e plano de evolução.
 > Base: leitura completa do código (commitado até `b741c50` **e** o trabalho não commitado do working tree), CI, testes e as decisões de produto tomadas com o fundador nesta revisão.
+> **Atualizado em 21/10/2026, depois das Fases A a D:** veja [Status atual](#status-atual--21102026-depois-das-fases-a-a-d). As seções 1 a 9 ficam como o diagnóstico original.
 
 ## Progresso
 
@@ -31,7 +32,76 @@
 
 ---
 
-## 1. Resumo executivo
+## Status atual — 21/10/2026, depois das Fases A a D
+
+**Veredito: pronto para um piloto controlado, ainda não para venda aberta.** O código fez o que o plano pedia nas Fases A a D. O que falta não é mais código: é colocar o sistema no ar com os serviços reais, fazer a revisão jurídica e validar as regras com 1 ou 2 espaços de verdade.
+
+Base desta leitura: `main` em `7018d0f`, CI verde em cada fase, **461 testes** (unidade + integração com Postgres real), **16 fluxos E2E** no build de produção, teste de backup e restauração no CI e o compose de produção validado localmente (Caddy com TLS, HSTS, worker saudável).
+
+### Pronto para o piloto (feito e testado)
+
+- **Segurança.** Sem senha ou e-mail fixo no código. Login de demonstração só para as contas do seed. Segredos obrigatórios e separados em produção (o boot recusa subir sem eles). CSP com nonce, HSTS e proteção contra iframe. Rate limit no banco. Turnstile no cadastro, na recuperação de senha e no agendamento online. 2FA obrigatório para admin e superadmin. Plataforma fora do menu do cliente.
+- **Contas e e-mail.** Confirmação de e-mail obrigatória, redefinição de senha e convites por e-mail, com provedor Resend (e `console` só em demonstração).
+- **Operação.** `docker-compose.prod.yml` com Caddy, healthchecks e `/api/health`. Logs estruturados, Sentry no app e no worker, alertas de jobs e da fila de mensagens. Backup diário cifrado (age) com envio externo (rclone) e teste de restauração. Guia em `docs/deploy.md`.
+- **LGPD.** Termos, política de privacidade e contato do encarregado, com aceite versionado. Exportação e anonimização do paciente, que cobrem os campos novos. Módulos sensíveis desligados por padrão. Página pública do paciente sem CPF, telefone ou observações.
+- **Produto (Fase C).**
+  - Contrato unificado: preço, grade fixa e regras de cancelamento por contrato, e é ele que gera a cobrança.
+  - Quem cancelou fica registrado.
+  - Recepção: remarcar, desfazer status, busca e cadastro rápido de paciente, agendar em um passo, lista de espera.
+  - Profissional: preço antes de reservar, "Meu contrato" e PIX do saldo.
+  - Recorrência semanal, quinzenal e mensal, com vários dias por série.
+  - Feriado e desativação de sala ou profissional mostram as reservas afetadas e esperam a decisão do admin.
+  - Paciente com responsável legal, convênio e endereço, e recibo em PDF.
+  - WhatsApp por QR Code (Evolution), fechamento em lote com CSV e RBAC da recepção.
+- **Experiência e marca (Fase D).**
+  - Navegação: primeiros passos no lugar do tour e do manual, menu agrupado, menu no celular e início por papel.
+  - Retorno das ações: avisos e diálogo de confirmação.
+  - Formulários: máscaras e linguagem simples.
+  - Marca: tokens, fonte de títulos, ícones e imagem de compartilhamento.
+  - Páginas do paciente com o nome do espaço, "adicionar à agenda" e mapa.
+  - Landing nova.
+
+### O que ainda bloqueia o piloto
+
+Nada disto se resolve só com código. Cada item precisa de uma conta, de uma decisão ou de um teste com o serviço real. O roteiro de verificação está no checklist do `docs/deploy.md` (seção 9).
+
+| # | Bloqueio | Estado hoje | O que fazer | Quem |
+|---|---|---|---|---|
+| P1 | **Servidor (VPS), domínio e HTTPS** | Compose de produção validado só localmente (`https://localhost`) | Contratar a VPS (de preferência na região São Paulo), apontar o DNS, subir com `docs/deploy.md` e conferir `curl -I` com HSTS | Fundador + execução |
+| P2 | **E-mail real (Resend)** | Testado com provedor em memória e console; nenhum envio real | Criar a conta, verificar o domínio (SPF, DKIM), definir `RESEND_API_KEY` e `EMAIL_FROM` e fazer um cadastro real até o e-mail chegar | Fundador |
+| P3 | **Sentry real** | SDK sobe em produção (E2E com DSN falso) e o envio foi testado com mock | Criar o projeto, definir `SENTRY_DSN`, forçar um erro de teste, criar a regra de alerta e definir `ALERTAS_EMAIL` | Fundador |
+| P4 | **Armazenamento S3 e backup externo** | Anexos testados só com armazenamento em memória (o S3 local do compose não tem teste automático); backup e restauração testados no CI com destino local | Criar os buckets (anexos com versionamento; backups com retenção/Object Lock), configurar o rclone, ver o primeiro backup chegar e rodar o `restaurar-teste` | Fundador + execução |
+| P5 | **Revisão jurídica** | Termos e política escritos e versionados, mas **não revisados por advogado** | Advogado revisa `app/(legal)`; nomear o encarregado (DPO); contrato com o espaço prevendo o Salus como operador (LGPD art. 39) e listando os suboperadores | Fundador + advogado |
+| P6 | **Turnstile real** | Testado com as chaves de teste da Cloudflare (aceita e recusa) | Criar o site no Cloudflare e definir `TURNSTILE_SITE_KEY` e `TURNSTILE_SECRET_KEY` | Fundador |
+| P7 | **WhatsApp por QR (Evolution) real** | Testado contra uma Evolution **falsa**; o formato da API (v2) foi conferido na documentação, não numa instância | Subir a Evolution na rede interna do compose, conectar um número **dedicado** do espaço piloto, mandar um lembrete e um aviso de cancelamento de ponta a ponta e acompanhar alguns dias | Execução + espaço piloto |
+| P8 | **Identificação legal no ambiente** | Variáveis exigidas pelo boot, sem valores reais | Definir `SALUS_EMPRESA_NOME`, `SALUS_EMPRESA_CNPJ` e `SALUS_ENCARREGADO_EMAIL` | Fundador |
+
+**Não bloqueiam o piloto, mas precisam de decisão:** o número do WhatsApp comercial da landing (`SALUS_WHATSAPP_COMERCIAL`; sem ele, o botão leva ao cadastro) e o preço por sala.
+
+### Riscos que continuam (não impedem o piloto)
+
+- **Integrações que dependem do espaço piloto:**
+  - **Asaas (PIX):** testado só com gateway falso e no ambiente simulado. Antes de ligar para um espaço, fazer uma cobrança real no sandbox do Asaas, inclusive o "copia e cola" (`pixQrCode`) e o webhook.
+  - **WhatsApp oficial (Meta):** os templates `cancelamento_agendamento` e `cancelamento_reserva` ainda não estão cadastrados. Só importam se o espaço usar a API oficial em vez do QR Code.
+  - **NFS-e (Focus) e prontuário:** desligados por padrão. A NFS-e nunca foi testada com a prefeitura real; o prontuário não tem assinatura ICP-Brasil (Fase E).
+- **Regras ainda sem validação:**
+  - **Regras de negócio são hipóteses.** Cobrança, cancelamento tardio, multa de turno fixo e recorrência foram decididas nesta revisão, sem uso real. O piloto existe para confirmar ou corrigir isso.
+  - **C10 parcial.** Criar uma série recorrente é tudo ou nada em caso de conflito. Mas, quando o worker estende a série e encontra um conflito, a data só fica na auditoria: o profissional e o admin não são avisados.
+- **Dívidas técnicas:**
+  - **C13 (fusos)** e **C15 (busca de paciente por telefone no agendamento público)** continuam abertos (P2). Só pesam com unidades em fusos diferentes ou com muitos pacientes.
+  - **Sem teste de carga nem pentest externo.** Vale um pentest antes de abrir para venda; para o piloto, os controles atuais bastam.
+  - **Modo escuro** foi retirado de propósito e volta depois do piloto, com contraste revisado.
+
+### Ordem sugerida até o primeiro espaço
+
+1. P1, P2, P3, P4, P6 e P8 numa mesma janela: subir o ambiente, passar o checklist do `docs/deploy.md` e restaurar um backup de verdade.
+2. P5 em paralelo, porque depende do advogado. Sem ela, não colocar dados reais de pacientes.
+3. P7 com o espaço piloto, num número dedicado.
+4. Piloto de 2 a 4 semanas com feedback semanal. Pronto quando a recepção passa uma semana sem planilha paralela.
+
+---
+
+## 1. Resumo executivo (diagnóstico de outubro, antes das fases)
 
 **Veredito: o Salus não está pronto para produção.** O estágio real é **protótipo funcional avançado / pré‑piloto**.
 
@@ -80,23 +150,25 @@
 
 ---
 
-## 3. Status de maturidade
+## 3. Status de maturidade (diagnóstico × hoje)
 
 Escala: 1 = inexistente · 2 = protótipo · 3 = funcional com lacunas · 4 = pronto para piloto · 5 = pronto para escala.
 
-| Dimensão | Commitado | Working tree | Comentário |
-|---|:-:|:-:|---|
-| Modelo de dados e regras | **4** | 2 | O núcleo é sólido. Contratos duplicam os acordos e não geram cobrança. |
-| Segurança de aplicação | 3 | **1** | O login demo e o superadmin com senha fixa anulam o resto. Faltam headers e rate limit persistente. |
-| Operação / infra | 2 | 2 | Faltam backup, deploy, health check, observabilidade e alertas. |
-| Compliance (LGPD / CFM) | 2 | 2 | Faltam anonimização, política, termos, encarregado e retenção de 20 anos do prontuário. A landing promete "conformidade total". |
-| Funcionalidade (cobertura) | 3 | 3 | Ampla, até demais para o estágio. Mas faltam remarcar, desfazer e lista de espera. |
-| UX / usabilidade | 2 | 2 | Setup longo, menu plano, agendamento em 2 passos, jargão. |
-| Identidade visual | 2 | 2 | A paleta prometida não está nos tokens. O dark mode é código morto. Os estilos são inconsistentes. |
-| Qualidade / testes | **4** | 2 | O CI é ótimo, mas o código novo nunca rodou nele. Há avisos de concorrência do `pg`. |
-| Documentação | 4 | 2 | README e ADRs divergem do código novo. |
+| Dimensão | Commitado | Working tree | **Hoje** | Comentário |
+|---|:-:|:-:|:-:|---|
+| Modelo de dados e regras | **4** | 2 | **4** | Contrato unificado gera a cobrança. Resta validar as regras no piloto. |
+| Segurança de aplicação | 3 | **1** | **4** | Sem segredos fixos, CSP, HSTS, rate limit no banco, Turnstile e 2FA. Falta pentest externo. |
+| Operação / infra | 2 | 2 | **3** | Compose, backup, Sentry e alertas prontos e testados localmente. Vira 4 com o deploy real (P1–P4). |
+| Compliance (LGPD / CFM) | 2 | 2 | **3** | Documentos, aceite, exportação e anonimização prontos. Vira 4 com a revisão jurídica (P5). |
+| Funcionalidade (cobertura) | 3 | 3 | **4** | Fase C completa. Módulos extras atrás de chave. |
+| UX / usabilidade | 2 | 2 | **4** | Primeiros passos, início por papel, agendar em 1 passo, avisos e linguagem simples. Falta validar com usuários reais. |
+| Identidade visual | 2 | 2 | **4** | Tokens, fonte, ícones e páginas do paciente com a marca do espaço. |
+| Qualidade / testes | **4** | 2 | **4** | 461 testes e 16 E2E no CI. Sem teste de carga. |
+| Documentação | 4 | 2 | **4** | Deploy, revisão e progresso atualizados. |
 
-**Leitura honesta:** o código commitado chegaria ao nível 4 (piloto) com as Fases A e B. O working tree atual **regride** o produto até ser triado.
+**Leitura honesta (outubro):** o código commitado chegaria ao nível 4 (piloto) com as Fases A e B. O working tree **regredia** o produto até ser triado.
+
+**Hoje:** o working tree foi triado e todas as dimensões estão em 3 ou 4. As duas que ainda estão em 3 (operação e compliance) sobem com o deploy real e a revisão jurídica, não com mais código.
 
 ---
 
@@ -374,6 +446,8 @@ Prioridade: **P0** = bloqueia produção/segurança · **P1** = bloqueia o pilot
 1. Preço do SaaS: valor por sala, faixa mínima e período de teste.
 2. Quem arca com o custo do WhatsApp quando migrar para a API oficial: o espaço ou o Salus?
 3. Região de hospedagem (Brasil × exterior), que depende de o prontuário ser ligado no piloto.
-4. O recibo em PDF do paciente sai no nome do profissional (padrão) ou também pode sair no nome do espaço no modelo de caixa centralizado?
-5. A lista de espera notifica o paciente automaticamente (WhatsApp) ou só sugere à recepção?
+4. ~~O recibo sai no nome de quem?~~ **Decidido:** sempre no nome do profissional. No caixa centralizado, o recibo informa que o espaço recebeu em nome dele.
+5. ~~A lista de espera avisa o paciente sozinha?~~ **Decidido:** não. Ela só sugere à recepção quem chamar.
 6. Na agenda unificada multi‑espaço, um espaço pode ver que o profissional está ocupado em outro? (Privacidade entre clientes concorrentes.)
+7. Número do WhatsApp comercial da landing (`SALUS_WHATSAPP_COMERCIAL`).
+8. Qual espaço será o primeiro piloto e com qual número dedicado ele vai usar o WhatsApp por QR Code.
