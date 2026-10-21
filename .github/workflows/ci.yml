@@ -79,6 +79,7 @@ jobs:
           SALUS_EMPRESA_NOME=x
           SALUS_EMPRESA_CNPJ=x
           SALUS_ENCARREGADO_EMAIL=x
+          SENTRY_DSN=x
           FIM
           docker compose -f docker-compose.prod.yml --env-file /tmp/producao.env config --quiet
 

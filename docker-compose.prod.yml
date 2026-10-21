@@ -29,6 +29,11 @@ x-app-env: &app-env
   SALUS_EMPRESA_ENDERECO: ${SALUS_EMPRESA_ENDERECO:-}
   SALUS_ENCARREGADO_NOME: ${SALUS_ENCARREGADO_NOME:-}
   SALUS_ENCARREGADO_EMAIL: ${SALUS_ENCARREGADO_EMAIL:?defina SALUS_ENCARREGADO_EMAIL}
+  # Erros e alertas (Sentry) e e-mail da equipe técnica para os alertas.
+  SENTRY_DSN: ${SENTRY_DSN:?defina SENTRY_DSN}
+  SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-producao}
+  ALERTAS_EMAIL: ${ALERTAS_EMAIL:-}
+  LOG_NIVEL: ${LOG_NIVEL:-info}
   # O Caddy sobrescreve X-Real-IP com o IP de quem conectou (docker/caddy/Caddyfile).
   IP_HEADER: x-real-ip
   # Anexos do prontuário: S3 gerenciado (R2/S3) com versionamento.

@@ -3,6 +3,9 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import PgBoss from "pg-boss";
 import { validarAmbiente } from "../env";
+import { log } from "../observabilidade/log";
+import { descarregarMonitoramento, iniciarMonitoramento, reportarErro } from "../observabilidade/monitoramento";
+import { notificarAlerta, verificarAlertas } from "../server/alertas";
 import type { Transaction } from "../db/client";
 import { listarTenantsAtivos, withSistema } from "../db/tenant";
 import { gerarFaturaDoMes, sincronizarFaturas } from "../server/assinatura";
@@ -23,6 +26,7 @@ try {
 }
 
 validarAmbiente("worker");
+iniciarMonitoramento("worker");
 
 // Lido pelo healthcheck do docker-compose.prod.yml.
 const ARQUIVO_HEARTBEAT = process.env.WORKER_HEARTBEAT ?? path.join(tmpdir(), "salus-worker-vivo");
@@ -56,15 +60,17 @@ const JOBS: Job[] = [
   { fila: "cobrancas.sincronizar", cron: "*/15 * * * *", porTenant: (tenantId, agora) => sincronizarCobrancas(tenantId, { agora }) },
   // Contadores de rate limit parados há mais de 1 dia.
   { fila: "manutencao.limpar-rate-limits", cron: "30 4 * * *", global: (agora) => limparLimitesAntigos(agora.getTime()) },
+  // Outbox com falhas ou parada: alerta (Sentry e, com ALERTAS_EMAIL, e-mail).
+  { fila: "monitoramento.verificar-alertas", cron: "*/15 * * * *", global: (agora) => verificarAlertas({ agora }) },
 ];
 
 async function porTenant(job: Job) {
   const agora = new Date();
   if (job.global) {
     try {
-      console.log(`[worker] ${job.fila}`, await job.global(agora));
+      log.debug("job concluído", { fila: job.fila, resultado: await job.global(agora) });
     } catch (erro) {
-      console.error(`[worker] ${job.fila} falhou`, erro);
+      await falhaDeJob(job.fila, erro);
     }
     return;
   }
@@ -73,12 +79,20 @@ async function porTenant(job: Job) {
       const resultado = job.porTenant
         ? await job.porTenant(tenantId, agora)
         : await withSistema(tenantId, (tx) => job.executar!(tx, agora));
-      console.log(`[worker] ${job.fila} tenant=${tenantId}`, resultado);
+      log.debug("job concluído", { fila: job.fila, tenantId, resultado });
     } catch (erro) {
       // Falha num tenant não impede os demais; o job é refeito na próxima execução.
-      console.error(`[worker] ${job.fila} tenant=${tenantId} falhou`, erro);
+      await falhaDeJob(job.fila, erro, tenantId);
     }
   }
+}
+
+/** Falha de job: erro no Sentry e alerta (e-mail com limite) para a equipe. */
+async function falhaDeJob(fila: string, erro: unknown, tenantId?: string) {
+  reportarErro(erro, "job falhou", { tags: { fila, tenantId } });
+  await notificarAlerta(`job.${fila}`, `O job ${fila} falhou`, { tenantId, erro: erro instanceof Error ? erro.message : String(erro) }).catch(
+    () => undefined,
+  );
 }
 
 async function main() {
@@ -87,7 +101,7 @@ async function main() {
 
   // Schema "pgboss" pertence ao papel da aplicação (criado no init do Postgres).
   const boss = new PgBoss({ connectionString, schema: "pgboss" });
-  boss.on("error", (erro) => console.error("[worker]", erro));
+  boss.on("error", (erro) => reportarErro(erro, "erro do pg-boss"));
 
   await boss.start();
   for (const job of JOBS) {
@@ -97,7 +111,7 @@ async function main() {
   }
   // Fila da Fase 0, substituída pelos jobs acima.
   await boss.unschedule("manutencao.heartbeat").catch(() => undefined);
-  console.log(`[worker] pronto (whatsapp: ${provider.nome}): ${JOBS.map((j) => j.fila).join(", ")}`);
+  log.info("worker pronto", { whatsapp: provider.nome, filas: JOBS.map((j) => j.fila) });
 
   // Heartbeat para o healthcheck do container: o arquivo é tocado enquanto o banco responde.
   const batimento = setInterval(async () => {
@@ -105,7 +119,7 @@ async function main() {
       await boss.getQueues();
       await writeFile(ARQUIVO_HEARTBEAT, new Date().toISOString());
     } catch (erro) {
-      console.error("[worker] heartbeat falhou", erro);
+      reportarErro(erro, "heartbeat do worker falhou");
     }
   }, 30_000);
   await writeFile(ARQUIVO_HEARTBEAT, new Date().toISOString());
@@ -113,13 +127,15 @@ async function main() {
   const encerrar = async () => {
     clearInterval(batimento);
     await boss.stop({ graceful: true });
+    await descarregarMonitoramento();
     process.exit(0);
   };
   process.on("SIGTERM", encerrar);
   process.on("SIGINT", encerrar);
 }
 
-main().catch((erro) => {
-  console.error(erro);
+main().catch(async (erro) => {
+  reportarErro(erro, "worker não conseguiu iniciar");
+  await descarregarMonitoramento();
   process.exit(1);
 });

@@ -1,3 +1,5 @@
+import { mascararEmail } from "../observabilidade/log";
+import { reportarErro } from "../observabilidade/monitoramento";
 import { emailDoAmbiente, type MensagemEmail, type ProvedorEmail } from "./email";
 
 /**
@@ -9,7 +11,7 @@ export async function enviarEmailConvite(mensagem: MensagemEmail, provedor?: Pro
     await (provedor ?? emailDoAmbiente()).enviar(mensagem);
     return true;
   } catch (erro) {
-    console.error(`[e-mail] convite não enviado para ${mensagem.para}:`, erro instanceof Error ? erro.message : erro);
+    reportarErro(erro, "convite não enviado por e-mail", { extra: { para: mascararEmail(mensagem.para) } });
     return false;
   }
 }

@@ -16,6 +16,7 @@ const VALIDO = {
   SALUS_EMPRESA_NOME: "Empresa Exemplo Ltda",
   SALUS_EMPRESA_CNPJ: "11.222.333/0001-81",
   SALUS_ENCARREGADO_EMAIL: "privacidade@exemplo.com",
+  SENTRY_DSN: "https://chave@o0.ingest.sentry.io/0",
 };
 
 afterEach(() => vi.unstubAllEnvs());
@@ -55,6 +56,12 @@ describe("validação do ambiente", () => {
     vi.stubEnv("NODE_ENV", "production");
     expect(errosDoAmbiente("app")).toEqual(["TURNSTILE_SECRET_KEY não definida (captcha das páginas públicas)"]);
     expect(errosDoAmbiente("worker")).toEqual([]);
+  });
+
+  it("em produção app e worker exigem o Sentry", () => {
+    definir({ SENTRY_DSN: "" });
+    vi.stubEnv("NODE_ENV", "production");
+    expect(errosDoAmbiente("worker")).toEqual(["SENTRY_DSN não definida (monitoramento de erros e alertas)"]);
   });
 
   it("em produção o app exige a identificação da empresa e do encarregado", () => {

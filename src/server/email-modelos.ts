@@ -87,3 +87,25 @@ export function emailConviteEquipe(para: string, dados: { espaco: string; papel:
     rodape: `Convite enviado por ${dados.espaco} pelo Salus.`,
   });
 }
+
+/** Alerta operacional para a equipe técnica (sem dado pessoal: só ids e contagens). */
+export function emailAlerta(para: string, dados: { chave: string; mensagem: string; detalhes: Record<string, unknown>; quando: Date }): MensagemEmail {
+  const detalhes = JSON.stringify(dados.detalhes, null, 2);
+  const texto = [
+    `[Salus] ${dados.mensagem}`,
+    "",
+    `Alerta: ${dados.chave}`,
+    `Quando: ${dados.quando.toISOString()}`,
+    "",
+    detalhes,
+    "",
+    "Próximo e-mail deste alerta em no mínimo 6 h. Veja o Sentry e os logs do worker.",
+  ].join("\n");
+  return {
+    para,
+    assunto: `[Salus] Alerta: ${dados.mensagem}`,
+    texto,
+    html: `<pre style="font-family:monospace;font-size:13px;white-space:pre-wrap">${escapar(texto)}</pre>`,
+  };
+}
+

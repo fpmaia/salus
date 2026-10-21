@@ -47,10 +47,12 @@ export function FormularioEntrar({
     setEnviando(true);
     setErro(null);
 
-    const { error } = await authClient.signIn.email({
+    const { data, error } = await authClient.signIn.email({
       email: emailParaLogar,
       password: senhaParaLogar,
     });
+    // Conta com 2FA: o plugin do cliente leva à tela do código (não abre o painel daqui).
+    if (data && "twoFactorRedirect" in data && data.twoFactorRedirect) return;
 
     if (error) {
       setEnviando(false);

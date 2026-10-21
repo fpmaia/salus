@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft, Building2, LayoutDashboard, Shield, Users, Activity } from "lucide-react";
+import { redirect } from "next/navigation";
+import { precisaConfigurar2FA, ROTA_CONFIGURAR_2FA } from "@/src/auth/dois-fatores";
 import { exigirUsuario } from "@/src/auth/sessao";
 import { ehSuperadmin } from "@/src/server/plataforma";
 import { AcessoNegado } from "@/components/acesso-negado";
@@ -13,6 +15,9 @@ export default async function PlataformaLayout({
 }) {
   const usuario = await exigirUsuario();
   const superadmin = await ehSuperadmin(usuario.id);
+
+  // Dono da plataforma: 2FA obrigatório (src/auth/dois-fatores.ts).
+  if (superadmin && precisaConfigurar2FA(usuario, true)) redirect(`${ROTA_CONFIGURAR_2FA}?obrigatorio=1`);
 
   if (!superadmin) {
     return (

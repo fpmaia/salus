@@ -55,6 +55,8 @@ export default defineConfig({
       SALUS_DEMO: "true",
       // Vários logins seguidos (um por teste, e retries): folga no limite de login por minuto.
       AUTH_LOGIN_MAX_POR_MINUTO: "50",
+      // Sentry ligado (DSN inválido de propósito, nada sai): garante que o SDK sobe no servidor Next.
+      SENTRY_DSN: "http://e2e@127.0.0.1:9/1",
       ASAAS_AMBIENTE: "simulado",
       ...(process.env.CI ? {} : { NEXT_DIST_DIR: ".next-e2e" }),
     },

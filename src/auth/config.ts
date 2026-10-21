@@ -1,9 +1,11 @@
 import type { BetterAuthOptions } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError, createAuthMiddleware } from "better-auth/api";
-import { admin, captcha } from "better-auth/plugins";
+import { admin, captcha, twoFactor } from "better-auth/plugins";
 import type { Database } from "../db/client";
 import * as schema from "../db/schema";
+import { mascararEmail } from "../observabilidade/log";
+import { reportarErro } from "../observabilidade/monitoramento";
 import { VERSAO_DOCUMENTOS } from "../legal/documentos";
 import { cabecalhosDeIp, ipDoCliente } from "../seguranca/ip";
 import { registrarAceite } from "../server/aceites";
@@ -18,7 +20,7 @@ async function enviarSemVazar(mensagem: MensagemEmail) {
   try {
     await emailDoAmbiente().enviar(mensagem);
   } catch (erro) {
-    console.error(`[e-mail] falha ao enviar "${mensagem.assunto}":`, erro instanceof Error ? erro.message : erro);
+    reportarErro(erro, "falha ao enviar e-mail de conta", { tags: { assunto: mensagem.assunto }, extra: { para: mascararEmail(mensagem.para) } });
     throw erro;
   }
 }
@@ -80,6 +82,8 @@ export function opcoesAuth(database: Database) {
         defaultRole: "user",
         adminRole: ["superadmin"],
       }),
+      // TOTP (app autenticador) + 10 códigos de recuperação; "confiar neste dispositivo" por 30 dias.
+      twoFactor({ issuer: "Salus", backupCodeOptions: { amount: 10 }, trustDeviceMaxAge: 30 * 24 * 60 * 60 }),
       // Captcha (Turnstile) onde robô causa estrago: criar contas e disparar e-mails de senha.
       // O login fica só com rate limit, para não pôr atrito em todo acesso.
       ...(process.env.TURNSTILE_SECRET_KEY
@@ -97,6 +101,9 @@ export function opcoesAuth(database: Database) {
         "/request-password-reset": { window: 3600, max: 5 },
         "/send-verification-email": { window: 3600, max: 5 },
         "/reset-password": { window: 3600, max: 10 },
+        // Código de 6 dígitos: poucas tentativas por minuto contra força bruta.
+        "/two-factor/verify-totp": { window: 60, max: 5 },
+        "/two-factor/verify-backup-code": { window: 60, max: 5 },
       },
     },
     advanced: {

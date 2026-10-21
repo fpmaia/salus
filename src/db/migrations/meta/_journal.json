@@ -197,6 +197,13 @@
       "when": 1792580810813,
       "tag": "0027_anonimizacao_paciente",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1792582633847,
+      "tag": "0028_dois_fatores",
+      "breakpoints": true
     }
   ]
 }

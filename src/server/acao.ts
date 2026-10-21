@@ -1,5 +1,6 @@
 import { revalidatePath } from "next/cache";
 import { unstable_rethrow } from "next/navigation";
+import { reportarErro } from "../observabilidade/monitoramento";
 import { mensagemDeErro } from "./erros";
 
 /** Estado devolvido pelas Server Actions de formulário (useActionState). */
@@ -27,7 +28,7 @@ export async function executarAcao(
 
     // Erro inesperado: gera correlation ID, loga detalhadamente no servidor e oculta SQL do browser
     const erroId = `ERR-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
-    console.error(`[Servidor - Erro Inesperado ${erroId}]:`, erro);
+    reportarErro(erro, "erro inesperado numa ação", { extra: { erroId } });
     return {
       erro: `Ocorreu um erro interno ao processar a operação (${erroId}). Tente novamente ou informe o suporte.`,
       sucesso: null,

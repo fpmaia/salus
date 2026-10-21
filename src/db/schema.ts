@@ -90,6 +90,8 @@ export const users = pgTable("users", {
   banned: boolean("banned").default(false),
   banReason: text("ban_reason"),
   banExpires: timestamp("ban_expires", { withTimezone: true }),
+  // Verificação em duas etapas (plugin twoFactor do Better Auth).
+  twoFactorEnabled: boolean("two_factor_enabled").default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
@@ -157,6 +159,23 @@ export const verifications = pgTable(
       .$onUpdate(() => new Date()),
   },
   (t) => [index("verifications_identifier_idx").on(t.identifier)],
+);
+
+// Segredo TOTP e códigos de recuperação (cifrados pelo Better Auth com o BETTER_AUTH_SECRET).
+export const twoFactors = pgTable(
+  "two_factors",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    secret: text("secret").notNull(),
+    backupCodes: text("backup_codes").notNull(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    verified: boolean("verified").default(true),
+    failedVerificationCount: integer("failed_verification_count").default(0),
+    lockedUntil: timestamp("locked_until", { withTimezone: true }),
+  },
+  (t) => [index("two_factors_user_id_idx").on(t.userId), index("two_factors_secret_idx").on(t.secret)],
 );
 
 // Aceites dos Termos de Uso e da Política de Privacidade (LGPD: prova do consentimento).

@@ -7,7 +7,7 @@ const nextConfig: NextConfig = {
   // Imagem Docker enxuta (ver Dockerfile, alvo "runner").
   output: "standalone",
   // pg e pg-boss usam APIs do Node; não precisam ser empacotados.
-  serverExternalPackages: ["pg", "pg-boss"],
+  serverExternalPackages: ["pg", "pg-boss", "@sentry/node"],
   poweredByHeader: false,
   // A CSP (com nonce) sai do proxy.ts; aqui vão os cabeçalhos fixos, para todas as rotas.
   async headers() {

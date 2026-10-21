@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { dados, entrar } from "./dados";
+import { dados, entrar, SENHA, totp, usuario } from "./dados";
 
 // Fluxos críticos do MVP, de ponta a ponta: login real, Server Actions e Postgres com RLS.
 
@@ -120,3 +120,28 @@ test("documentos legais públicos, com versão e contato do encarregado", async 
   await page.getByRole("link", { name: "Termos de Uso" }).first().click();
   await expect(page.getByRole("heading", { name: "Termos de Uso" })).toBeVisible();
 });
+
+test("recepção ativa a verificação em duas etapas e o login passa a pedir o código", async ({ page }) => {
+  await entrar(page, "recepcao");
+  await page.goto("/seguranca/dois-fatores");
+  await page.getByLabel("Confirme sua senha para começar").fill(SENHA);
+  await page.getByRole("button", { name: "Ativar verificação em duas etapas" }).click();
+  await expect(page.getByRole("img", { name: "QR code para o app autenticador" })).toBeVisible();
+  const segredo = (await page.locator("code").textContent())!.trim();
+  await page.getByLabel("Código de 6 dígitos que aparece no app").fill(totp(segredo));
+  await page.getByRole("button", { name: "Confirmar e ativar" }).click();
+  await expect(page.getByText("Guarde estes códigos de recuperação")).toBeVisible();
+
+  // Novo login: depois da senha, a tela do código.
+  await page.context().clearCookies();
+  await page.goto("/entrar");
+  await page.waitForLoadState("networkidle");
+  await page.getByLabel("E-mail").fill(usuario("recepcao"));
+  await page.getByLabel("Senha").fill(SENHA);
+  await page.getByRole("button", { name: "Entrar" }).click();
+  await expect(page).toHaveURL(/\/entrar\/dois-fatores/);
+  await page.getByLabel("Código").fill(totp(segredo));
+  await page.getByRole("button", { name: "Entrar" }).click();
+  await expect(page).toHaveURL(/\/painel/);
+});
+

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { cache } from "react";
 import type { ContextoTenant } from "../db/tenant";
 import { aceiteVigente } from "../server/aceites";
+import { precisaConfigurar2FA, ROTA_CONFIGURAR_2FA } from "./dois-fatores";
 import { listarMembershipsDoUsuario } from "../server/memberships";
 import { getAuth } from "./server";
 
@@ -18,7 +19,8 @@ export async function exigirUsuario() {
   if (!sessao) redirect("/entrar");
   // Termos/Política em versão nova (ou nunca aceitos): aceite antes de seguir.
   if (!(await aceiteVigenteDoUsuario(sessao.user.id))) redirect("/aceite-termos");
-  return sessao.user;
+  // Campo do plugin twoFactor (vem na sessão; o tipo inferido do Better Auth não o inclui).
+  return sessao.user as typeof sessao.user & { twoFactorEnabled?: boolean | null };
 }
 
 const aceiteVigenteDoUsuario = cache((userId: string) => aceiteVigente(userId));
@@ -38,6 +40,8 @@ export const obterContextoTenant = cache(async (): Promise<ContextoUsuario> => {
   const cookieStore = await cookies();
   const tenantIdCookie = cookieStore.get("salus_tenant_id")?.value;
   const membership = (tenantIdCookie ? memberships.find((m) => m.tenantId === tenantIdCookie) : null) ?? memberships[0];
+  // Quem administra o espaço precisa de 2FA (src/auth/dois-fatores.ts).
+  if (precisaConfigurar2FA(usuario, membership.role === "admin")) redirect(`${ROTA_CONFIGURAR_2FA}?obrigatorio=1`);
 
   return {
     tenantId: membership.tenantId,

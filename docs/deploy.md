@@ -48,6 +48,10 @@ EMAIL_FROM=Salus <nao-responda@seudominio.com.br>
 TURNSTILE_SITE_KEY=
 TURNSTILE_SECRET_KEY=
 
+# Erros e alertas
+SENTRY_DSN=
+ALERTAS_EMAIL=ops@seudominio.com.br
+
 # Termos de Uso e Política de Privacidade (LGPD)
 SALUS_EMPRESA_NOME=LS Code Tecnologia Ltda
 SALUS_EMPRESA_CNPJ=
@@ -105,7 +109,27 @@ docker compose -f docker-compose.prod.yml --env-file .env.producao up -d --build
 
 O `migrate` roda de novo antes de o app novo subir. As migrations são só de avanço: para voltar uma versão, restaure o backup anterior à atualização.
 
-## 5. Healthchecks
+## 5. Logs, erros e alertas
+
+- **Logs:** uma linha JSON por evento (`ts`, `nivel`, `servico`, `versao`, `msg`, campos), por exemplo `docker compose ... logs -f worker | jq 'select(.nivel=="error")'`. Os logs não carregam dado pessoal: só ids e contagens.
+- **Sentry (`SENTRY_DSN`):**
+  - Recebe os erros de servidor não tratados (render, route handlers, actions), os erros inesperados das ações e as falhas dos jobs do worker.
+  - O SDK é configurado para **não enviar** corpo, cookies, cabeçalhos, URL nem query: dado de saúde não sai do servidor.
+  - Crie no Sentry uma regra de alerta para *issues novas* e para eventos com a tag `alerta`.
+- **Alertas** (job `monitoramento.verificar-alertas`, a cada 15 min):
+  - lembretes que falharam de vez nas últimas 24 h;
+  - lembretes parados há mais de 30 min (worker ou WhatsApp fora);
+  - falha de qualquer job.
+
+  Vão para o Sentry (agrupados) e, com `ALERTAS_EMAIL`, por e-mail, no máximo um por problema a cada 6 h.
+
+## 6. Verificação em duas etapas
+
+Em produção, admins do espaço e o superadmin precisam ativar o TOTP antes de usar o painel: o próprio sistema redireciona para `/seguranca/dois-fatores`. Lá eles escaneiam o QR e guardam os 10 códigos de recuperação. Qualquer usuário pode ativar pelo perfil. `EXIGIR_2FA_ADMIN=false` desliga a exigência (não recomendado).
+
+> Os segredos TOTP ficam cifrados com o `BETTER_AUTH_SECRET`. Trocar esse segredo invalida o 2FA de todos, que precisarão configurá-lo de novo.
+
+## 7. Healthchecks
 
 | Serviço | Saudável quando |
 |---|---|
@@ -117,7 +141,7 @@ O `migrate` roda de novo antes de o app novo subir. As migrations são só de av
 
 Todos os serviços usam `restart: unless-stopped`, e os logs rodam em json-file (10 MB × 5 por serviço).
 
-## 6. Backups
+## 8. Backups
 
 O serviço `backup` roda ao subir e depois a cada 24 h. Cada execução:
 
@@ -165,7 +189,7 @@ A saída esperada é `[restauro] OK: contagens conferem {...}`. O CI roda o mesm
 4. Restaure os anexos para o bucket do app com `rclone copy destino:salus-backups/anexos origem:<bucket>`.
 5. Suba o resto da stack com a **mesma `SECRETS_KEY`**.
 
-## 7. Checklist antes do primeiro cliente
+## 9. Checklist antes do primeiro cliente
 
 - [ ] DNS, HTTPS e HSTS: `curl -I https://<DOMINIO>` mostra `strict-transport-security`.
 - [ ] Cadastro real: o e-mail de confirmação chega (Resend) e o Turnstile aparece.
@@ -173,6 +197,8 @@ A saída esperada é `[restauro] OK: contagens conferem {...}`. O CI roda o mesm
 - [ ] O primeiro backup aparece no destino e o `restaurar-teste` deu OK.
 - [ ] `SECRETS_KEY` e a chave privada age estão guardadas fora do servidor.
 - [ ] Monitor externo aponta para `/api/health`.
+- [ ] Sentry recebendo (force um erro de teste) e regra de alerta criada; `ALERTAS_EMAIL` definido.
+- [ ] 2FA ativado por todos os admins e pelo superadmin.
 - [ ] **Termos de Uso e Política de Privacidade revisados por advogado** (`app/(legal)`, versão em `src/legal/documentos.ts`) e encarregado (DPO) nomeado.
 - [ ] Contrato com os espaços prevê o papel de operador do Salus (LGPD art. 39) e os suboperadores listados na política.
 - [ ] Bucket de backups com retenção/Object Lock; bucket de anexos com versionamento.

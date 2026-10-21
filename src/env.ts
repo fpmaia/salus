@@ -36,6 +36,8 @@ export function errosDoAmbiente(processo: "app" | "worker"): string[] {
 
   // Captcha nas páginas públicas (cadastro, senha, agendamento online).
   const demo = ["true", "1"].includes(process.env.SALUS_DEMO ?? "");
+  // Sem Sentry, erro de produção fica só no log, sem alerta para ninguém.
+  if (emProducao() && !demo && !variavel("SENTRY_DSN")) erros.push("SENTRY_DSN não definida (monitoramento de erros e alertas)");
   if (processo === "app" && emProducao() && !demo) {
     for (const nome of ["TURNSTILE_SITE_KEY", "TURNSTILE_SECRET_KEY"]) if (!variavel(nome)) erros.push(`${nome} não definida (captcha das páginas públicas)`);
     // Identificação na Política de Privacidade e nos Termos (LGPD art. 9º e 41).

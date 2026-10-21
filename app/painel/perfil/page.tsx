@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { FormAcao } from "@/components/form-acao";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -116,6 +117,26 @@ export default async function PerfilPage() {
                 </div>
               </div>
             </FormAcao>
+          </CardContent>
+        </Card>
+
+        {/* Card: Verificação em duas etapas */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Shield className="size-4 text-primary" />
+              Verificação em duas etapas
+            </CardTitle>
+            <CardDescription>
+              {sessao?.user && (sessao.user as { twoFactorEnabled?: boolean | null }).twoFactorEnabled
+                ? "Ativa: o login pede o código do app autenticador."
+                : "Desativada. Proteja a conta com um código do app autenticador além da senha."}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link href="/seguranca/dois-fatores" className="text-sm font-medium text-primary underline-offset-4 hover:underline">
+              Gerenciar verificação em duas etapas
+            </Link>
           </CardContent>
         </Card>
 
