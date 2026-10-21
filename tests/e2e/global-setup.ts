@@ -15,6 +15,7 @@ import { alterarStatusAgendamento, criarAgendamento } from "../../src/server/age
 import { criarAcordo, definirValorAgendamento } from "../../src/server/financeiro";
 import { listarMembershipsDoUsuario } from "../../src/server/memberships";
 import { criarTenantComAdmin } from "../../src/server/onboarding";
+import { gerarTokenAgendamento } from "../../src/server/links";
 import { criarPaciente } from "../../src/server/pacientes";
 import { criarReserva } from "../../src/server/reservas";
 import { criarSala, criarUnidade, definirHorarios } from "../../src/server/unidades";
@@ -124,7 +125,17 @@ export default async function setup() {
       db,
     );
 
-    const dados: DadosE2E = { profissionalId, reservaAmanha, amanha, competenciaAnterior: mesAnterior.slice(0, 7), sala1, atendimentoPago };
+    // Consulta de amanhã (15h) com link do paciente: confirmar, cancelar e "adicionar à agenda".
+    const { id: biaPaciente } = await criarPaciente(admin, { nome: "Bia Link", telefone: "11 90000-0003" }, new Date(), db);
+    const { id: consultaLink } = await criarAgendamento(
+      admin,
+      { pacienteId: biaPaciente, reservaId: reservaAmanha, data: amanha, horaInicio: "15:00", horaFim: "16:00" },
+      new Date(),
+      db,
+    );
+    const linkPaciente = `/c/${gerarTokenAgendamento(admin.tenantId, consultaLink, new Date(Date.now() + 7 * 86_400_000))}`;
+
+    const dados: DadosE2E = { profissionalId, reservaAmanha, amanha, competenciaAnterior: mesAnterior.slice(0, 7), sala1, atendimentoPago, linkPaciente };
     writeFileSync(path.resolve(ARQUIVO_DADOS), JSON.stringify(dados, null, 2));
   } finally {
     await db.$client.end();

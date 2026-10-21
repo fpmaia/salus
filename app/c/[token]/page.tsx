@@ -1,51 +1,79 @@
 import type { Metadata } from "next";
+import { CalendarPlus, MapPin } from "lucide-react";
+import { CabecalhoEspaco } from "@/components/cabecalho-espaco";
 import { FormAcao } from "@/components/form-acao";
+import { RodapeLegal } from "@/components/rodape-legal";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ROTULOS_STATUS } from "@/src/domain/agendamentos";
+import { linkDoMapa } from "@/src/domain/calendario";
 import { obterAgendamentoPublico } from "@/src/server/notificacoes";
 import { acaoDoPacienteAcao } from "./actions";
-import { RodapeLegal } from "@/components/rodape-legal";
 
 // O link carrega o token na URL: não deixe buscadores indexarem nem vazarem via Referer.
-export const metadata: Metadata = { title: "Seu atendimento · Salus", robots: { index: false, follow: false }, referrer: "no-referrer" };
+export const metadata: Metadata = { title: "Sua consulta", robots: { index: false, follow: false }, referrer: "no-referrer" };
+
+const SITUACAO: Record<string, string> = {
+  agendado: "Agendada: confirme sua presença, por favor.",
+  confirmado: "Confirmada. Até lá!",
+  presente: "Você já está na recepção.",
+  realizado: "Consulta realizada.",
+  falta: "Consulta registrada como falta.",
+  cancelado: "Consulta cancelada.",
+};
 
 export default async function LinkDoPacientePage({ params }: PageProps<"/c/[token]">) {
   const { token } = await params;
   const agendamento = await obterAgendamentoPublico(token);
+  const ativa = agendamento && (agendamento.status === "agendado" || agendamento.status === "confirmado");
 
   return (
     <main className="flex flex-1 flex-col items-center justify-center gap-6 bg-muted/40 px-4 py-16">
+      {agendamento && <CabecalhoEspaco nome={agendamento.espaco} />}
       <Card className="w-full max-w-md">
         {!agendamento ? (
           <CardHeader>
             <CardTitle>Link inválido ou expirado</CardTitle>
-            <CardDescription>Entre em contato com a recepção do espaço.</CardDescription>
+            <CardDescription>Fale com a recepção do espaço: ela confirma ou remarca para você.</CardDescription>
           </CardHeader>
         ) : (
           <>
             <CardHeader>
-              <CardTitle>Olá, {agendamento.pacienteNome}</CardTitle>
-              <CardDescription>
-                Atendimento com {agendamento.profissionalNome} em <strong>{agendamento.data}</strong> às{" "}
+              <CardTitle>Olá, {agendamento.pacienteNome}!</CardTitle>
+              <CardDescription className="text-base text-foreground">
+                Sua consulta com <strong>{agendamento.profissionalNome}</strong> é em <strong>{agendamento.data}</strong>, às{" "}
                 <strong>{agendamento.hora}</strong>.
-                <span className="block">{agendamento.local}</span>
               </CardDescription>
+              <p className="text-sm text-muted-foreground">{agendamento.local}</p>
             </CardHeader>
             <CardContent className="flex flex-col gap-4 text-sm">
-              <p>
-                Situação: <strong>{ROTULOS_STATUS[agendamento.status]}</strong>
-              </p>
-              {(agendamento.status === "agendado" || agendamento.status === "confirmado") && (
-                <div className="flex flex-wrap gap-3">
+              <p className="rounded-lg bg-muted px-3 py-2">{SITUACAO[agendamento.status]}</p>
+              {ativa && (
+                <div className="flex flex-wrap gap-2">
+                  <Button asChild variant="outline" size="sm" className="gap-1.5">
+                    <a href={`/c/${token}/calendario`}>
+                      <CalendarPlus className="size-4" /> Adicionar à agenda
+                    </a>
+                  </Button>
+                  {agendamento.endereco && (
+                    <Button asChild variant="outline" size="sm" className="gap-1.5">
+                      <a href={linkDoMapa(agendamento.endereco)} target="_blank" rel="noreferrer">
+                        <MapPin className="size-4" /> Ver no mapa
+                      </a>
+                    </Button>
+                  )}
+                </div>
+              )}
+              {ativa && (
+                <div className="flex flex-wrap gap-3 border-t pt-4">
                   {agendamento.status === "agendado" && (
                     <FormAcao acao={acaoDoPacienteAcao.bind(null, token, "confirmar")} textoBotao="Confirmar presença" textoPendente="Confirmando…" />
                   )}
                   <FormAcao
                     acao={acaoDoPacienteAcao.bind(null, token, "cancelar")}
-                    textoBotao="Cancelar atendimento"
+                    textoBotao="Não vou poder ir"
                     textoPendente="Cancelando…"
-                    variante="destructive"
-                    confirmar="Tem certeza que deseja cancelar? Cancelamentos com pouca antecedência podem ser cobrados."
+                    variante="outline"
+                    confirmar="Cancelar a consulta? Se for em cima da hora, o espaço pode cobrar. Se quiser outro horário, fale com a recepção."
                   />
                 </div>
               )}

@@ -33,6 +33,9 @@ export function FormularioAgendamento({
         <a href={agendado.link} className="break-all text-primary underline-offset-4 hover:underline">
           {agendado.link}
         </a>
+        <a href={`${agendado.link}/calendario`} className="w-fit rounded-lg border px-3 py-1.5 font-medium hover:bg-muted">
+          Adicionar à agenda do celular
+        </a>
       </div>
     );
   }

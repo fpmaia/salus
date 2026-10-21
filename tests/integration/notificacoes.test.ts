@@ -168,6 +168,12 @@ describe("link do paciente", () => {
       local: "Centro — Rua A, 10",
       status: "agendado",
       recebeLembretes: true,
+      // Cabeçalho, mapa e evento de calendário: nada de CPF, telefone ou observações.
+      espaco: expect.any(String),
+      endereco: "Rua A, 10",
+      uid: `${ag.maria}@salus`,
+      inicio: new Date("2030-03-05T11:00:00.000Z"),
+      fim: expect.any(Date),
     });
     expect(await obterAgendamentoPublico("token.invalido", AGORA, db)).toBeNull();
   });

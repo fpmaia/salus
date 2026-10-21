@@ -251,6 +251,23 @@ test("máscaras formatam CPF e telefone enquanto o usuário digita", async ({ pa
   await expect(novo.getByLabel("Telefone / WhatsApp")).toHaveValue("(11) 99999-0000");
 });
 
+test("paciente abre o link: vê o espaço, baixa o evento para a agenda e confirma a presença", async ({ page, request }) => {
+  const { linkPaciente } = dados();
+  await page.goto(linkPaciente);
+  await expect(page.getByText("Coworking E2E")).toBeVisible();
+  await expect(page.getByText("Olá, Bia!")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Ver no mapa" })).toHaveAttribute("href", /google\.com\/maps.*Rua%20dos%20Testes/);
+
+  const ics = await request.get(`${linkPaciente}/calendario`);
+  expect(ics.headers()["content-type"]).toContain("text/calendar");
+  const texto = await ics.text();
+  expect(texto).toContain("SUMMARY:Consulta com Dra. E2E");
+  expect(texto).toMatch(/DTSTART:\d{8}T180000Z/); // 15h em São Paulo
+
+  await page.getByRole("button", { name: "Confirmar presença" }).click();
+  await expect(page.getByText("Confirmada. Até lá!")).toBeVisible();
+});
+
 // Por último: o feriado de amanhã bloquearia as reservas dos outros testes.
 test("feriado num dia com reservas mostra a lista e só grava com a decisão do admin", async ({ page }) => {
   const { amanha } = dados();

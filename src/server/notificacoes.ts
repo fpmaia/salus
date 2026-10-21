@@ -1,7 +1,7 @@
 import { and, desc, eq, inArray, lte, sql } from "drizzle-orm";
 import { registrarAuditoria } from "../db/audit";
 import { getDb, type Database, type Transaction } from "../db/client";
-import { agendamentos, notificacoesOutbox, pacientes, profissionais, reservasSala, salas, unidades } from "../db/schema";
+import { agendamentos, notificacoesOutbox, pacientes, profissionais, reservasSala, salas, tenants, unidades } from "../db/schema";
 import { type ContextoTenant, withSistema, withTenant } from "../db/tenant";
 import { ErroAgendamento, STATUS_ATIVOS } from "../domain/agendamentos";
 import {
@@ -280,6 +280,14 @@ export type AgendamentoPublico = {
   local: string;
   status: (typeof agendamentos.$inferSelect)["status"];
   recebeLembretes: boolean;
+  /** Nome do espaço (cabeçalho da página do paciente). */
+  espaco: string;
+  /** Endereço da unidade, para o link do mapa. */
+  endereco: string | null;
+  /** Para o evento de calendário (.ics). */
+  uid: string;
+  inicio: Date;
+  fim: Date;
 };
 
 async function carregarPeloToken<T>(token: string, agora: Date, database: Database, fn: (tx: Transaction, agendamentoId: string) => Promise<T>) {
@@ -311,6 +319,7 @@ export async function obterAgendamentoPublico(token: string, agora = new Date(),
       .where(eq(agendamentos.id, agendamentoId));
     if (!a) return null;
     const inicio = partesLocais(a.periodo.inicio, a.timezone);
+    const [espaco] = await tx.select({ nome: tenants.nome }).from(tenants);
     return {
       pacienteNome: primeiroNome(a.pacienteNome),
       profissionalNome: a.profissionalNome,
@@ -319,6 +328,11 @@ export async function obterAgendamentoPublico(token: string, agora = new Date(),
       local: local(a.unidadeNome, a.endereco),
       status: a.status,
       recebeLembretes: a.consentimento,
+      espaco: espaco?.nome ?? "",
+      endereco: a.endereco,
+      uid: `${agendamentoId}@salus`,
+      inicio: a.periodo.inicio,
+      fim: a.periodo.fim,
     };
   });
 }

@@ -14,6 +14,8 @@ const DATABASE_URL = process.env.TEST_DATABASE_URL ?? "postgres://salus_app:salu
 process.env.BETTER_AUTH_SECRET ??= "segredo-e2e-apenas-para-testes-locais-0123456789";
 // CI roda `next start` (NODE_ENV=production): o boot exige segredos próprios (src/env.ts).
 const LINKS_SECRET = process.env.LINKS_SECRET || "links-e2e-apenas-para-testes-locais-0123456789";
+// O global-setup assina o link do paciente com o mesmo segredo do servidor.
+process.env.LINKS_SECRET = LINKS_SECRET;
 const SECRETS_KEY = process.env.SECRETS_KEY || Buffer.alloc(32, 7).toString("base64");
 
 export default defineConfig({
