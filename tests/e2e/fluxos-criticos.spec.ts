@@ -268,6 +268,15 @@ test("paciente abre o link: vê o espaço, baixa o evento para a agenda e confir
   await expect(page.getByText("Confirmada. Até lá!")).toBeVisible();
 });
 
+test("landing fala com o dono do espaço, sem jargão técnico", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Salas ocupadas");
+  // Sem WhatsApp comercial configurado, a demonstração vira o cadastro.
+  await expect(page.getByRole("link", { name: "Criar meu espaço" }).first()).toHaveAttribute("href", "/cadastro");
+  const texto = await page.locator("main").innerText();
+  expect(texto).not.toMatch(/\b(RLS|GIST|tenant|D-1)\b/i);
+});
+
 // Por último: o feriado de amanhã bloquearia as reservas dos outros testes.
 test("feriado num dia com reservas mostra a lista e só grava com a decisão do admin", async ({ page }) => {
   const { amanha } = dados();
