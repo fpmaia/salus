@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { FormAcao } from "@/components/form-acao";
+import { Turnstile } from "@/components/turnstile";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { EstadoAcao } from "@/src/server/acao";
@@ -12,9 +13,12 @@ type Dia = { data: string; rotulo: string; horarios: { iso: string; hora: string
 export function FormularioAgendamento({
   dias,
   acao,
+  chaveTurnstile,
 }: {
   dias: Dia[];
   acao: (estado: EstadoAcao, formData: FormData) => Promise<EstadoAcao>;
+  /** Captcha (null = desligado). */
+  chaveTurnstile: string | null;
 }) {
   const [dia, setDia] = useState(dias[0]?.data);
   const [agendado, setAgendado] = useState<{ mensagem: string; link: string } | null>(null);
@@ -98,6 +102,7 @@ export function FormularioAgendamento({
           compartilhados.
         </span>
       </label>
+      <Turnstile chaveSite={chaveTurnstile} acao="agendar" />
     </FormAcao>
   );
 }

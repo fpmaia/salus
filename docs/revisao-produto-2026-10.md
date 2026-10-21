@@ -9,6 +9,7 @@
 |---|---|---|
 | 21/10/2026 | A | Triagem do working tree em 8 commits pelo CI. Corrigidos S1, S2, S5, S6, C2 e C4; contratos desligados (`SALUS_CONTRATOS`). |
 | 21/10/2026 | B | E-mail transacional (Resend, com `console` em dev): confirmação obrigatória da conta, redefinição de senha sem token no log e convites de profissional e de equipe por e-mail. Corrigidos S3, S4 e S9 e a mensagem de rate limit no login. |
+| 21/10/2026 | B | Segurança HTTP e anti-abuso (S7, S8): CSP com nonce por requisição (`strict-dynamic`, `frame-ancestors 'none'`), HSTS em HTTPS, X-Frame-Options, nosniff, Referrer-Policy e Permissions-Policy; rate limit no Postgres (Better Auth e páginas públicas, mesmo cabeçalho de IP do proxy); Turnstile no cadastro, na recuperação de senha e no agendamento online. |
 
 ---
 

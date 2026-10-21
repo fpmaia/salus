@@ -53,6 +53,8 @@ export default defineConfig({
       // E-mails só no log: o boot de produção aceita "console" em ambiente de demonstração.
       EMAIL_PROVIDER: "console",
       SALUS_DEMO: "true",
+      // Vários logins seguidos (um por teste, e retries): folga no limite de login por minuto.
+      AUTH_LOGIN_MAX_POR_MINUTO: "50",
       ASAAS_AMBIENTE: "simulado",
       ...(process.env.CI ? {} : { NEXT_DIST_DIR: ".next-e2e" }),
     },

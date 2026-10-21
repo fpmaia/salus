@@ -89,6 +89,8 @@ npm run dev                   # http://localhost:3000
 
 Contas novas precisam confirmar o e-mail antes de entrar; em dev, o link aparece no log do servidor. Em produção, configure `EMAIL_PROVIDER=resend`, `RESEND_API_KEY` e `EMAIL_FROM` (o boot recusa subir sem isso, ver `src/env.ts`).
 
+Segurança HTTP: a CSP (com nonce) sai do `proxy.ts` e os demais cabeçalhos do `next.config.ts` (`src/seguranca/cabecalhos.ts`). O rate limit fica na tabela `rate_limits` e lê o IP de `IP_HEADER` (padrão `x-real-ip`), que o reverse proxy deve sobrescrever. O captcha (Turnstile) liga com `TURNSTILE_SITE_KEY`/`TURNSTILE_SECRET_KEY`.
+
 Usuários do seed: `admin|recepcao|profissional@alfa.salus.dev` e `...@beta.salus.dev`. Cada espaço vem com a "Unidade Centro" (3 salas) um profissional sem acesso (`convidado@...`) para testar o convite e três pacientes fictícios.
 
 | Comando | O quê |

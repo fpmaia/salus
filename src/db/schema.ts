@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  bigint,
   boolean,
   check,
   customType,
@@ -157,6 +158,16 @@ export const verifications = pgTable(
   },
   (t) => [index("verifications_identifier_idx").on(t.identifier)],
 );
+
+// Contadores de rate limit: do Better Auth (storage "database", chaves "<ip><rota>") e dos
+// endpoints públicos (src/server/limite-taxa.ts, chaves "salus:..."). Fora da RLS: não é dado de tenant.
+export const rateLimits = pgTable("rate_limits", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  key: text("key").notNull().unique(),
+  count: integer("count").notNull(),
+  // Epoch em milissegundos (formato do Better Auth).
+  lastRequest: bigint("last_request", { mode: "number" }).notNull(),
+});
 
 // ---------------------------------------------------------------------------
 // Tenant (RLS)

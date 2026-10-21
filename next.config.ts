@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { cabecalhosFixos } from "./src/seguranca/cabecalhos";
 
 const nextConfig: NextConfig = {
   // E2E local roda num distDir próprio (ver playwright.config.ts).
@@ -7,6 +8,11 @@ const nextConfig: NextConfig = {
   output: "standalone",
   // pg e pg-boss usam APIs do Node; não precisam ser empacotados.
   serverExternalPackages: ["pg", "pg-boss"],
+  poweredByHeader: false,
+  // A CSP (com nonce) sai do proxy.ts; aqui vão os cabeçalhos fixos, para todas as rotas.
+  async headers() {
+    return [{ source: "/:path*", headers: cabecalhosFixos() }];
+  },
   allowedDevOrigins: [
     "localhost",
     "127.0.0.1",

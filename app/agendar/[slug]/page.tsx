@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { diaSemana } from "@/src/domain/tempo";
 import { obterPaginaPublica } from "@/src/server/agendamento-online";
 import { agendarOnlineAcao } from "./actions";
+import { chaveSiteTurnstile } from "@/src/server/turnstile";
 import { FormularioAgendamento } from "./formulario";
 
 const DIAS = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
@@ -43,6 +44,7 @@ export default async function AgendarPage({ params }: PageProps<"/agendar/[slug]
               ) : (
                 <FormularioAgendamento
                   acao={agendarOnlineAcao.bind(null, slug)}
+                  chaveTurnstile={chaveSiteTurnstile()}
                   dias={pagina.dias.map((d) => ({
                     data: d.data,
                     rotulo: `${DIAS[diaSemana(d.data)]} ${d.data.slice(8, 10)}/${d.data.slice(5, 7)}`,

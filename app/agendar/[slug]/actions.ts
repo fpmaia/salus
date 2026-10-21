@@ -1,13 +1,24 @@
 "use server";
 
+import { headers } from "next/headers";
 import type { EstadoAcao } from "@/src/server/acao";
 import { texto } from "@/src/server/acao";
 import { agendarOnline } from "@/src/server/agendamento-online";
 import { mensagemDeErro } from "@/src/server/erros";
+import { LIMITES, limitarTaxa } from "@/src/server/limite-taxa";
+import { verificarTurnstile } from "@/src/server/turnstile";
+import { ipDoCliente } from "@/src/seguranca/ip";
 
 // Ação pública (sem login): a página só conhece o slug; o serviço revalida tudo.
 export async function agendarOnlineAcao(slug: string, _estado: EstadoAcao, formData: FormData): Promise<EstadoAcao> {
   try {
+    // Antes de tocar na agenda: limite por IP e por página, e captcha.
+    const ip = ipDoCliente(await headers());
+    await limitarTaxa(`agendar:ip:${ip ?? "desconhecido"}`, LIMITES.agendarPorIp);
+    await limitarTaxa(`agendar:pagina:${slug}`, LIMITES.agendarPorPagina);
+    if (!(await verificarTurnstile(texto(formData, "cf-turnstile-response"), ip))) {
+      return { erro: "Não conseguimos confirmar que você não é um robô. Recarregue a página e tente de novo.", sucesso: null };
+    }
     const r = await agendarOnline(slug, {
       inicio: texto(formData, "inicio"),
       nome: texto(formData, "nome"),

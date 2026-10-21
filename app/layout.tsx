@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { headers } from "next/headers";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -17,7 +18,10 @@ export const metadata: Metadata = {
   description: "Gestão de coworkings de saúde: salas, agenda e financeiro.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  // Ler o cabeçalho torna todas as páginas dinâmicas: o nonce da CSP (proxy.ts) muda a cada
+  // requisição, e o Next.js só o aplica aos scripts de páginas renderizadas na hora.
+  await headers();
   return (
     <html
       lang="pt-BR"

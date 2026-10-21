@@ -1,8 +1,9 @@
 import type { BetterAuthOptions } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { admin } from "better-auth/plugins";
+import { admin, captcha } from "better-auth/plugins";
 import type { Database } from "../db/client";
 import * as schema from "../db/schema";
+import { cabecalhosDeIp } from "../seguranca/ip";
 import { emailDoAmbiente, type MensagemEmail } from "../server/email";
 import { emailRedefinirSenha, emailVerificacao } from "../server/email-modelos";
 
@@ -48,10 +49,30 @@ export function opcoesAuth(database: Database) {
         defaultRole: "user",
         adminRole: ["superadmin"],
       }),
+      // Captcha (Turnstile) onde robô causa estrago: criar contas e disparar e-mails de senha.
+      // O login fica só com rate limit, para não pôr atrito em todo acesso.
+      ...(process.env.TURNSTILE_SECRET_KEY
+        ? [captcha({ provider: "cloudflare-turnstile", secretKey: process.env.TURNSTILE_SECRET_KEY, endpoints: ["/sign-up/email", "/request-password-reset"] })]
+        : []),
     ],
+    // Em produção (padrão do Better Auth), contado no Postgres: vale entre processos e reinícios.
+    rateLimit: {
+      storage: "database",
+      window: 60,
+      max: 100,
+      customRules: {
+        "/sign-in/email": { window: 60, max: Number(process.env.AUTH_LOGIN_MAX_POR_MINUTO) || 5 },
+        "/sign-up/email": { window: 3600, max: 10 },
+        "/request-password-reset": { window: 3600, max: 5 },
+        "/send-verification-email": { window: 3600, max: 5 },
+        "/reset-password": { window: 3600, max: 10 },
+      },
+    },
     advanced: {
       database: { generateId: "uuid" },
       useSecureCookies: process.env.NODE_ENV === "production",
+      // O mesmo cabeçalho de IP do rate limit das páginas públicas (src/seguranca/ip.ts).
+      ipAddress: { ipAddressHeaders: cabecalhosDeIp() },
     },
     trustedOrigins: async (request?: Request) => {
       const configuradas = (process.env.BETTER_AUTH_TRUSTED_ORIGINS || "")

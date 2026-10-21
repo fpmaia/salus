@@ -11,6 +11,8 @@ const VALIDO = {
   EMAIL_PROVIDER: "resend",
   RESEND_API_KEY: "re_teste",
   EMAIL_FROM: "Salus <nao-responda@exemplo.com>",
+  TURNSTILE_SITE_KEY: "0x4AAA",
+  TURNSTILE_SECRET_KEY: "0x4AAA-segredo",
 };
 
 afterEach(() => vi.unstubAllEnvs());
@@ -43,6 +45,13 @@ describe("validação do ambiente", () => {
     expect(errosDoAmbiente("app")).toEqual([]);
     definir({ RESEND_API_KEY: "" });
     expect(errosDoAmbiente("app")).toEqual(["RESEND_API_KEY não definida (EMAIL_PROVIDER=resend)"]);
+  });
+
+  it("em produção o app exige as chaves do Turnstile (o worker não usa)", () => {
+    definir({ TURNSTILE_SECRET_KEY: "" });
+    vi.stubEnv("NODE_ENV", "production");
+    expect(errosDoAmbiente("app")).toEqual(["TURNSTILE_SECRET_KEY não definida (captcha das páginas públicas)"]);
+    expect(errosDoAmbiente("worker")).toEqual([]);
   });
 
   it("em produção impede o boot; fora dela só avisa", () => {

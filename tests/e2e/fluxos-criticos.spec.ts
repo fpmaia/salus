@@ -78,8 +78,6 @@ test("cadastro pede a confirmação do e-mail e não entra sem ela", async ({ pa
   await expect(page.getByText(email)).toBeVisible();
 
   // Sem confirmar, o login avisa (e reenvia o link) em vez de abrir o painel.
-  // Espera a janela do rate limit de login (3 tentativas / 10 s em produção) dos testes anteriores.
-  await page.waitForTimeout(10_000);
   await page.goto("/entrar");
   await page.waitForLoadState("networkidle");
   await page.getByLabel("E-mail").fill(email);
@@ -87,4 +85,21 @@ test("cadastro pede a confirmação do e-mail e não entra sem ela", async ({ pa
   await page.getByRole("button", { name: "Entrar" }).click();
   await expect(page.getByText(/Confirme seu e-mail para entrar/)).toBeVisible();
   await expect(page).toHaveURL(/\/entrar/);
+});
+
+test("páginas saem com CSP de nonce e proteção contra iframe, sem violações no console", async ({ page }) => {
+  const violacoes: string[] = [];
+  page.on("console", (m) => {
+    if (/Content Security Policy|Refused to/i.test(m.text())) violacoes.push(m.text());
+  });
+  const resposta = await page.goto("/entrar");
+  const cabecalhos = resposta!.headers();
+  expect(cabecalhos["content-security-policy"]).toMatch(/script-src 'self' 'nonce-[^']+' 'strict-dynamic'/);
+  expect(cabecalhos["content-security-policy"]).toContain("frame-ancestors 'none'");
+  expect(cabecalhos["x-frame-options"]).toBe("DENY");
+  expect(cabecalhos["x-content-type-options"]).toBe("nosniff");
+  // A página hidrata com a CSP ativa (o botão de login responde).
+  await page.waitForLoadState("networkidle");
+  await expect(page.getByRole("button", { name: "Entrar" })).toBeEnabled();
+  expect(violacoes).toEqual([]);
 });

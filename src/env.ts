@@ -33,6 +33,12 @@ export function errosDoAmbiente(processo: "app" | "worker"): string[] {
   } else if (emProducao() && !["true", "1"].includes(process.env.SALUS_DEMO ?? "")) {
     erros.push("EMAIL_PROVIDER=console não envia e-mails: use resend (ou SALUS_DEMO=true num ambiente de demonstração)");
   }
+
+  // Captcha nas páginas públicas (cadastro, senha, agendamento online).
+  const demo = ["true", "1"].includes(process.env.SALUS_DEMO ?? "");
+  if (processo === "app" && emProducao() && !demo) {
+    for (const nome of ["TURNSTILE_SITE_KEY", "TURNSTILE_SECRET_KEY"]) if (!variavel(nome)) erros.push(`${nome} não definida (captcha das páginas públicas)`);
+  }
   return erros;
 }
 

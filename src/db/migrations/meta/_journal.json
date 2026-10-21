@@ -176,6 +176,13 @@
       "when": 1792552106772,
       "tag": "0024_contas_existentes_verificadas",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1792552905736,
+      "tag": "0025_rate_limits",
+      "breakpoints": true
     }
   ]
 }

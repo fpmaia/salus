@@ -7,6 +7,7 @@ import { sincronizarCobrancas } from "../server/cobrancas";
 import { processarNotasFiscais } from "../server/fiscal";
 import { agendarLembretes, processarFila } from "../server/notificacoes";
 import { providerDoAmbiente } from "../server/provider";
+import { limparLimitesAntigos } from "../server/limite-taxa";
 import { concluirReservasPassadas, materializarRecorrencias } from "../server/reservas";
 
 // Worker separado (pg-boss). Cada job percorre os tenants ativos e processa um por vez,
@@ -25,8 +26,10 @@ type Job = {
   cron: string;
   /** Roda dentro de withSistema (uma transação por tenant)… */
   executar?: (tx: Transaction, agora: Date) => Promise<unknown>;
-  /** …ou gerencia as próprias transações (ex.: envio, que chama um serviço externo). */
+  /** …ou gerencia as próprias transações (ex.: envio, que chama um serviço externo)… */
   porTenant?: (tenantId: string, agora: Date) => Promise<unknown>;
+  /** …ou roda uma vez, fora de tenant (manutenção da plataforma). */
+  global?: (agora: Date) => Promise<unknown>;
 };
 
 const provider = providerDoAmbiente();
@@ -45,10 +48,20 @@ const JOBS: Job[] = [
   { fila: "assinatura.gerar-faturas", cron: "0 6 * * *", porTenant: (tenantId, agora) => gerarFaturaDoMes(tenantId, { agora }) },
   { fila: "assinatura.sincronizar", cron: "*/30 * * * *", porTenant: (tenantId, agora) => sincronizarFaturas(tenantId, { agora }) },
   { fila: "cobrancas.sincronizar", cron: "*/15 * * * *", porTenant: (tenantId, agora) => sincronizarCobrancas(tenantId, { agora }) },
+  // Contadores de rate limit parados há mais de 1 dia.
+  { fila: "manutencao.limpar-rate-limits", cron: "30 4 * * *", global: (agora) => limparLimitesAntigos(agora.getTime()) },
 ];
 
 async function porTenant(job: Job) {
   const agora = new Date();
+  if (job.global) {
+    try {
+      console.log(`[worker] ${job.fila}`, await job.global(agora));
+    } catch (erro) {
+      console.error(`[worker] ${job.fila} falhou`, erro);
+    }
+    return;
+  }
   for (const tenantId of await listarTenantsAtivos()) {
     try {
       const resultado = job.porTenant
