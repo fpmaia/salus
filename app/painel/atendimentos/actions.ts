@@ -40,7 +40,19 @@ export async function alterarStatusAcao(
 ) {
   return executarAcao(async () => {
     const ctx = await obterContextoTenant();
-    const { cancelamentoTardio } = await alterarStatusAgendamento(ctx, agendamentoId, para, textoOuUndefined(formData, "motivo") ?? null);
+    const quem = (["paciente", "profissional", "espaco"].includes(texto(formData, "quem")) ? texto(formData, "quem") : "paciente") as
+      | "paciente"
+      | "profissional"
+      | "espaco";
+    const { cancelamentoTardio } = await alterarStatusAgendamento(
+      ctx,
+      agendamentoId,
+      para,
+      textoOuUndefined(formData, "motivo") ?? null,
+      new Date(),
+      undefined,
+      quem,
+    );
     if (para === "cancelado") return cancelamentoTardio ? "Cancelado (cancelamento tardio)" : "Cancelado";
     return MENSAGENS[para] ?? "Atualizado";
   });

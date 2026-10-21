@@ -82,21 +82,12 @@ export async function removerFeriadoAcao(feriadoId: string) {
   });
 }
 
-import { lerMoeda, lerPercentualBp } from "@/src/domain/dinheiro";
-
+// O preço da sala é do contrato de cada profissional (Contratos), não da sala.
 function dadosSala(formData: FormData) {
-  const mensal = texto(formData, "valorMensal");
-  const tipoConsulta = texto(formData, "cobrancaConsultaTipo") || "nenhuma";
-  const valorConsulta = texto(formData, "cobrancaConsultaValor");
-  const pctConsulta = texto(formData, "cobrancaConsultaPercentual");
   return {
     nome: texto(formData, "nome"),
     descricao: texto(formData, "descricao"),
     recursos: recursosDe(formData),
-    valorMensalCentavos: mensal ? lerMoeda(mensal) : null,
-    cobrancaConsultaTipo: (tipoConsulta as "nenhuma" | "fixo" | "percentual") || "nenhuma",
-    cobrancaConsultaValorCentavos: tipoConsulta === "fixo" && valorConsulta ? lerMoeda(valorConsulta) : null,
-    cobrancaConsultaPercentualBp: tipoConsulta === "percentual" && pctConsulta ? lerPercentualBp(pctConsulta) : null,
   };
 }
 

@@ -6,6 +6,7 @@ import {
   conciliar,
   lancamentosDaMensalidade,
   lancamentosDaReserva,
+  lancamentosDaReservaCancelada,
   lancamentosDoAgendamento,
   proximaCompetencia,
   saldo,
@@ -34,9 +35,11 @@ const hora: Acordo = { ...base, modelo: "hora", valorHoraCentavos: 4000 };
 const consulta: Acordo = { ...base, modelo: "consulta", valorConsultaCentavos: 3000 };
 const percentual: Acordo = { ...base, modelo: "percentual", percentualBp: 3000 };
 const mensalidade: Acordo = { ...base, modelo: "mensalidade", mensalidadeCentavos: 80000, horasIncluidas: 20, valorHoraCentavos: 3500 };
-const salaFixaPura: Acordo = { ...base, modelo: "sala_fixa", salaId: "s1", mensalidadeCentavos: 150000 };
-const salaFixaComConsulta: Acordo = { ...base, modelo: "sala_fixa", salaId: "s1", mensalidadeCentavos: 150000, valorConsultaCentavos: 2500 };
-const salaFixaComPercentual: Acordo = { ...base, modelo: "sala_fixa", salaId: "s1", mensalidadeCentavos: 150000, percentualBp: 1500 };
+// Turno fixo: mensalidade sem limite de horas (antiga "sala fixa"), com hora para o que for fora da grade.
+const salaFixaPura: Acordo = { ...base, modelo: "mensalidade", salaId: "s1", mensalidadeCentavos: 150000, horasIncluidas: null, valorHoraCentavos: 0 };
+const salaFixaComConsulta: Acordo = { ...salaFixaPura, valorConsultaCentavos: 2500 };
+const salaFixaComPercentual: Acordo = { ...salaFixaPura, percentualBp: 1500 };
+const turnoComHoraAvulsa: Acordo = { ...salaFixaPura, valorHoraCentavos: 4000 };
 
 const realizado = (valor: number | null = null): FatoAgendamento => ({ status: "realizado", cancelamentoTardio: false, valorCentavos: valor });
 const falta = (valor: number | null = null): FatoAgendamento => ({ status: "falta", cancelamentoTardio: false, valorCentavos: valor });
@@ -120,8 +123,13 @@ describe("mensalidade", () => {
     expect(resumo(lancamentosDaMensalidade(mensalidade, minutos))).toEqual(esperado);
   });
 
-  it("sala fixa gera mensalidade fixa sem excedente de horas", () => {
-    expect(resumo(lancamentosDaMensalidade(salaFixaPura, 6000))).toEqual(["mensalidade:debito:150000"]);
+  it("turno fixo cobre a grade; fora dela, cobra pela hora do contrato (se houver)", () => {
+    expect(resumo(lancamentosDaMensalidade(salaFixaPura, { total: 6000, foraDaGrade: 120 }))).toEqual(["mensalidade:debito:150000"]);
+    expect(resumo(lancamentosDaMensalidade(turnoComHoraAvulsa, { total: 6000, foraDaGrade: 90 }))).toEqual([
+      "mensalidade:debito:150000",
+      "excedente_horas:debito:6000",
+    ]);
+    expect(resumo(lancamentosDaMensalidade(turnoComHoraAvulsa, { total: 6000, foraDaGrade: 0 }))).toEqual(["mensalidade:debito:150000"]);
   });
 
   it("outros modelos não geram mensalidade", () => {
@@ -176,3 +184,45 @@ describe("conciliação", () => {
     expect(saldo([{ natureza: "debito", valorCentavos: 5000 }, { natureza: "credito", valorCentavos: 2000 }])).toBe(3000);
   });
 });
+
+describe("quem cancelou", () => {
+  const tardio = (canceladoPor: "paciente" | "profissional" | "espaco" | null): FatoAgendamento => ({
+    status: "cancelado",
+    cancelamentoTardio: true,
+    valorCentavos: null,
+    canceladoPor,
+  });
+  const contrato: Acordo = { ...consulta, regraFalta: "integral" };
+
+  it("tardio cobra se foi o paciente ou o profissional; pelo espaço, não", () => {
+    expect(resumo(lancamentosDoAgendamento(contrato, tardio("paciente")))).toEqual(["falta:debito:3000"]);
+    expect(lancamentosDoAgendamento(contrato, tardio("profissional"))[0].descricao).toBe("Cancelamento tardio pelo profissional");
+    expect(lancamentosDoAgendamento(contrato, tardio("espaco"))).toEqual([]);
+    // Cancelamento antigo, sem autor registrado: cobra como antes.
+    expect(resumo(lancamentosDoAgendamento(contrato, tardio(null)))).toEqual(["falta:debito:3000"]);
+  });
+});
+
+describe("multa de turno fixo por hora", () => {
+  const turnoPorHora: Acordo = { ...hora, multaCancelamentoReservaBp: 5000 };
+  const fato = { minutos: 240, tardia: true, canceladaPor: "profissional" as const, daGradeDoContrato: true };
+
+  it("profissional que cancela tarde uma data da grade paga o percentual das horas", () => {
+    // 4h × R$ 40 = R$ 160; 50% = R$ 80.
+    expect(resumo(lancamentosDaReservaCancelada(turnoPorHora, fato))).toEqual(["multa_cancelamento:debito:8000"]);
+  });
+
+  it.each([
+    ["fora do prazo", { ...fato, tardia: false }],
+    ["cancelada pelo espaço", { ...fato, canceladaPor: "espaco" as const }],
+    ["reserva avulsa", { ...fato, daGradeDoContrato: false }],
+  ])("%s: sem multa", (_nome, f) => {
+    expect(lancamentosDaReservaCancelada(turnoPorHora, f)).toEqual([]);
+  });
+
+  it("contrato sem multa configurada ou de outro modelo não cobra", () => {
+    expect(lancamentosDaReservaCancelada(hora, fato)).toEqual([]);
+    expect(lancamentosDaReservaCancelada({ ...salaFixaPura, multaCancelamentoReservaBp: 5000 }, fato)).toEqual([]);
+  });
+});
+

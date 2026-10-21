@@ -35,7 +35,8 @@ export const PERMISSOES = {
   "prontuario.solicitacao": ["admin"],
   "prontuario.menu": ["admin", "profissional"],
   "extrato.proprio": ["profissional"],
-  "contratos.gerenciar": ["admin", "recepcao"],
+  // Preço e regras do contrato são do admin; a recepção consulta.
+  "contratos.gerenciar": ["admin"],
   "contratos.ver": ["admin", "recepcao", "profissional"],
 } as const satisfies Record<string, readonly Role[]>;
 

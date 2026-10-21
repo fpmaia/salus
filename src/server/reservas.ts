@@ -3,7 +3,7 @@ import { z } from "zod";
 import { registrarAuditoria } from "../db/audit";
 import type { Database, Transaction } from "../db/client";
 import { erroPostgres, PG } from "../db/erros";
-import { agendamentos, acordosFinanceiros, contratosLocacao, pacientes, profissionais, regrasRecorrencia, reservasSala, salas, unidades } from "../db/schema";
+import { agendamentos, acordosFinanceiros, pacientes, profissionais, regrasRecorrencia, reservasSala, salas, unidades } from "../db/schema";
 import { type ContextoTenant, withTenant } from "../db/tenant";
 import { exigirPermissao, pode } from "../domain/rbac";
 import { datasDaRecorrencia, limiteDaJanela } from "../domain/recorrencia";
@@ -150,6 +150,8 @@ export async function cancelarReserva(
   motivo: string | null,
   agora = new Date(),
   database?: Database,
+  /** A equipe informa se foi a pedido do profissional ou por decisão do espaço. */
+  quem: "profissional" | "espaco" = "profissional",
 ): Promise<void> {
   await withTenant(
     ctx,
@@ -173,17 +175,21 @@ export async function cancelarReserva(
         }
       }
 
+      // O profissional que cancela a própria reserva é sempre o autor.
+      const canceladaPor = pode(ctx.role, "reservas.gerenciar") ? quem : "profissional";
       await tx
         .update(reservasSala)
-        .set({ status: "cancelada", canceladaEm: agora, motivoCancelamento: motivo?.trim() || null })
+        .set({ status: "cancelada", canceladaEm: agora, canceladaPor, motivoCancelamento: motivo?.trim() || null })
         .where(eq(reservasSala.id, reservaId))
         .catch(traduzirConflito);
+      // Turno fixo por hora cancelado tarde pelo profissional: multa do contrato.
+      await gerarLancamentosReserva(tx, reservaId);
       await cancelarNotificacoesDaReserva(tx, reservaId, "Reserva cancelada");
       await registrarAuditoria(tx, {
         acao: "reserva.cancelada",
         entidade: "reservas_sala",
         entidadeId: reservaId,
-        dados: { motivo: motivo?.trim() || null },
+        dados: { motivo: motivo?.trim() || null, canceladaPor },
       });
     },
     database,
@@ -220,29 +226,6 @@ async function inserirOcorrencia(
     return inseridas.length > 0 ? "criada" : "ignorada";
   } catch (erro) {
     if (erroPostgres(erro)?.code === PG.violacaoExclusao) {
-      // Se já existe uma reserva ativa na MESMA sala para o MESMO profissional no mesmo intervalo,
-      // atualizamos a reserva vinculando-a à regra do contrato em vez de considerar conflito.
-      const existentes = await tx
-        .select({ id: reservasSala.id })
-        .from(reservasSala)
-        .where(
-          and(
-            eq(reservasSala.salaId, regra.salaId),
-            eq(reservasSala.profissionalId, regra.profissionalId),
-            eq(reservasSala.status, "ativa"),
-            sql`${reservasSala.periodo} && ${sqlRange(periodo.inicio, periodo.fim)}`,
-          ),
-        )
-        .limit(1);
-
-      if (existentes.length > 0) {
-        await tx
-          .update(reservasSala)
-          .set({ recorrenciaId: regra.id, dataOcorrencia: data })
-          .where(eq(reservasSala.id, existentes[0].id));
-        return "criada";
-      }
-
       return "conflito";
     }
     throw erro;
@@ -353,48 +336,72 @@ export async function encerrarRecorrencia(
         if (!proprio || proprio.id !== regra.profissionalId) {
           throw new ErroReserva("nao_permitido", "Você só pode encerrar as suas recorrências");
         }
+        if (regra.acordoId) {
+          throw new ErroReserva("nao_permitido", "Este horário faz parte do seu contrato: para mudar a grade, fale com o espaço");
+        }
       }
 
-      const novoFim = somarDias(aPartirDe, -1);
-      await tx
-        .update(regrasRecorrencia)
-        .set({ dataFim: regra.dataFim && regra.dataFim < novoFim ? regra.dataFim : novoFim, encerradaEm: agora })
-        .where(eq(regrasRecorrencia.id, regraId));
-      const canceladas = await tx
-        .update(reservasSala)
-        .set({ status: "cancelada", canceladaEm: agora, motivoCancelamento: "Recorrência encerrada" })
-        .where(
-          and(
-            eq(reservasSala.recorrenciaId, regraId),
-            eq(reservasSala.status, "ativa"),
-            gte(reservasSala.dataOcorrencia, aPartirDe),
-            sql`lower(${reservasSala.periodo}) > ${agora.toISOString()}::timestamptz`,
-            sql`not exists (${SEM_AGENDAMENTOS_ATIVOS})`,
-          ),
-        )
-        .returning({ id: reservasSala.id });
-      // Ocorrências com pacientes agendados ficam ativas até os agendamentos serem resolvidos.
-      const mantidas = await tx
-        .select({ id: reservasSala.id })
-        .from(reservasSala)
-        .where(
-          and(
-            eq(reservasSala.recorrenciaId, regraId),
-            eq(reservasSala.status, "ativa"),
-            gte(reservasSala.dataOcorrencia, aPartirDe),
-            sql`lower(${reservasSala.periodo}) > ${agora.toISOString()}::timestamptz`,
-          ),
-        );
-      await registrarAuditoria(tx, {
-        acao: "recorrencia.encerrada",
-        entidade: "regras_recorrencia",
-        entidadeId: regraId,
-        dados: { aPartirDe, canceladas: canceladas.length, mantidas: mantidas.length },
-      });
-      return { canceladas: canceladas.length, mantidas: mantidas.length };
+      return encerrarRegraNaTransacao(tx, regra, aPartirDe, agora, pode(ctx.role, "reservas.gerenciar") ? "espaco" : "profissional");
     },
     database,
   );
+}
+
+/**
+ * Encerra a série a partir de `aPartirDe` dentro da transação: as ocorrências futuras sem
+ * pacientes são canceladas; as que têm pacientes ficam até os agendamentos serem resolvidos.
+ * Usada também pelo contrato (troca ou fim da grade fixa).
+ */
+export async function encerrarRegraNaTransacao(
+  tx: Transaction,
+  regra: typeof regrasRecorrencia.$inferSelect,
+  aPartirDe: DataLocal,
+  agora: Date,
+  canceladaPor: "profissional" | "espaco",
+): Promise<{ canceladas: number; mantidas: number }> {
+  const regraId = regra.id;
+  const novoFim = somarDias(aPartirDe, -1);
+  await tx
+    .update(regrasRecorrencia)
+    .set({ dataFim: regra.dataFim && regra.dataFim < novoFim ? regra.dataFim : novoFim, encerradaEm: agora })
+    .where(eq(regrasRecorrencia.id, regraId));
+  const canceladas = await tx
+    .update(reservasSala)
+    .set({
+      status: "cancelada",
+      canceladaEm: agora,
+      canceladaPor,
+      motivoCancelamento: "Recorrência encerrada",
+    })
+    .where(
+      and(
+        eq(reservasSala.recorrenciaId, regraId),
+        eq(reservasSala.status, "ativa"),
+        gte(reservasSala.dataOcorrencia, aPartirDe),
+        sql`lower(${reservasSala.periodo}) > ${agora.toISOString()}::timestamptz`,
+        sql`not exists (${SEM_AGENDAMENTOS_ATIVOS})`,
+      ),
+    )
+    .returning({ id: reservasSala.id });
+  // Ocorrências com pacientes agendados ficam ativas até os agendamentos serem resolvidos.
+  const mantidas = await tx
+    .select({ id: reservasSala.id })
+    .from(reservasSala)
+    .where(
+      and(
+        eq(reservasSala.recorrenciaId, regraId),
+        eq(reservasSala.status, "ativa"),
+        gte(reservasSala.dataOcorrencia, aPartirDe),
+        sql`lower(${reservasSala.periodo}) > ${agora.toISOString()}::timestamptz`,
+      ),
+    );
+  await registrarAuditoria(tx, {
+    acao: "recorrencia.encerrada",
+    entidade: "regras_recorrencia",
+    entidadeId: regraId,
+    dados: { aPartirDe, canceladas: canceladas.length, mantidas: mantidas.length },
+  });
+  return { canceladas: canceladas.length, mantidas: mantidas.length };
 }
 
 // ---------------------------------------------------------------------------
@@ -405,11 +412,11 @@ export async function encerrarRecorrencia(
 export async function materializarRecorrencias(
   tx: Transaction,
   agora = new Date(),
-  opcoes?: { contratoId?: string },
+  opcoes?: { acordoId?: string },
 ): Promise<{ criadas: number; conflitos: number; datasConflito?: string[] }> {
   const condicoes = [isNull(regrasRecorrencia.encerradaEm)];
-  if (opcoes?.contratoId) {
-    condicoes.push(eq(regrasRecorrencia.contratoId, opcoes.contratoId));
+  if (opcoes?.acordoId) {
+    condicoes.push(eq(regrasRecorrencia.acordoId, opcoes.acordoId));
   }
 
   const regras = await tx
@@ -465,7 +472,7 @@ export async function materializarRecorrencias(
     }
     await tx.update(regrasRecorrencia).set({ materializadaAte: limite }).where(eq(regrasRecorrencia.id, regra.id));
   }
-  return opcoes?.contratoId ? { criadas, conflitos, datasConflito } : { criadas, conflitos };
+  return opcoes?.acordoId ? { criadas, conflitos, datasConflito } : { criadas, conflitos };
 }
 
 /** Marca como concluídas as reservas ativas que já terminaram e gera a locação por hora. */
@@ -531,24 +538,15 @@ async function reservasNoPeriodo(
       profissionalId: reservasSala.profissionalId,
       profissionalNome: profissionais.nome,
       recorrenciaId: reservasSala.recorrenciaId,
-      ehSalaFixa: sql<boolean>`exists (
-        select 1 from ${acordosFinanceiros}
-        where ${acordosFinanceiros.profissionalId} = ${reservasSala.profissionalId}
-          and ${acordosFinanceiros.salaId} = ${reservasSala.salaId}
-          and ${acordosFinanceiros.modelo} = 'sala_fixa'
-      ) or exists (
-        select 1 from ${regrasRecorrencia}
-        where ${regrasRecorrencia.id} = ${reservasSala.recorrenciaId}
-          and ${regrasRecorrencia.contratoId} is not null
-      )`,
+      // Data da grade fixa de um contrato (turno fixo).
       contratoCodigo: sql<string | null>`(
-        select ${contratosLocacao.codigo} from ${regrasRecorrencia}
-        inner join ${contratosLocacao} on ${contratosLocacao.id} = ${regrasRecorrencia.contratoId}
+        select ${acordosFinanceiros.codigo} from ${regrasRecorrencia}
+        inner join ${acordosFinanceiros} on ${acordosFinanceiros.id} = ${regrasRecorrencia.acordoId}
         where ${regrasRecorrencia.id} = ${reservasSala.recorrenciaId}
         limit 1
       )`,
       contratoId: sql<string | null>`(
-        select ${regrasRecorrencia.contratoId} from ${regrasRecorrencia}
+        select ${regrasRecorrencia.acordoId} from ${regrasRecorrencia}
         where ${regrasRecorrencia.id} = ${reservasSala.recorrenciaId}
         limit 1
       )`,
@@ -629,7 +627,7 @@ async function reservasNoPeriodo(
       profissionalNome: podeVerDetalhes ? r.profissionalNome : null,
       propria,
       recorrenciaId: podeVerDetalhes ? r.recorrenciaId : null,
-      ehSalaFixa: Boolean(r.ehSalaFixa),
+      ehSalaFixa: Boolean(r.contratoId),
       contratoCodigo: podeVerDetalhes ? r.contratoCodigo : null,
       contratoId: podeVerDetalhes ? r.contratoId : null,
       pacientes: podeVerDetalhes ? r.pacientes : 0,
@@ -695,26 +693,14 @@ export async function obterReserva(ctx: ContextoTenant, reservaId: string, datab
       const ini = partesLocais(linha.reserva.periodo.inicio, linha.timezone);
       const fim = partesLocais(linha.reserva.periodo.fim, linha.timezone);
 
-      const [acordoSalaFixa] = await tx
-        .select({ id: acordosFinanceiros.id })
-        .from(acordosFinanceiros)
-        .where(
-          and(
-            eq(acordosFinanceiros.profissionalId, linha.reserva.profissionalId),
-            eq(acordosFinanceiros.salaId, linha.reserva.salaId),
-            eq(acordosFinanceiros.modelo, "sala_fixa"),
-          ),
-        )
-        .limit(1);
-
       const [vinculoContrato] = linha.reserva.recorrenciaId
         ? await tx
             .select({
-              contratoId: regrasRecorrencia.contratoId,
-              codigo: contratosLocacao.codigo,
+              contratoId: regrasRecorrencia.acordoId,
+              codigo: acordosFinanceiros.codigo,
             })
             .from(regrasRecorrencia)
-            .innerJoin(contratosLocacao, eq(contratosLocacao.id, regrasRecorrencia.contratoId))
+            .innerJoin(acordosFinanceiros, eq(acordosFinanceiros.id, regrasRecorrencia.acordoId))
             .where(eq(regrasRecorrencia.id, linha.reserva.recorrenciaId))
             .limit(1)
         : [];
@@ -760,7 +746,7 @@ export async function obterReserva(ctx: ContextoTenant, reservaId: string, datab
         recorrenciaId: linha.reserva.recorrenciaId,
         dataOcorrencia: linha.reserva.dataOcorrencia,
         propria,
-        ehSalaFixa: Boolean(acordoSalaFixa || vinculoContrato),
+        ehSalaFixa: Boolean(vinculoContrato),
         contratoId: vinculoContrato?.contratoId ?? null,
         contratoCodigo: vinculoContrato?.codigo ?? null,
         horariosVagos,
@@ -896,15 +882,11 @@ export async function obterPanoramaSalas(
           periodo: reservasSala.periodo,
           profissionalId: reservasSala.profissionalId,
           profissionalNome: profissionais.nome,
+          // Data da grade fixa de um contrato (turno fixo).
           ehSalaFixa: sql<boolean>`exists (
-            select 1 from ${acordosFinanceiros}
-            where ${acordosFinanceiros.profissionalId} = ${reservasSala.profissionalId}
-              and ${acordosFinanceiros.salaId} = ${reservasSala.salaId}
-              and ${acordosFinanceiros.modelo} = 'sala_fixa'
-          ) or exists (
             select 1 from ${regrasRecorrencia}
             where ${regrasRecorrencia.id} = ${reservasSala.recorrenciaId}
-              and ${regrasRecorrencia.contratoId} is not null
+              and ${regrasRecorrencia.acordoId} is not null
           )`,
         })
         .from(reservasSala)

@@ -3,7 +3,6 @@ import { AlertCircle } from "lucide-react";
 import { obterContextoTenant } from "@/src/auth/sessao";
 import { pode, ROTULOS_ROLE, type Permissao, type Role } from "@/src/domain/rbac";
 import { assinaturaEmAtraso } from "@/src/server/assinatura";
-import { contratosHabilitados } from "@/src/server/modulos";
 import { SalusLogo } from "@/components/brand/salus-logo";
 import { LSCodeBadge } from "@/components/brand/ls-code";
 import { PainelNav, type ItemNavegacao } from "@/components/painel-nav";
@@ -37,9 +36,7 @@ export default async function PainelLayout({ children }: LayoutProps<"/painel">)
   const ehDono = await ehSuperadmin(ctx.userId);
 
   const itens: ItemNavegacao[] = NAVEGACAO.filter(
-    (item) =>
-      (!item.permissao || pode(ctx.role, item.permissao)) &&
-      (item.href !== "/painel/contratos" || contratosHabilitados())
+    (item) => !item.permissao || pode(ctx.role, item.permissao)
   );
 
   if (ehDono) {

@@ -44,10 +44,6 @@ export const salaSchema = z.object({
     .array(z.string().trim().max(60))
     .default([])
     .transform((lista) => [...new Set(lista.filter(Boolean))]),
-  valorMensalCentavos: z.number().int().nonnegative().nullable().optional().default(null),
-  cobrancaConsultaTipo: z.enum(["nenhuma", "fixo", "percentual"]).default("nenhuma"),
-  cobrancaConsultaValorCentavos: z.number().int().nonnegative().nullable().optional().default(null),
-  cobrancaConsultaPercentualBp: z.number().int().min(1).max(10000).nullable().optional().default(null),
 });
 
 export const feriadoSchema = z.object({
@@ -343,7 +339,7 @@ export async function carregarConfigUnidade(tx: Transaction, unidadeId: string):
   return { ...unidade, horarios, feriados: listaFeriados.map((f) => f.data) };
 }
 
-/** Todas as salas ativas de todas as unidades ativas do tenant (para seleção de sala fixa). */
+/** Todas as salas ativas das unidades ativas do espaço (grade fixa do contrato). */
 export async function listarTodasSalasAtivas(ctx: ContextoTenant, database?: Database) {
   return withTenant(
     ctx,
@@ -352,10 +348,6 @@ export async function listarTodasSalasAtivas(ctx: ContextoTenant, database?: Dat
         .select({
           id: salas.id,
           nome: salas.nome,
-          valorMensalCentavos: salas.valorMensalCentavos,
-          cobrancaConsultaTipo: salas.cobrancaConsultaTipo,
-          cobrancaConsultaValorCentavos: salas.cobrancaConsultaValorCentavos,
-          cobrancaConsultaPercentualBp: salas.cobrancaConsultaPercentualBp,
           unidadeNome: unidades.nome,
         })
         .from(salas)

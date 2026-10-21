@@ -145,3 +145,19 @@ test("recepção ativa a verificação em duas etapas e o login passa a pedir o 
   await expect(page).toHaveURL(/\/painel/);
 });
 
+
+test("admin reajusta o contrato pela tela e o histórico mostra as duas versões", async ({ page }) => {
+  await entrar(page, "admin");
+  await page.goto("/painel/contratos");
+  await page.getByRole("link", { name: /^CTR-/ }).first().click();
+  await expect(page.getByText(/por hora reservada/).first()).toBeVisible();
+
+  await page.getByRole("link", { name: "Reajustar (nova versão)" }).click();
+  await expect(page.getByRole("heading", { name: /Reajuste do contrato CTR-/ })).toBeVisible();
+  await page.getByLabel("Valor da hora (R$)").fill("50,00");
+  await page.getByRole("button", { name: "Salvar nova versão" }).click();
+
+  await expect(page.getByText(/Contrato criado/)).toBeVisible();
+  await expect(page.getByText(/R\$\s50,00 por hora reservada/).first()).toBeVisible();
+  await expect(page.locator("li", { hasText: /→/ }).filter({ hasText: /CTR-/ })).toHaveCount(2);
+});

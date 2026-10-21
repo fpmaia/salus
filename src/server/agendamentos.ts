@@ -3,7 +3,7 @@ import { z } from "zod";
 import { registrarAuditoria } from "../db/audit";
 import type { Database, Transaction } from "../db/client";
 import { erroPostgres, PG } from "../db/erros";
-import { agendamentos, pacientes, profissionais, reservasSala, salas, tenantSettings, unidades } from "../db/schema";
+import { agendamentos, pacientes, profissionais, reservasSala, salas, unidades } from "../db/schema";
 import { type ContextoTenant, withTenant } from "../db/tenant";
 import {
   cancelamentoTardio,
@@ -15,7 +15,8 @@ import {
 import { exigirPermissao, pode } from "../domain/rbac";
 import { validarJanela } from "../domain/reservas";
 import { dataValida, horaValida, instanteLocal, partesLocais, somarDias, type DataLocal } from "../domain/tempo";
-import { gerarLancamentosAgendamento } from "./financeiro";
+import type { QuemCancelou } from "../domain/financeiro";
+import { gerarLancamentosAgendamento, prazoDeCancelamento } from "./financeiro";
 import { cancelarNotificacoesDoAgendamento } from "./outbox";
 import { acessoAPacientes, pacienteVisivel, vincularPaciente } from "./pacientes";
 import { profissionalDoUsuario } from "./profissionais";
@@ -220,13 +221,23 @@ export async function aplicarStatusAgendamento(
   motivo: string | null,
   agora: Date,
   origem: "equipe" | "paciente" = "equipe",
+  /** Quem pediu o cancelamento (pelo link, sempre o paciente). */
+  quem: QuemCancelou = "paciente",
 ): Promise<{ cancelamentoTardio: boolean }> {
   validarTransicao(agendamento.status, destino, agendamento.periodo, agora);
 
   let tardio = false;
+  const canceladoPor: QuemCancelou = origem === "paciente" ? "paciente" : quem;
   if (destino === "cancelado") {
-    const [config] = await tx.select({ horas: tenantSettings.antecedenciaCancelamentoHoras }).from(tenantSettings);
-    tardio = cancelamentoTardio(agendamento.periodo.inicio, agora, config?.horas ?? 24);
+    // O prazo é o do contrato vigente na data da consulta (ou o padrão do espaço).
+    const [local] = await tx
+      .select({ timezone: unidades.timezone })
+      .from(reservasSala)
+      .innerJoin(salas, eq(salas.id, reservasSala.salaId))
+      .innerJoin(unidades, eq(unidades.id, salas.unidadeId))
+      .where(eq(reservasSala.id, agendamento.reservaId));
+    const data = partesLocais(agendamento.periodo.inicio, local?.timezone ?? "America/Sao_Paulo").data;
+    tardio = cancelamentoTardio(agendamento.periodo.inicio, agora, await prazoDeCancelamento(tx, agendamento.profissionalId, data));
   }
   await tx
     .update(agendamentos)
@@ -234,7 +245,7 @@ export async function aplicarStatusAgendamento(
       status: destino,
       statusAtualizadoEm: agora,
       ...(destino === "cancelado"
-        ? { canceladoEm: agora, motivoCancelamento: motivo?.trim() || null, cancelamentoTardio: tardio }
+        ? { canceladoEm: agora, canceladoPor, motivoCancelamento: motivo?.trim() || null, cancelamentoTardio: tardio }
         : {}),
     })
     .where(eq(agendamentos.id, agendamento.id))
@@ -251,7 +262,7 @@ export async function aplicarStatusAgendamento(
     acao: `agendamento.${destino}`,
     entidade: "agendamentos",
     entidadeId: agendamento.id,
-    dados: { de: agendamento.status, para: destino, origem, ...(destino === "cancelado" ? { tardio } : {}) },
+    dados: { de: agendamento.status, para: destino, origem, ...(destino === "cancelado" ? { tardio, canceladoPor } : {}) },
   });
   return { cancelamentoTardio: tardio };
 }
@@ -264,6 +275,7 @@ export async function alterarStatusAgendamento(
   motivo: string | null = null,
   agora = new Date(),
   database?: Database,
+  quem: QuemCancelou = "paciente",
 ): Promise<{ cancelamentoTardio: boolean }> {
   const destino = statusSchema.parse(para);
   return withTenant(
@@ -279,7 +291,9 @@ export async function alterarStatusAgendamento(
           throw new ErroAgendamento("nao_permitido", "Você só pode alterar os seus atendimentos");
         }
       }
-      return aplicarStatusAgendamento(tx, agendamento, destino, motivo, agora);
+      // Só a equipe registra cancelamento pelo espaço (que isenta o profissional).
+      const autor = quem === "espaco" && !pode(ctx.role, "agenda.gerenciar") ? "profissional" : quem;
+      return aplicarStatusAgendamento(tx, agendamento, destino, motivo, agora, "equipe", autor);
     },
     database,
   );

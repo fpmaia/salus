@@ -1,284 +1,172 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import {
-  ArrowLeft,
-  Building2,
-  Calendar,
-  CheckCircle2,
-  Clock,
-  DollarSign,
-  FileSignature,
-  Printer,
-  ShieldAlert,
-  User,
-  XCircle,
-} from "lucide-react";
+import { FormAcao } from "@/components/form-acao";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { obterContextoTenant } from "@/src/auth/sessao";
-import { formatarMoeda } from "@/src/domain/dinheiro";
-import { pode } from "@/src/domain/rbac";
 import { DIAS_SEMANA_NOMES } from "@/src/domain/contratos";
+import { ROTULOS_MODELO } from "@/src/domain/financeiro";
+import { pode } from "@/src/domain/rbac";
+import { hojeNoFuso } from "@/src/domain/tempo";
 import { obterContrato } from "@/src/server/contratos";
-import { BotaoEncerrarContrato } from "./botao-encerrar";
+import { mensagemDeErro } from "@/src/server/erros";
+import { formatarDataBr } from "@/src/server/reservas";
+import { encerrarContratoAcao } from "../actions";
+import { COR_SITUACAO, ROTULO_SITUACAO } from "../situacao";
 
-export default async function DetalhesContratoPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export default async function ContratoPage({ params, searchParams }: PageProps<"/painel/contratos/[id]">) {
   const { id } = await params;
+  if (!UUID.test(id)) notFound();
   const ctx = await obterContextoTenant();
-
-  let contrato;
-  try {
-    contrato = await obterContrato(ctx, id);
-  } catch {
-    notFound();
-  }
-
-  const podeGerenciar = pode(ctx.role, "contratos.gerenciar");
-  const isAtivo = contrato.status === "ativo";
+  const detalhe = await obterContrato(ctx, id).catch((erro) => {
+    if (mensagemDeErro(erro)) notFound();
+    throw erro;
+  });
+  const { contrato, profissional, situacao, condicoes, grade, versoes } = detalhe;
+  const q = await searchParams;
+  const conflitos = typeof q.conflitos === "string" ? q.conflitos.split(",") : [];
+  const gerencia = pode(ctx.role, "contratos.gerenciar");
+  const aberto = situacao !== "encerrado";
 
   return (
-    <main className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-8 sm:px-6">
-      {/* Barra Superior */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <Link
-            href="/painel/contratos"
-            className="flex size-8 items-center justify-center rounded-xl border border-border/80 bg-background text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-            title="Voltar para Contratos"
-          >
-            <ArrowLeft className="size-4" />
+    <main className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-8 sm:px-6">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <Link href="/painel/contratos" className="text-sm text-muted-foreground hover:underline">
+            ← Contratos
           </Link>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold tracking-tight text-foreground font-mono">
-                {contrato.codigo}
-              </h1>
-              <span
-                className={`rounded-full px-2.5 py-0.5 text-xs font-semibold border ${
-                  isAtivo
-                    ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
-                    : "bg-muted text-muted-foreground border-border"
-                }`}
-              >
-                {isAtivo ? "Contrato Ativo" : "Contrato Encerrado"}
-              </span>
-            </div>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Criado em {new Date(contrato.criadoEm).toLocaleDateString("pt-BR")}
-              {contrato.encerradoEm &&
-                ` · Encerrado em ${new Date(contrato.encerradoEm).toLocaleDateString("pt-BR")}`}
-            </p>
-          </div>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            <span className="font-mono">{contrato.codigo}</span> · {profissional.nome}
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            {ROTULOS_MODELO[contrato.modelo]} · {formatarDataBr(contrato.vigenteDe)}{" "}
+            {contrato.vigenteAte ? `até ${formatarDataBr(contrato.vigenteAte)}` : "sem término"}{" "}
+            <span className={`ml-1 rounded-md px-2 py-0.5 text-xs font-medium ${COR_SITUACAO[situacao]}`}>{ROTULO_SITUACAO[situacao]}</span>
+          </p>
         </div>
-
-        {/* Ações */}
-        <div className="flex flex-wrap items-center gap-2">
-          <Link
-            href={`/painel/agenda?unidade=${contrato.sala.unidadeId}&sala=${contrato.sala.id}&visao=semana&data=${contrato.reservas[0]?.data || contrato.dataInicio}`}
-            className="flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-2 text-xs font-semibold text-primary-foreground shadow-xs hover:bg-primary/90 transition-colors"
-          >
-            <Calendar className="size-4" /> Ver na Agenda
-          </Link>
-
-          <Link
-            href={`/painel/contratos/${contrato.id}/imprimir`}
-            target="_blank"
-            className="flex items-center gap-1.5 rounded-xl border border-border bg-background px-3.5 py-2 text-xs font-semibold text-foreground shadow-xs hover:bg-muted transition-colors"
-          >
-            <Printer className="size-4" /> Imprimir Minuta
-          </Link>
-
-          {podeGerenciar && isAtivo && (
-            <BotaoEncerrarContrato contratoId={contrato.id} codigo={contrato.codigo} />
+        <div className="flex flex-wrap gap-2">
+          <Button asChild variant="outline">
+            <Link href={`/painel/contratos/${contrato.id}/imprimir`}>Imprimir / PDF</Link>
+          </Button>
+          {gerencia && aberto && (
+            <Button asChild>
+              <Link href={`/painel/contratos/novo?profissional=${profissional.id}`}>Reajustar (nova versão)</Link>
+            </Button>
           )}
         </div>
       </div>
 
-      {/* Grid de Resumo */}
-      <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
-        {/* Profissional */}
-        <Card className="border-border/80 shadow-xs">
-          <CardHeader className="pb-2">
-            <CardDescription className="text-xs">Profissional Locatário</CardDescription>
-            <CardTitle className="text-base font-bold flex items-center gap-2">
-              <User className="size-4 text-primary" />
-              {contrato.profissional.nome}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-1 text-xs text-muted-foreground">
-            {contrato.profissional.conselho && contrato.profissional.registro && (
-              <p>
-                Registro:{" "}
-                <span className="font-semibold text-foreground">
-                  {contrato.profissional.conselho} {contrato.profissional.registro}
-                </span>
-              </p>
-            )}
-            {contrato.profissional.especialidade && (
-              <p>Especialidade: {contrato.profissional.especialidade}</p>
-            )}
-            <p>E-mail: {contrato.profissional.email}</p>
-          </CardContent>
-        </Card>
-
-        {/* Sala */}
-        <Card className="border-border/80 shadow-xs">
-          <CardHeader className="pb-2">
-            <CardDescription className="text-xs">Consultório / Sala Locada</CardDescription>
-            <CardTitle className="text-base font-bold flex items-center gap-2 text-primary">
-              <Building2 className="size-4" />
-              {contrato.sala.nome}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-1 text-xs text-muted-foreground">
-            <p className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium">
-              <CheckCircle2 className="size-3.5" /> Agenda automatizada por recorrência
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Financeiro */}
-        <Card className="border-border/80 shadow-xs">
-          <CardHeader className="pb-2">
-            <CardDescription className="text-xs">Condições Financeiras</CardDescription>
-            <CardTitle className="text-base font-bold flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
-              <DollarSign className="size-4" />
-              {formatarMoeda(contrato.valorMensalCentavos)}
-              <span className="text-xs font-normal text-muted-foreground">/mês</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-1 text-xs text-muted-foreground">
-            <p>Vencimento: Todo dia {contrato.diaVencimento} de cada mês</p>
-            <p>
-              Taxa consulta:{" "}
-              {contrato.cobrancaConsultaTipo === "fixo" && contrato.cobrancaConsultaValorCentavos
-                ? `${formatarMoeda(contrato.cobrancaConsultaValorCentavos)} / consulta`
-                : contrato.cobrancaConsultaTipo === "percentual" &&
-                  contrato.cobrancaConsultaPercentualBp
-                ? `${(contrato.cobrancaConsultaPercentualBp / 100).toFixed(1)}% por consulta`
-                : "Sem taxa adicional"}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Grade Semanal de Horários Fixos */}
-      <Card className="border-border/80 shadow-xs">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-semibold flex items-center gap-2">
-            <Clock className="size-4 text-primary" />
-            Grade Semanal de Horários Fixos
-          </CardTitle>
-          <CardDescription className="text-xs">
-            Dias e faixas horárias em que o consultório fica exclusivo para o profissional
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3">
-            {contrato.gradeHorarios.map((item, idx) => (
-              <div
-                key={idx}
-                className="flex items-center gap-3 rounded-xl border border-border/70 bg-muted/20 px-3 py-2 text-xs"
-              >
-                <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  <Calendar className="size-4" />
-                </div>
-                <div>
-                  <p className="font-semibold text-foreground">
-                    {DIAS_SEMANA_NOMES[item.diaSemana]}
-                  </p>
-                  <p className="font-mono text-muted-foreground text-[11px]">
-                    {item.horaInicio} às {item.horaFim}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-4 rounded-xl bg-primary/5 p-3 text-xs text-muted-foreground flex items-center gap-2">
-            <CheckCircle2 className="size-4 text-primary shrink-0" />
-            <span>
-              {contrato.regras.length} regra(s) de recorrência ativa(s). O Salus preenche a agenda
-              deste profissional continuamente enquanto o contrato estiver ativo.
+      {q.criado && (
+        <p className="rounded-md border border-emerald-600/30 bg-emerald-600/10 p-3 text-sm">
+          Contrato criado{q.reservas ? `: ${q.reservas} data(s) da grade fixa reservada(s)` : ""}.
+          {conflitos.length > 0 && (
+            <span className="mt-1 block text-amber-700">
+              Atenção: a sala já estava ocupada em {conflitos.length} data(s) da grade ({conflitos.slice(0, 5).join("; ")}
+              {conflitos.length > 5 ? "…" : ""}). Essas datas não foram reservadas; resolva na agenda.
             </span>
-          </div>
+          )}
+        </p>
+      )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Condições</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ul className="flex list-disc flex-col gap-1 pl-5 text-sm">
+            {condicoes.map((c) => (
+              <li key={c}>{c}</li>
+            ))}
+          </ul>
+          {contrato.observacoes && <p className="mt-3 text-sm text-muted-foreground">Obs.: {contrato.observacoes}</p>}
         </CardContent>
       </Card>
 
-      {/* Reservas Confirmadas na Agenda */}
-      <Card className="border-border/80 shadow-xs">
-        <CardHeader className="pb-3">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div>
-              <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                <Calendar className="size-4 text-primary" />
-                Reservas Confirmadas na Agenda ({contrato.reservas.length})
-              </CardTitle>
-              <CardDescription className="text-xs">
-                Ocorrências automáticas materializadas para {contrato.sala.nome}
-              </CardDescription>
-            </div>
-            <Link
-              href={`/painel/agenda?unidade=${contrato.sala.unidadeId}&sala=${contrato.sala.id}&visao=semana&data=${contrato.reservas[0]?.data || contrato.dataInicio}`}
-              className="text-xs font-semibold text-primary hover:underline flex items-center gap-1"
-            >
-              Abrir na Agenda de Salas →
-            </Link>
-          </div>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Grade fixa</CardTitle>
+          <CardDescription>Horários reservados automaticamente toda semana enquanto o contrato vale.</CardDescription>
         </CardHeader>
         <CardContent>
-          {contrato.reservas.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-border/80 p-5 text-center text-xs text-muted-foreground space-y-1">
-              <p className="font-semibold text-foreground">Nenhuma ocorrência gerada na agenda ainda.</p>
-              <p>
-                As reservas automáticas são criadas a partir de{" "}
-                <strong>{contrato.dataInicio}</strong> nos dias e horários estipulados na grade semanal.
-              </p>
-            </div>
+          {grade.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Sem grade fixa: o profissional reserva as salas avulsas.</p>
           ) : (
-            <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-              {contrato.reservas.map((r) => (
-                <Link
-                  key={r.id}
-                  href={`/painel/agenda?unidade=${contrato.sala.unidadeId}&sala=${contrato.sala.id}&data=${r.data}&reserva=${r.id}`}
-                  className="flex flex-col justify-between rounded-xl border border-border/70 bg-card p-3 text-xs transition-all hover:border-primary/50 hover:shadow-2xs"
-                >
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="font-semibold text-foreground">{r.data}</span>
-                    <span className="inline-flex rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
-                      ✓ Reservada
-                    </span>
-                  </div>
-                  <p className="mt-1 font-mono text-muted-foreground text-[11px]">
-                    {r.horaInicio} às {r.horaFim}
-                  </p>
-                </Link>
+            <ul className="divide-y text-sm">
+              {grade.map((g) => (
+                <li key={g.id} className="flex justify-between py-2">
+                  <span>
+                    {DIAS_SEMANA_NOMES[g.diaSemana]}, {g.horaInicio}–{g.horaFim}
+                  </span>
+                  <span className="text-muted-foreground">
+                    {g.unidadeNome} · {g.salaNome}
+                  </span>
+                </li>
               ))}
-            </div>
+            </ul>
           )}
         </CardContent>
       </Card>
 
-      {/* Termos do Contrato */}
-      <Card className="border-border/80 shadow-xs">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-semibold flex items-center gap-2">
-            <FileSignature className="size-4 text-primary" />
-            Termos e Cláusulas Registradas
-          </CardTitle>
-          <CardDescription className="text-xs">
-            Texto integral do instrumento contratual
-          </CardDescription>
+      {contrato.termos && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Termos</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <pre className="max-h-96 overflow-auto whitespace-pre-wrap font-sans text-xs leading-relaxed">{contrato.termos}</pre>
+          </CardContent>
+        </Card>
+      )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Versões do contrato de {profissional.nome}</CardTitle>
+          <CardDescription>Cada reajuste é uma versão; os meses passados seguem a versão da época.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="max-h-[450px] overflow-y-auto rounded-xl border border-border/70 bg-background p-5 text-xs text-foreground whitespace-pre-wrap leading-relaxed font-sans shadow-xs">
-            {contrato.termosContrato}
-          </div>
+          <ul className="divide-y text-sm">
+            {versoes.map((v) => (
+              <li key={v.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                <Link href={`/painel/contratos/${v.id}`} className={`font-mono ${v.id === contrato.id ? "font-semibold" : "text-primary hover:underline"}`}>
+                  {v.codigo}
+                </Link>
+                <span className="text-xs text-muted-foreground">
+                  {formatarDataBr(v.vigenteDe)} → {v.vigenteAte ? formatarDataBr(v.vigenteAte) : "sem término"} · {ROTULO_SITUACAO[v.situacao]}
+                </span>
+              </li>
+            ))}
+          </ul>
         </CardContent>
       </Card>
+
+      {gerencia && aberto && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Encerrar contrato</CardTitle>
+            <CardDescription>
+              Depois do último dia, a grade fixa é liberada (datas com pacientes agendados continuam até os atendimentos serem resolvidos).
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <FormAcao
+              acao={encerrarContratoAcao.bind(null, contrato.id)}
+              textoBotao="Encerrar contrato"
+              textoPendente="Encerrando…"
+              variante="destructive"
+              confirmar="Encerrar este contrato na data informada?"
+            >
+              <div className="flex max-w-xs flex-col gap-2">
+                <Label htmlFor="ultimoDia">Último dia de vigência</Label>
+                <Input id="ultimoDia" name="ultimoDia" type="date" required defaultValue={hojeNoFuso("America/Sao_Paulo")} min={contrato.vigenteDe} />
+              </div>
+            </FormAcao>
+          </CardContent>
+        </Card>
+      )}
     </main>
   );
 }

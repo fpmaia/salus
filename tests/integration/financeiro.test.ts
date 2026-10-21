@@ -124,7 +124,7 @@ describe("acordos", () => {
 
   it("o banco recusa acordo sem o valor do modelo", async () => {
     const erro = await capturarErro(
-      withTenant(admin, (tx) => tx.insert(acordosFinanceiros).values({ profissionalId: prof.hugo, modelo: "consulta", vigenteDe: "2035-01-01" }), db),
+      withTenant(admin, (tx) => tx.insert(acordosFinanceiros).values({ codigo: "CTR-TESTE-0001", profissionalId: prof.hugo, modelo: "consulta", vigenteDe: "2035-01-01" }), db),
     );
     expect(codigoPg(erro)).toBe("23514");
   });

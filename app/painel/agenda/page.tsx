@@ -475,7 +475,7 @@ export default async function AgendaPage({ searchParams }: PageProps<"/painel/ag
 
                 <div className="flex flex-col gap-2 border-t pt-3">
                   <p className="font-medium">Pacientes</p>
-                  <ListaAtendimentos atendimentos={atendimentosReserva} mostrarProfissional={false} />
+                  <ListaAtendimentos atendimentos={atendimentosReserva} mostrarProfissional={false} cancelamentoPeloEspaco={gerencia} />
                 </div>
                 {reservaAberta.status === "ativa" && reservaAberta.fim > new Date() && (() => {
                   const vagoPadrao = reservaAberta.horariosVagos?.[0];
@@ -506,6 +506,12 @@ export default async function AgendaPage({ searchParams }: PageProps<"/painel/ag
                     variante="destructive"
                     confirmar="Cancelar esta reserva?"
                   >
+                    {gerencia && (
+                      <NativeSelect name="quem" defaultValue="profissional" aria-label="Quem pediu o cancelamento">
+                        <option value="profissional">A pedido do profissional</option>
+                        <option value="espaco">Decisão do espaço (sem multa)</option>
+                      </NativeSelect>
+                    )}
                     <Input name="motivo" placeholder="Motivo (opcional)" aria-label="Motivo do cancelamento" />
                   </FormAcao>
                 )}

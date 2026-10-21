@@ -1,425 +1,256 @@
-import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, isNull } from "drizzle-orm";
+import { z } from "zod";
 import { registrarAuditoria } from "../db/audit";
-import type { Database } from "../db/client";
-import {
-  acordosFinanceiros,
-  contratosLocacao,
-  profissionais,
-  regrasRecorrencia,
-  reservasSala,
-  salas,
-  tenants,
-  unidades,
-  users,
-} from "../db/schema";
+import type { Database, Transaction } from "../db/client";
+import { acordosFinanceiros, profissionais, regrasRecorrencia, salas, tenants, unidades } from "../db/schema";
 import { type ContextoTenant, withTenant } from "../db/tenant";
-import {
-  contratoInputSchema,
-  gerarMinutaContratoPadrao,
-  type ContratoInput,
-  type ItemGrade,
-} from "../domain/contratos";
+import { descreverCondicoes, gradeHorariosSchema, type DadosMinutaPadrao, type ItemGrade } from "../domain/contratos";
+import { ROTULOS_MODELO } from "../domain/financeiro";
 import { exigirPermissao, pode } from "../domain/rbac";
-import { partesLocais } from "../domain/tempo";
-import { materializarRecorrencias } from "./reservas";
-import { profissionalDoUsuario } from "./profissionais";
+import { dataValida, hojeNoFuso, somarDias, type DataLocal } from "../domain/tempo";
 import { ErroNegocio } from "./erros";
-import { exigirContratosHabilitados } from "./modulos";
+import { acordoSchema, inserirVersaoDoContrato } from "./financeiro";
+import { profissionalDoUsuario } from "./profissionais";
+import { encerrarRegraNaTransacao, materializarRecorrencias } from "./reservas";
 
-export async function listarContratos(
+// Contrato do profissional: uma versão do acordo financeiro (preço, regras de falta e de
+// cancelamento, termos) + grade fixa opcional, que gera as reservas e entra na cobrança.
+// Reajuste = nova versão; a anterior se encerra na véspera, e a grade passa junto.
+
+export const gradeContratoSchema = z.object({ salaId: z.uuid("Escolha a sala da grade fixa"), itens: gradeHorariosSchema });
+export type GradeContrato = z.input<typeof gradeContratoSchema>;
+
+export type SituacaoContrato = "vigente" | "futuro" | "encerrado";
+
+function situacao(c: { vigenteDe: DataLocal; vigenteAte: DataLocal | null }, hoje: DataLocal): SituacaoContrato {
+  if (c.vigenteDe > hoje) return "futuro";
+  if (c.vigenteAte !== null && c.vigenteAte < hoje) return "encerrado";
+  return "vigente";
+}
+
+/** Profissional só enxerga os próprios contratos; admin e recepção, todos. */
+async function filtroDeAcesso(tx: Transaction, ctx: ContextoTenant): Promise<string | null> {
+  if (pode(ctx.role, "contratos.gerenciar") || ctx.role === "recepcao") return null;
+  const proprio = await profissionalDoUsuario(tx, ctx.userId);
+  if (!proprio) throw new ErroNegocio("Seu acesso não está vinculado a um profissional");
+  return proprio.id;
+}
+
+async function gradeDoContrato(tx: Transaction, acordoId: string) {
+  return tx
+    .select({
+      id: regrasRecorrencia.id,
+      salaId: regrasRecorrencia.salaId,
+      salaNome: salas.nome,
+      unidadeNome: unidades.nome,
+      timezone: unidades.timezone,
+      diaSemana: regrasRecorrencia.diaSemana,
+      horaInicio: regrasRecorrencia.horaInicio,
+      horaFim: regrasRecorrencia.horaFim,
+    })
+    .from(regrasRecorrencia)
+    .innerJoin(salas, eq(salas.id, regrasRecorrencia.salaId))
+    .innerJoin(unidades, eq(unidades.id, salas.unidadeId))
+    .where(and(eq(regrasRecorrencia.acordoId, acordoId), isNull(regrasRecorrencia.encerradaEm)))
+    .orderBy(asc(regrasRecorrencia.diaSemana), asc(regrasRecorrencia.horaInicio));
+}
+
+const hora = (t: string) => t.slice(0, 5);
+
+/**
+ * Cria uma versão do contrato. `grade`: omitida mantém a grade da versão anterior (reajuste);
+ * `null` remove a grade; um objeto troca a grade (as datas futuras sem pacientes são liberadas e as
+ * novas são reservadas). Devolve as datas em que a sala já estava ocupada.
+ */
+export async function criarContrato(
   ctx: ContextoTenant,
-  filtros?: { status?: string; profissionalId?: string; salaId?: string },
+  dados: z.input<typeof acordoSchema>,
+  opcoes: { grade?: GradeContrato | null; agora?: Date } = {},
   database?: Database,
-) {
-  exigirContratosHabilitados();
-  exigirPermissao(ctx.role, "contratos.ver");
-
+): Promise<{ id: string; codigo: string; reservasCriadas: number; datasEmConflito: string[] }> {
+  exigirPermissao(ctx.role, "contratos.gerenciar");
+  const agora = opcoes.agora ?? new Date();
+  const grade = opcoes.grade ? gradeContratoSchema.parse(opcoes.grade) : opcoes.grade;
+  const a = acordoSchema.parse({ ...dados, salaId: dados.salaId ?? (grade ? grade.salaId : null) });
   return withTenant(
     ctx,
     async (tx) => {
-      let profissionalFiltroId = filtros?.profissionalId;
+      const contrato = await inserirVersaoDoContrato(tx, a);
+      if (grade !== undefined) {
+        for (const regra of await tx
+          .select()
+          .from(regrasRecorrencia)
+          .where(and(eq(regrasRecorrencia.acordoId, contrato.id), isNull(regrasRecorrencia.encerradaEm)))) {
+          await encerrarRegraNaTransacao(tx, regra, a.vigenteDe, agora, "espaco");
+        }
+      }
+      let reservasCriadas = 0;
+      let datasEmConflito: string[] = [];
+      if (grade) {
+        const [sala] = await tx
+          .select({ timezone: unidades.timezone })
+          .from(salas)
+          .innerJoin(unidades, eq(unidades.id, salas.unidadeId))
+          .where(and(eq(salas.id, grade.salaId), eq(salas.ativo, true)));
+        if (!sala) throw new ErroNegocio("Sala não encontrada ou inativa");
+        const hoje = hojeNoFuso(sala.timezone, agora);
+        const inicio = a.vigenteDe > hoje ? a.vigenteDe : hoje;
+        if (a.vigenteAte && a.vigenteAte < inicio) throw new ErroNegocio("A grade fixa precisa de dias de vigência a partir de hoje");
+        for (const item of grade.itens) {
+          await tx.insert(regrasRecorrencia).values({
+            acordoId: contrato.id,
+            salaId: grade.salaId,
+            profissionalId: a.profissionalId,
+            diaSemana: item.diaSemana,
+            horaInicio: item.horaInicio,
+            horaFim: item.horaFim,
+            dataInicio: inicio,
+            dataFim: a.vigenteAte,
+          });
+        }
+        const r = await materializarRecorrencias(tx, agora, { acordoId: contrato.id });
+        reservasCriadas = r.criadas;
+        datasEmConflito = r.datasConflito ?? [];
+      }
+      await registrarAuditoria(tx, {
+        acao: "contrato.grade",
+        entidade: "acordos_financeiros",
+        entidadeId: contrato.id,
+        dados: { grade: grade === undefined ? "mantida" : grade === null ? "removida" : grade.itens.length, reservasCriadas, conflitos: datasEmConflito.length },
+      });
+      return { id: contrato.id, codigo: contrato.codigo, reservasCriadas, datasEmConflito };
+    },
+    database,
+  );
+}
 
-      if (!pode(ctx.role, "contratos.gerenciar")) {
-        const proprio = await profissionalDoUsuario(tx, ctx.userId);
-        if (!proprio) return [];
-        profissionalFiltroId = proprio.id;
-      }
-
-      const condicoes = [];
-      if (filtros?.status) {
-        condicoes.push(eq(contratosLocacao.status, filtros.status));
-      }
-      if (profissionalFiltroId) {
-        condicoes.push(eq(contratosLocacao.profissionalId, profissionalFiltroId));
-      }
-      if (filtros?.salaId) {
-        condicoes.push(eq(contratosLocacao.salaId, filtros.salaId));
-      }
-
+export async function listarContratos(
+  ctx: ContextoTenant,
+  filtro: { profissionalId?: string } = {},
+  agora = new Date(),
+  database?: Database,
+) {
+  exigirPermissao(ctx.role, "contratos.ver");
+  return withTenant(
+    ctx,
+    async (tx) => {
+      const somente = (await filtroDeAcesso(tx, ctx)) ?? filtro.profissionalId ?? null;
       const linhas = await tx
-        .select({
-          contrato: contratosLocacao,
-          profissionalNome: profissionais.nome,
-          profissionalEmail: profissionais.email,
-          profissionalEspecialidade: profissionais.especialidade,
-          profissionalConselho: profissionais.conselho,
-          profissionalRegistro: profissionais.registro,
-          salaNome: salas.nome,
-        })
-        .from(contratosLocacao)
-        .innerJoin(profissionais, eq(profissionais.id, contratosLocacao.profissionalId))
-        .innerJoin(salas, eq(salas.id, contratosLocacao.salaId))
-        .where(condicoes.length > 0 ? and(...condicoes) : undefined)
-        .orderBy(desc(contratosLocacao.criadoEm));
-
-      return linhas.map((l) => ({
-        ...l.contrato,
-        profissional: {
-          id: l.contrato.profissionalId,
-          nome: l.profissionalNome,
-          email: l.profissionalEmail,
-          especialidade: l.profissionalEspecialidade,
-          conselho: l.profissionalConselho,
-          registro: l.profissionalRegistro,
-        },
-        sala: {
-          id: l.contrato.salaId,
-          nome: l.salaNome,
-        },
+        .select({ contrato: acordosFinanceiros, profissionalNome: profissionais.nome, salaNome: salas.nome })
+        .from(acordosFinanceiros)
+        .innerJoin(profissionais, eq(profissionais.id, acordosFinanceiros.profissionalId))
+        .leftJoin(salas, eq(salas.id, acordosFinanceiros.salaId))
+        .where(somente ? eq(acordosFinanceiros.profissionalId, somente) : undefined)
+        .orderBy(asc(profissionais.nome), desc(acordosFinanceiros.vigenteDe));
+      const hoje = hojeNoFuso("America/Sao_Paulo", agora);
+      return linhas.map(({ contrato, profissionalNome, salaNome }) => ({
+        id: contrato.id,
+        codigo: contrato.codigo,
+        profissionalId: contrato.profissionalId,
+        profissionalNome,
+        salaNome,
+        modelo: ROTULOS_MODELO[contrato.modelo],
+        resumo: descreverCondicoes(contrato)[0] ?? "",
+        vigenteDe: contrato.vigenteDe,
+        vigenteAte: contrato.vigenteAte,
+        situacao: situacao(contrato, hoje),
       }));
     },
     database,
   );
 }
 
-export async function obterContrato(
-  ctx: ContextoTenant,
-  id: string,
-  database?: Database,
-) {
-  exigirContratosHabilitados();
+export async function obterContrato(ctx: ContextoTenant, contratoId: string, agora = new Date(), database?: Database) {
   exigirPermissao(ctx.role, "contratos.ver");
-
+  const id = z.uuid().parse(contratoId);
   return withTenant(
     ctx,
     async (tx) => {
       const [linha] = await tx
-        .select({
-          contrato: contratosLocacao,
-          profissionalNome: profissionais.nome,
-          profissionalEmail: profissionais.email,
-          profissionalTelefone: profissionais.telefone,
-          profissionalConselho: profissionais.conselho,
-          profissionalRegistro: profissionais.registro,
-          profissionalEspecialidade: profissionais.especialidade,
-          profissionalDocumento: profissionais.documento,
-          salaNome: salas.nome,
-          salaUnidadeId: salas.unidadeId,
-          tenantNome: tenants.nome,
-          tenantDocumento: tenants.documento,
-        })
-        .from(contratosLocacao)
-        .innerJoin(profissionais, eq(profissionais.id, contratosLocacao.profissionalId))
-        .innerJoin(salas, eq(salas.id, contratosLocacao.salaId))
-        .innerJoin(tenants, eq(tenants.id, contratosLocacao.tenantId))
-        .where(eq(contratosLocacao.id, id));
-
+        .select({ contrato: acordosFinanceiros, profissional: profissionais })
+        .from(acordosFinanceiros)
+        .innerJoin(profissionais, eq(profissionais.id, acordosFinanceiros.profissionalId))
+        .where(eq(acordosFinanceiros.id, id));
       if (!linha) throw new ErroNegocio("Contrato não encontrado");
-
-      if (!pode(ctx.role, "contratos.gerenciar")) {
-        const proprio = await profissionalDoUsuario(tx, ctx.userId);
-        if (!proprio || proprio.id !== linha.contrato.profissionalId) {
-          throw new ErroNegocio("Você só tem permissão para visualizar os seus contratos");
-        }
-      }
-
-      // Regras de recorrência ativas vinculadas a este contrato
-      const regras = await tx
-        .select()
-        .from(regrasRecorrencia)
-        .where(eq(regrasRecorrencia.contratoId, id));
-
-      // Próximas reservas ativas geradas na agenda para este contrato
-      const reservas = await tx
-        .select({
-          id: reservasSala.id,
-          dataOcorrencia: reservasSala.dataOcorrencia,
-          periodo: reservasSala.periodo,
-          status: reservasSala.status,
-        })
-        .from(reservasSala)
-        .where(
-          and(
-            eq(reservasSala.status, "ativa"),
-            sql`${reservasSala.recorrenciaId} IN (SELECT id FROM ${regrasRecorrencia} WHERE ${regrasRecorrencia.contratoId} = ${id})`,
-          ),
-        )
-        .orderBy(asc(reservasSala.periodo))
-        .limit(28);
-
-      const [und] = await tx
-        .select({ timezone: unidades.timezone })
-        .from(unidades)
-        .where(eq(unidades.id, linha.salaUnidadeId));
-      const timezone = und?.timezone ?? "America/Sao_Paulo";
-
-      const reservasFormatadas = reservas.map((r) => {
-        const ini = partesLocais(r.periodo.inicio, timezone);
-        const fim = partesLocais(r.periodo.fim, timezone);
-        return {
-          id: r.id,
-          data: ini.data,
-          horaInicio: ini.hora,
-          horaFim: fim.hora,
-          status: r.status,
-        };
-      });
-
+      const somente = await filtroDeAcesso(tx, ctx);
+      if (somente && somente !== linha.contrato.profissionalId) throw new ErroNegocio("Você só pode ver os seus contratos");
+      const grade = await gradeDoContrato(tx, id);
+      const versoes = await tx
+        .select({ id: acordosFinanceiros.id, codigo: acordosFinanceiros.codigo, vigenteDe: acordosFinanceiros.vigenteDe, vigenteAte: acordosFinanceiros.vigenteAte })
+        .from(acordosFinanceiros)
+        .where(eq(acordosFinanceiros.profissionalId, linha.contrato.profissionalId))
+        .orderBy(desc(acordosFinanceiros.vigenteDe));
+      const hoje = hojeNoFuso("America/Sao_Paulo", agora);
       return {
-        ...linha.contrato,
-        profissional: {
-          id: linha.contrato.profissionalId,
-          nome: linha.profissionalNome,
-          email: linha.profissionalEmail,
-          telefone: linha.profissionalTelefone,
-          conselho: linha.profissionalConselho,
-          registro: linha.profissionalRegistro,
-          especialidade: linha.profissionalEspecialidade,
-          documento: linha.profissionalDocumento,
-        },
-        sala: {
-          id: linha.contrato.salaId,
-          nome: linha.salaNome,
-          unidadeId: linha.salaUnidadeId,
-        },
-        clinica: {
-          nome: linha.tenantNome,
-          documento: linha.tenantDocumento,
-        },
-        regras,
-        reservas: reservasFormatadas,
+        contrato: linha.contrato,
+        profissional: { id: linha.profissional.id, nome: linha.profissional.nome, conselho: linha.profissional.conselho, registro: linha.profissional.registro },
+        situacao: situacao(linha.contrato, hoje),
+        condicoes: descreverCondicoes(linha.contrato),
+        grade: grade.map((g) => ({ ...g, horaInicio: hora(g.horaInicio), horaFim: hora(g.horaFim) })),
+        versoes: versoes.map((v) => ({ ...v, situacao: situacao(v, hoje) })),
       };
     },
     database,
   );
 }
 
-export async function criarContrato(
-  ctx: ContextoTenant,
-  input: ContratoInput,
-  agora = new Date(),
-  database?: Database,
-) {
-  exigirContratosHabilitados();
-  exigirPermissao(ctx.role, "contratos.gerenciar");
-  const dados = contratoInputSchema.parse(input);
-
-  return withTenant(
-    ctx,
-    async (tx) => {
-      // 1. Lock transacional por tenant para geração atômica e segura do código CTR
-      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${ctx.tenantId}))`);
-
-      const ano = agora.getFullYear();
-      const prefixo = `CTR-${ano}-%`;
-      const [ultimoContrato] = await tx
-        .select({ codigo: contratosLocacao.codigo })
-        .from(contratosLocacao)
-        .where(sql`${contratosLocacao.codigo} LIKE ${prefixo}`)
-        .orderBy(desc(contratosLocacao.codigo))
-        .limit(1);
-
-      let proximoNumero = 1;
-      if (ultimoContrato?.codigo) {
-        const partes = ultimoContrato.codigo.split("-");
-        const num = parseInt(partes[2] || "0", 10);
-        if (!Number.isNaN(num)) proximoNumero = num + 1;
-      }
-      const codigo = `CTR-${ano}-${proximoNumero.toString().padStart(4, "0")}`;
-
-      // 2. Inserir Contrato
-      const [contrato] = await tx
-        .insert(contratosLocacao)
-        .values({
-          codigo,
-          profissionalId: dados.profissionalId,
-          salaId: dados.salaId,
-          status: "ativo",
-          dataInicio: dados.dataInicio,
-          dataFim: dados.dataFim ?? null,
-          valorMensalCentavos: dados.valorMensalCentavos,
-          diaVencimento: dados.diaVencimento,
-          cobrancaConsultaTipo: dados.cobrancaConsultaTipo,
-          cobrancaConsultaValorCentavos: dados.cobrancaConsultaValorCentavos ?? null,
-          cobrancaConsultaPercentualBp: dados.cobrancaConsultaPercentualBp ?? null,
-          gradeHorarios: dados.gradeHorarios,
-          termosContrato: dados.termosContrato,
-          observacoes: dados.observacoes ?? null,
-        })
-        .returning();
-
-      // 3. Criar regras de recorrência para cada item da grade
-      for (const item of dados.gradeHorarios) {
-        await tx.insert(regrasRecorrencia).values({
-          contratoId: contrato.id,
-          salaId: dados.salaId,
-          profissionalId: dados.profissionalId,
-          diaSemana: item.diaSemana,
-          horaInicio: item.horaInicio,
-          horaFim: item.horaFim,
-          dataInicio: dados.dataInicio,
-          dataFim: dados.dataFim ?? null,
-        });
-      }
-
-      // 4. Materializar reservas automáticas exclusivamente para as regras deste contrato
-      // Conflitos de horário já são tratados por ocorrência (pulados e auditados). Qualquer outro
-      // erro aborta a transação: não dá para engoli-lo e continuar com a transação abortada.
-      const mat = await materializarRecorrencias(tx, agora, { contratoId: contrato.id });
-      const ocorrenciasCriadas = mat.criadas;
-      const conflitos = mat.conflitos;
-      const datasConflito = mat.datasConflito ?? [];
-
-      await registrarAuditoria(tx, {
-        acao: "contrato.criado",
-        entidade: "contratos_locacao",
-        entidadeId: contrato.id,
-        dados: {
-          codigo,
-          profissionalId: dados.profissionalId,
-          salaId: dados.salaId,
-          gradeSlots: dados.gradeHorarios.length,
-          ocorrenciasCriadas,
-          conflitos,
-        },
-      });
-
-      return {
-        id: contrato.id,
-        codigo,
-        ocorrenciasCriadas,
-        conflitos,
-        datasConflito,
-      };
-    },
-    database,
-  );
-}
-
+/** Encerra o contrato no dia `ultimoDia` (inclusive): a grade fixa termina junto. */
 export async function encerrarContrato(
   ctx: ContextoTenant,
-  id: string,
+  contratoId: string,
+  ultimoDia: string,
   agora = new Date(),
   database?: Database,
 ) {
-  exigirContratosHabilitados();
   exigirPermissao(ctx.role, "contratos.gerenciar");
-
+  const id = z.uuid().parse(contratoId);
+  if (!dataValida(ultimoDia)) throw new ErroNegocio("Data inválida");
   return withTenant(
     ctx,
     async (tx) => {
-      const [contrato] = await tx
+      const [c] = await tx.select().from(acordosFinanceiros).where(eq(acordosFinanceiros.id, id)).for("update");
+      if (!c) throw new ErroNegocio("Contrato não encontrado");
+      if (ultimoDia < c.vigenteDe) throw new ErroNegocio("O último dia não pode ser antes do início do contrato");
+      if (c.vigenteAte !== null && c.vigenteAte <= ultimoDia) throw new ErroNegocio("Este contrato já termina nessa data ou antes");
+      await tx.update(acordosFinanceiros).set({ vigenteAte: ultimoDia }).where(eq(acordosFinanceiros.id, id));
+      let liberadas = 0;
+      let mantidas = 0;
+      for (const regra of await tx
         .select()
-        .from(contratosLocacao)
-        .where(eq(contratosLocacao.id, id))
-        .for("update");
-
-      if (!contrato) throw new ErroNegocio("Contrato não encontrado");
-      if (contrato.status === "encerrado") {
-        throw new ErroNegocio("Este contrato já se encontra encerrado");
+        .from(regrasRecorrencia)
+        .where(and(eq(regrasRecorrencia.acordoId, id), isNull(regrasRecorrencia.encerradaEm)))) {
+        const r = await encerrarRegraNaTransacao(tx, regra, somarDias(ultimoDia, 1), agora, "espaco");
+        liberadas += r.canceladas;
+        mantidas += r.mantidas;
       }
-
-      // 1. Atualizar status do contrato
-      await tx
-        .update(contratosLocacao)
-        .set({ status: "encerrado", encerradoEm: agora })
-        .where(eq(contratosLocacao.id, id));
-
-      // 2. Encerrar regras de recorrência vinculadas
-      await tx
-        .update(regrasRecorrencia)
-        .set({ encerradaEm: agora })
-        .where(eq(regrasRecorrencia.contratoId, id));
-
-      // 3. Cancelar reservas futuras geradas por essas regras sem agendamentos
-      const SEM_AGENDAMENTOS = sql`NOT EXISTS (
-        SELECT 1 FROM agendamentos a
-        WHERE a.reserva_id = reservas_sala.id AND a.status NOT IN ('cancelado', 'falta')
-      )`;
-
-      const canceladas = await tx
-        .update(reservasSala)
-        .set({
-          status: "cancelada",
-          canceladaEm: agora,
-          motivoCancelamento: `Contrato ${contrato.codigo} encerrado`,
-        })
-        .where(
-          and(
-            eq(reservasSala.status, "ativa"),
-            sql`lower(${reservasSala.periodo}) > ${agora.toISOString()}::timestamptz`,
-            sql`recorrencia_id IN (SELECT id FROM regras_recorrencia WHERE contrato_id = ${id})`,
-            SEM_AGENDAMENTOS,
-          ),
-        )
-        .returning({ id: reservasSala.id });
-
       await registrarAuditoria(tx, {
         acao: "contrato.encerrado",
-        entidade: "contratos_locacao",
+        entidade: "acordos_financeiros",
         entidadeId: id,
-        dados: { codigo: contrato.codigo, reservasCanceladas: canceladas.length },
+        dados: { ultimoDia, reservasLiberadas: liberadas, reservasComPacientes: mantidas },
       });
-
-      return {
-        sucesso: true,
-        reservasCanceladas: canceladas.length,
-      };
+      return { reservasLiberadas: liberadas, reservasComPacientes: mantidas };
     },
     database,
   );
 }
 
-export async function obterDadosParaMinuta(
-  ctx: ContextoTenant,
-  salaId: string,
-  profissionalId: string,
-  database?: Database,
-) {
-  exigirContratosHabilitados();
-  exigirPermissao(ctx.role, "contratos.ver");
-
-  return withTenant(
-    ctx,
-    async (tx) => {
-      const [t] = await tx
-        .select({ nome: tenants.nome, documento: tenants.documento })
-        .from(tenants)
-        .where(eq(tenants.id, ctx.tenantId));
-
-      const [p] = await tx
-        .select({
-          nome: profissionais.nome,
-          conselho: profissionais.conselho,
-          registro: profissionais.registro,
-        })
-        .from(profissionais)
-        .where(eq(profissionais.id, profissionalId));
-
-      const [s] = await tx
-        .select({ nome: salas.nome })
-        .from(salas)
-        .where(eq(salas.id, salaId));
-
-      return {
-        clinicaNome: t?.nome ?? "",
-        clinicaDocumento: t?.documento ?? null,
-        profissionalNome: p?.nome ?? "",
-        profissionalConselho: p?.conselho ?? null,
-        profissionalRegistro: p?.registro ?? null,
-        salaNome: s?.nome ?? "",
-      };
-    },
-    database,
-  );
+/** Dados da minuta (impressão / PDF) do contrato. */
+export async function dadosDaMinuta(ctx: ContextoTenant, contratoId: string, database?: Database): Promise<DadosMinutaPadrao> {
+  const detalhe = await obterContrato(ctx, contratoId, new Date(), database);
+  const [espaco] = await withTenant(ctx, (tx) => tx.select({ nome: tenants.nome, documento: tenants.documento }).from(tenants), database);
+  const itens: ItemGrade[] = detalhe.grade.map((g) => ({ diaSemana: g.diaSemana, horaInicio: g.horaInicio, horaFim: g.horaFim }));
+  return {
+    clinicaNome: espaco?.nome ?? "",
+    clinicaDocumento: espaco?.documento ?? null,
+    profissionalNome: detalhe.profissional.nome,
+    profissionalConselho: detalhe.profissional.conselho,
+    profissionalRegistro: detalhe.profissional.registro,
+    codigo: detalhe.contrato.codigo,
+    salaNome: detalhe.grade[0]?.salaNome ?? null,
+    condicoes: detalhe.condicoes,
+    dataInicio: detalhe.contrato.vigenteDe,
+    dataFim: detalhe.contrato.vigenteAte,
+    gradeHorarios: itens,
+  };
 }

@@ -1,82 +1,48 @@
-import { notFound } from "next/navigation";
-import { Printer, ArrowLeft } from "lucide-react";
 import Link from "next/link";
-import { obterContextoTenant } from "@/src/auth/sessao";
-import { obterContrato } from "@/src/server/contratos";
+import { notFound } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
 import { SalusLogo } from "@/components/brand/salus-logo";
+import { obterContextoTenant } from "@/src/auth/sessao";
+import { gerarMinutaContratoPadrao } from "@/src/domain/contratos";
+import { dadosDaMinuta, obterContrato } from "@/src/server/contratos";
+import { mensagemDeErro } from "@/src/server/erros";
 import { BotaoDispararImpressao } from "./botao-disparar-impressao";
 
-export default async function ImprimirContratoPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+// Impressão / PDF: os termos do contrato ou, sem eles, a minuta padrão com as condições atuais.
+export default async function ImprimirContratoPage({ params }: PageProps<"/painel/contratos/[id]/imprimir">) {
   const { id } = await params;
   const ctx = await obterContextoTenant();
-
-  let contrato;
-  try {
-    contrato = await obterContrato(ctx, id);
-  } catch {
-    notFound();
-  }
+  const naoEncontrado = (erro: unknown) => {
+    if (mensagemDeErro(erro)) notFound();
+    throw erro;
+  };
+  const [detalhe, dados] = await Promise.all([obterContrato(ctx, id).catch(naoEncontrado), dadosDaMinuta(ctx, id).catch(naoEncontrado)]);
+  const texto = detalhe.contrato.termos || gerarMinutaContratoPadrao(dados);
 
   return (
-    <div className="min-h-screen bg-muted/30 print:bg-white text-foreground py-6 px-4 sm:px-6">
-      {/* Barra de Ações Superior (Oculta na Impressão) */}
-      <div className="mx-auto max-w-4xl mb-6 flex items-center justify-between print:hidden">
-        <Link
-          href={`/painel/contratos/${contrato.id}`}
-          className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <ArrowLeft className="size-4" /> Voltar aos detalhes do contrato
+    <div className="min-h-screen bg-muted/30 px-4 py-6 text-foreground print:bg-white sm:px-6">
+      <div className="mx-auto mb-6 flex max-w-4xl items-center justify-between print:hidden">
+        <Link href={`/painel/contratos/${id}`} className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground">
+          <ArrowLeft className="size-4" /> Voltar ao contrato
         </Link>
-
-        <div className="flex items-center gap-2">
-          <BotaoDispararImpressao />
-        </div>
+        <BotaoDispararImpressao />
       </div>
 
-      {/* Folha Timbrada A4 */}
-      <div className="mx-auto max-w-4xl bg-white text-black p-8 sm:p-14 rounded-2xl shadow-lg border border-border/60 print:border-none print:shadow-none print:p-0 print:rounded-none">
-        {/* Cabeçalho Oficial */}
-        <header className="flex items-start justify-between border-b-2 border-primary/20 pb-6 mb-8">
+      <div className="mx-auto max-w-4xl rounded-2xl border border-border/60 bg-white p-8 text-black shadow-lg print:rounded-none print:border-none print:p-0 print:shadow-none sm:p-14">
+        <header className="mb-8 flex items-start justify-between border-b-2 border-primary/20 pb-6">
           <div className="space-y-1">
-            <h1 className="text-xl font-bold tracking-tight text-neutral-900">
-              {contrato.clinica.nome}
-            </h1>
-            {contrato.clinica.documento && (
-              <p className="text-xs text-neutral-600">
-                CNPJ/MF: {contrato.clinica.documento}
-              </p>
-            )}
-            <p className="text-xs text-neutral-500">
-              Espaço de Saúde Compartilhado · Gestão e Locação de Consultórios
-            </p>
+            <h1 className="text-xl font-bold tracking-tight text-neutral-900">{dados.clinicaNome}</h1>
+            {dados.clinicaDocumento && <p className="text-xs text-neutral-600">{dados.clinicaDocumento}</p>}
           </div>
-
-          <div className="flex flex-col items-end text-right space-y-1">
+          <div className="flex flex-col items-end space-y-1 text-right">
             <SalusLogo variant="symbol" size="sm" priority />
-            <span className="font-mono text-xs font-bold text-neutral-800">
-              {contrato.codigo}
-            </span>
-            <span className="text-[10px] text-neutral-500">
-              Emissão: {new Date().toLocaleDateString("pt-BR")}
-            </span>
+            <span className="font-mono text-xs font-bold text-neutral-800">{dados.codigo}</span>
           </div>
         </header>
-
-        {/* Corpo do Contrato */}
-        <article className="text-xs text-neutral-800 whitespace-pre-wrap leading-relaxed font-sans space-y-4">
-          {contrato.termosContrato}
-        </article>
-
-        {/* Rodapé do Documento */}
-        <footer className="mt-12 pt-6 border-t border-neutral-200 flex items-center justify-between text-[10px] text-neutral-500">
-          <span>Salus • Gestão de Saúde Integrada</span>
-          <span>
-            {contrato.codigo} · Documento gerado em {new Date().toLocaleString("pt-BR")}
-          </span>
+        <article className="whitespace-pre-wrap font-sans text-xs leading-relaxed text-neutral-800">{texto}</article>
+        <footer className="mt-12 flex items-center justify-between border-t border-neutral-200 pt-6 text-[10px] text-neutral-500">
+          <span>Salus</span>
+          <span>{dados.codigo}</span>
         </footer>
       </div>
     </div>

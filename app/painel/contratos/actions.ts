@@ -2,81 +2,82 @@
 
 import { redirect } from "next/navigation";
 import { obterContextoTenant } from "@/src/auth/sessao";
-import { criarContrato, encerrarContrato } from "@/src/server/contratos";
-import { lerMoeda } from "@/src/domain/dinheiro";
-import { type EstadoAcao, executarAcao } from "@/src/server/acao";
+import { lerMoeda, lerPercentualBp } from "@/src/domain/dinheiro";
 import type { ItemGrade } from "@/src/domain/contratos";
+import { type EstadoAcao, executarAcao, texto, textoOuUndefined } from "@/src/server/acao";
+import { criarContrato, encerrarContrato, type GradeContrato } from "@/src/server/contratos";
+import { ErroNegocio } from "@/src/server/erros";
 
-export async function criarContratoAcao(_anterior: EstadoAcao, formData: FormData): Promise<EstadoAcao> {
-  let novoContratoId: string | null = null;
+const moeda = (formData: FormData, campo: string) => {
+  const v = textoOuUndefined(formData, campo);
+  return v ? lerMoeda(v) : null;
+};
+const pct = (formData: FormData, campo: string) => {
+  const v = textoOuUndefined(formData, campo);
+  return v ? lerPercentualBp(v) : null;
+};
 
-  const resultado = await executarAcao(async () => {
-    const ctx = await obterContextoTenant();
-
-    const profissionalId = String(formData.get("profissionalId") || "");
-    const salaId = String(formData.get("salaId") || "");
-    const dataInicio = String(formData.get("dataInicio") || "");
-    const dataFim = String(formData.get("dataFim") || "") || undefined;
-    const diaVencimento = Number(formData.get("diaVencimento") || 10);
-    const valorMensalBruto = String(formData.get("valorMensal") || "0");
-    const valorMensalCentavos = lerMoeda(valorMensalBruto) ?? 0;
-
-    const cobrancaConsultaTipo = String(
-      formData.get("cobrancaConsultaTipo") || "nenhuma"
-    ) as "nenhuma" | "fixo" | "percentual";
-
-    let cobrancaConsultaValorCentavos: number | undefined;
-    let cobrancaConsultaPercentualBp: number | undefined;
-
-    if (cobrancaConsultaTipo === "fixo") {
-      const v = String(formData.get("cobrancaConsultaValor") || "0");
-      cobrancaConsultaValorCentavos = lerMoeda(v) ?? undefined;
-    } else if (cobrancaConsultaTipo === "percentual") {
-      const p = Number(formData.get("cobrancaConsultaPercentual") || 0);
-      cobrancaConsultaPercentualBp = Math.round(p * 100);
-    }
-
-    const gradeHorariosRaw = String(formData.get("gradeHorariosJson") || "[]");
-    let gradeHorarios: ItemGrade[] = [];
-    try {
-      gradeHorarios = JSON.parse(gradeHorariosRaw);
-    } catch {
-      throw new Error("Grade de horários inválida");
-    }
-
-    const termosContrato = String(formData.get("termosContrato") || "");
-    const observacoes = String(formData.get("observacoes") || "") || undefined;
-
-    const res = await criarContrato(ctx, {
-      profissionalId,
-      salaId,
-      dataInicio,
-      dataFim,
-      valorMensalCentavos,
-      diaVencimento,
-      cobrancaConsultaTipo,
-      cobrancaConsultaValorCentavos,
-      cobrancaConsultaPercentualBp,
-      gradeHorarios,
-      termosContrato,
-      observacoes,
-    });
-
-    novoContratoId = res.id;
-    return `Contrato ${res.codigo} ativado com sucesso! ${res.ocorrenciasCriadas} reservas foram geradas na agenda.`;
-  });
-
-  if (resultado.erro) {
-    return resultado;
+/** Grade do formulário: "manter" (reajuste), "remover", "trocar"/"criar" (com sala e horários). */
+function gradeDoFormulario(formData: FormData): GradeContrato | null | undefined {
+  const acao = texto(formData, "gradeAcao") || "nenhuma";
+  if (acao === "manter") return undefined;
+  if (acao === "remover" || acao === "nenhuma") return acao === "remover" ? null : undefined;
+  let itens: ItemGrade[];
+  try {
+    itens = JSON.parse(texto(formData, "gradeHorariosJson") || "[]");
+  } catch {
+    throw new ErroNegocio("Grade de horários inválida");
   }
-
-  redirect(`/painel/contratos/${novoContratoId}`);
+  return { salaId: texto(formData, "gradeSalaId"), itens };
 }
 
-export async function encerrarContratoAcao(contratoId: string): Promise<EstadoAcao> {
+export async function criarContratoAcao(_estado: EstadoAcao, formData: FormData): Promise<EstadoAcao> {
+  let destino: string | null = null;
+  const resultado = await executarAcao(async () => {
+    const ctx = await obterContextoTenant();
+    const modelo = texto(formData, "modelo") as "hora" | "consulta" | "percentual" | "mensalidade";
+    const variante = texto(formData, "varianteMensalidade"); // pacote | turno
+    const porAtendimento = texto(formData, "cobrancaPorAtendimento"); // nenhuma | consulta | percentual
+    const prazo = textoOuUndefined(formData, "prazoCancelamentoHoras");
+    const r = await criarContrato(
+      ctx,
+      {
+        profissionalId: texto(formData, "profissionalId"),
+        modelo,
+        fluxoRecebimento: texto(formData, "fluxoRecebimento") === "centralizado" ? "centralizado" : "direto",
+        valorHoraCentavos: moeda(formData, modelo === "mensalidade" ? "valorHoraExtra" : "valorHora"),
+        valorConsultaCentavos:
+          modelo === "consulta" ? moeda(formData, "valorConsulta") : porAtendimento === "consulta" ? moeda(formData, "valorPorAtendimento") : null,
+        percentualBp: modelo === "percentual" ? pct(formData, "percentual") : porAtendimento === "percentual" ? pct(formData, "percentualPorAtendimento") : null,
+        mensalidadeCentavos: modelo === "mensalidade" ? moeda(formData, "mensalidade") : null,
+        horasIncluidas: modelo === "mensalidade" && variante === "pacote" ? Number(texto(formData, "horasIncluidas") || 0) : null,
+        regraFalta: (texto(formData, "regraFalta") || "isenta") as "isenta" | "integral" | "percentual",
+        faltaPercentualBp: pct(formData, "faltaPercentual"),
+        prazoCancelamentoHoras: prazo ? Number(prazo) : null,
+        multaCancelamentoReservaBp: modelo === "hora" ? pct(formData, "multaTurnoFixo") : null,
+        termos: textoOuUndefined(formData, "termos") ?? null,
+        observacoes: textoOuUndefined(formData, "observacoes") ?? null,
+        vigenteDe: texto(formData, "vigenteDe"),
+        vigenteAte: textoOuUndefined(formData, "vigenteAte") ?? null,
+      },
+      { grade: gradeDoFormulario(formData) },
+    );
+    const q = new URLSearchParams({ criado: "1" });
+    if (r.reservasCriadas) q.set("reservas", String(r.reservasCriadas));
+    if (r.datasEmConflito.length) q.set("conflitos", r.datasEmConflito.join(","));
+    destino = `/painel/contratos/${r.id}?${q.toString()}`;
+    return `Contrato ${r.codigo} criado`;
+  });
+  if (destino && resultado.sucesso) redirect(destino);
+  return resultado;
+}
+
+export async function encerrarContratoAcao(contratoId: string, _estado: EstadoAcao, formData: FormData): Promise<EstadoAcao> {
   return executarAcao(async () => {
     const ctx = await obterContextoTenant();
-    const res = await encerrarContrato(ctx, contratoId);
-    return `Contrato encerrado. ${res.reservasCanceladas} reserva(s) futuras foram desocupadas na agenda.`;
+    const r = await encerrarContrato(ctx, contratoId, texto(formData, "ultimoDia"));
+    return r.reservasComPacientes
+      ? `Contrato encerrado. ${r.reservasLiberadas} data(s) da grade liberada(s); ${r.reservasComPacientes} com pacientes continuam até os atendimentos serem resolvidos.`
+      : `Contrato encerrado. ${r.reservasLiberadas} data(s) da grade liberada(s).`;
   });
 }

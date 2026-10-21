@@ -4,7 +4,6 @@ import { FormAcao } from "@/components/form-acao";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { NativeSelect } from "@/components/ui/native-select";
 import { obterContextoTenant } from "@/src/auth/sessao";
 import { exigirPermissaoNaPagina } from "@/src/auth/permissao";
 import { formatarDataBr } from "@/src/server/reservas";
@@ -189,23 +188,9 @@ function CamposSala({
     nome?: string;
     descricao?: string | null;
     recursos?: string;
-    valorMensalCentavos?: number | null;
-    cobrancaConsultaTipo?: string | null;
-    cobrancaConsultaValorCentavos?: number | null;
-    cobrancaConsultaPercentualBp?: number | null;
   };
   prefixo: string;
 }) {
-  const mensalFormatado = valores.valorMensalCentavos
-    ? (valores.valorMensalCentavos / 100).toFixed(2).replace(".", ",")
-    : "";
-  const consultaFormatada = valores.cobrancaConsultaValorCentavos
-    ? (valores.cobrancaConsultaValorCentavos / 100).toFixed(2).replace(".", ",")
-    : "";
-  const pctFormatado = valores.cobrancaConsultaPercentualBp
-    ? (valores.cobrancaConsultaPercentualBp / 100).toString().replace(".", ",")
-    : "";
-
   return (
     <div className="flex flex-col gap-3">
       <div className="grid gap-3 sm:grid-cols-3">
@@ -223,53 +208,6 @@ function CamposSala({
         </div>
       </div>
 
-      <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
-        <p className="text-xs font-semibold text-foreground mb-2">Cobrança e Locação da Sala</p>
-        <div className="grid gap-3 sm:grid-cols-4">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor={`${prefixo}-mensal`}>Aluguel fixo mensal (R$)</Label>
-            <Input
-              id={`${prefixo}-mensal`}
-              name="valorMensal"
-              inputMode="decimal"
-              placeholder="Ex: 2.000,00"
-              defaultValue={mensalFormatado}
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor={`${prefixo}-tipo-consulta`}>Cobrança por consulta</Label>
-            <NativeSelect
-              id={`${prefixo}-tipo-consulta`}
-              name="cobrancaConsultaTipo"
-              defaultValue={valores.cobrancaConsultaTipo ?? "nenhuma"}
-            >
-              <option value="nenhuma">Nenhuma (apenas aluguel fixo)</option>
-              <option value="fixo">Valor fixo por consulta</option>
-              <option value="percentual">Percentual por consulta (%)</option>
-            </NativeSelect>
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor={`${prefixo}-consulta-valor`}>Valor por consulta (R$)</Label>
-            <Input
-              id={`${prefixo}-consulta-valor`}
-              name="cobrancaConsultaValor"
-              inputMode="decimal"
-              placeholder="Ex: 30,00"
-              defaultValue={consultaFormatada}
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor={`${prefixo}-consulta-pct`}>Percentual por consulta (%)</Label>
-            <Input
-              id={`${prefixo}-consulta-pct`}
-              name="cobrancaConsultaPercentual"
-              inputMode="decimal"
-              placeholder="Ex: 15"
-              defaultValue={pctFormatado}
-            />
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

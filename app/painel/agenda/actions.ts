@@ -36,7 +36,8 @@ export async function criarReservaAcao(_estado: EstadoAcao, formData: FormData) 
 export async function cancelarReservaAcao(reservaId: string, _estado: EstadoAcao, formData: FormData) {
   return executarAcao(async () => {
     const ctx = await obterContextoTenant();
-    await cancelarReserva(ctx, reservaId, textoOuUndefined(formData, "motivo") ?? null);
+    const quem = texto(formData, "quem") === "espaco" ? "espaco" : "profissional";
+    await cancelarReserva(ctx, reservaId, textoOuUndefined(formData, "motivo") ?? null, new Date(), undefined, quem);
     return "Reserva cancelada";
   });
 }

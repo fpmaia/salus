@@ -47,9 +47,9 @@ Mercado inicial: **Brasil** (LGPD, CPF/CNPJ).
 Ledger (livro-razão) **append-only**, gerado por um serviço de domínio a partir dos eventos da agenda. Cada lançamento é idempotente e correções são feitas por estorno.
 
 - **Fluxo de recebimento:** caixa centralizado (paciente paga ao espaço, que repassa ao profissional) ou pagamento direto (paciente paga ao profissional, que paga a locação).
-- **Modelos de locação:** por turno/hora, valor fixo por consulta, percentual do procedimento ou mensalidade fixa (pacote de horas ou sala dedicada).
-- **Faltas e cancelamentos:** por acordo, isentar, cobrar integral ou cobrar percentual; prazo mínimo de cancelamento.
-- **Acordos versionados** por vigência: reajustes não alteram o passado.
+- **Contrato do profissional:** define o modelo de cobrança (por hora, valor fixo por consulta, percentual do atendimento ou mensalidade, com pacote de horas ou turno fixo), as regras de falta e de cancelamento e a grade fixa semanal, que reserva as salas sozinha. Cada reajuste é uma nova versão.
+- **Faltas e cancelamentos:** por contrato: isentar, cobrar integral ou percentual, com prazo mínimo próprio. O sistema registra quem cancelou, e o cancelamento pelo espaço não cobra o profissional. No turno fixo por hora, o profissional que cancela uma data tarde paga a multa do contrato.
+- **Versões por vigência:** reajustes não alteram o passado, e o banco impede dois contratos no mesmo período.
 - **Fechamento mensal** com extrato por profissional e baixa manual de pagamentos.
 
 > No modelo percentual com pagamento direto, o valor do atendimento é declarado pelo profissional (com auditoria).

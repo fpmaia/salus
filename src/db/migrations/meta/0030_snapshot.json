@@ -1,0 +1,6270 @@
+{
+  "id": "30eedcf3-ce11-4c15-8687-cae291b56d70",
+  "prevId": "a306bead-e826-469a-8e0a-c81ea6f5d04c",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.accounts": {
+      "name": "accounts",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "provider_id": {
+          "name": "provider_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "access_token": {
+          "name": "access_token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "refresh_token": {
+          "name": "refresh_token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "id_token": {
+          "name": "id_token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "access_token_expires_at": {
+          "name": "access_token_expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "refresh_token_expires_at": {
+          "name": "refresh_token_expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "scope": {
+          "name": "scope",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "password": {
+          "name": "password",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "accounts_user_id_idx": {
+          "name": "accounts_user_id_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "accounts_user_id_users_id_fk": {
+          "name": "accounts_user_id_users_id_fk",
+          "tableFrom": "accounts",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.aceites_documentos": {
+      "name": "aceites_documentos",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "versao": {
+          "name": "versao",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "origem": {
+          "name": "origem",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ip": {
+          "name": "ip",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "user_agent": {
+          "name": "user_agent",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "aceites_documentos_user_id_users_id_fk": {
+          "name": "aceites_documentos_user_id_users_id_fk",
+          "tableFrom": "aceites_documentos",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "aceites_documentos_user_versao_key": {
+          "name": "aceites_documentos_user_versao_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "user_id",
+            "versao"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.acordos_financeiros": {
+      "name": "acordos_financeiros",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "app_current_tenant_id()"
+        },
+        "codigo": {
+          "name": "codigo",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "profissional_id": {
+          "name": "profissional_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sala_id": {
+          "name": "sala_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "modelo": {
+          "name": "modelo",
+          "type": "modelo_cobranca",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "fluxo_recebimento": {
+          "name": "fluxo_recebimento",
+          "type": "fluxo_recebimento",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'direto'"
+        },
+        "valor_hora_centavos": {
+          "name": "valor_hora_centavos",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "valor_consulta_centavos": {
+          "name": "valor_consulta_centavos",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "percentual_bp": {
+          "name": "percentual_bp",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "mensalidade_centavos": {
+          "name": "mensalidade_centavos",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "horas_incluidas": {
+          "name": "horas_incluidas",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "regra_falta": {
+          "name": "regra_falta",
+          "type": "regra_falta",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'isenta'"
+        },
+        "falta_percentual_bp": {
+          "name": "falta_percentual_bp",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "prazo_cancelamento_horas": {
+          "name": "prazo_cancelamento_horas",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 24
+        },
+        "multa_cancelamento_reserva_bp": {
+          "name": "multa_cancelamento_reserva_bp",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "termos": {
+          "name": "termos",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "observacoes": {
+          "name": "observacoes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "vigente_de": {
+          "name": "vigente_de",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "vigente_ate": {
+          "name": "vigente_ate",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "criado_por": {
+          "name": "criado_por",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "app_current_user_id()"
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "acordos_financeiros_profissional_idx": {
+          "name": "acordos_financeiros_profissional_idx",
+          "columns": [
+            {
+              "expression": "profissional_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "vigente_de",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "acordos_financeiros_tenant_id_tenants_id_fk": {
+          "name": "acordos_financeiros_tenant_id_tenants_id_fk",
+          "tableFrom": "acordos_financeiros",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "acordos_financeiros_criado_por_users_id_fk": {
+          "name": "acordos_financeiros_criado_por_users_id_fk",
+          "tableFrom": "acordos_financeiros",
+          "tableTo": "users",
+          "columnsFrom": [
+            "criado_por"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "acordos_financeiros_tenant_id_profissional_id_profissionais_tenant_id_id_fk": {
+          "name": "acordos_financeiros_tenant_id_profissional_id_profissionais_tenant_id_id_fk",
+          "tableFrom": "acordos_financeiros",
+          "tableTo": "profissionais",
+          "columnsFrom": [
+            "tenant_id",
+            "profissional_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "acordos_financeiros_tenant_id_sala_id_salas_tenant_id_id_fk": {
+          "name": "acordos_financeiros_tenant_id_sala_id_salas_tenant_id_id_fk",
+          "tableFrom": "acordos_financeiros",
+          "tableTo": "salas",
+          "columnsFrom": [
+            "tenant_id",
+            "sala_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "acordos_financeiros_tenant_id_id_key": {
+          "name": "acordos_financeiros_tenant_id_id_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tenant_id",
+            "id"
+          ]
+        },
+        "acordos_financeiros_tenant_codigo_key": {
+          "name": "acordos_financeiros_tenant_codigo_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tenant_id",
+            "codigo"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "acordos_prazo_check": {
+          "name": "acordos_prazo_check",
+          "value": "\"acordos_financeiros\".\"prazo_cancelamento_horas\" between 0 and 720"
+        },
+        "acordos_multa_check": {
+          "name": "acordos_multa_check",
+          "value": "\"acordos_financeiros\".\"multa_cancelamento_reserva_bp\" is null or \"acordos_financeiros\".\"multa_cancelamento_reserva_bp\" between 1 and 10000"
+        },
+        "acordos_vigencia_check": {
+          "name": "acordos_vigencia_check",
+          "value": "\"acordos_financeiros\".\"vigente_ate\" is null or \"acordos_financeiros\".\"vigente_ate\" >= \"acordos_financeiros\".\"vigente_de\""
+        },
+        "acordos_modelo_check": {
+          "name": "acordos_modelo_check",
+          "value": "coalesce(case \"acordos_financeiros\".\"modelo\"\n        when 'hora' then \"acordos_financeiros\".\"valor_hora_centavos\" > 0\n        when 'consulta' then \"acordos_financeiros\".\"valor_consulta_centavos\" > 0\n        when 'percentual' then \"acordos_financeiros\".\"percentual_bp\" between 1 and 10000\n        when 'mensalidade' then \"acordos_financeiros\".\"mensalidade_centavos\" > 0 and (\"acordos_financeiros\".\"horas_incluidas\" is null or \"acordos_financeiros\".\"horas_incluidas\" >= 0) and \"acordos_financeiros\".\"valor_hora_centavos\" >= 0\n      end, false)"
+        },
+        "acordos_falta_check": {
+          "name": "acordos_falta_check",
+          "value": "\"acordos_financeiros\".\"regra_falta\" <> 'percentual' or coalesce(\"acordos_financeiros\".\"falta_percentual_bp\" between 1 and 10000, false)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.agendamentos": {
+      "name": "agendamentos",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "app_current_tenant_id()"
+        },
+        "reserva_id": {
+          "name": "reserva_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "profissional_id": {
+          "name": "profissional_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "paciente_id": {
+          "name": "paciente_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "periodo": {
+          "name": "periodo",
+          "type": "tstzrange",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "agendamento_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'agendado'"
+        },
+        "observacao": {
+          "name": "observacao",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status_atualizado_em": {
+          "name": "status_atualizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "cancelado_em": {
+          "name": "cancelado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cancelado_por": {
+          "name": "cancelado_por",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "motivo_cancelamento": {
+          "name": "motivo_cancelamento",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cancelamento_tardio": {
+          "name": "cancelamento_tardio",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "valor_centavos": {
+          "name": "valor_centavos",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "valor_informado_em": {
+          "name": "valor_informado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "origem": {
+          "name": "origem",
+          "type": "origem_agendamento",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'equipe'"
+        },
+        "criado_por": {
+          "name": "criado_por",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "app_current_user_id()"
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "agendamentos_reserva_idx": {
+          "name": "agendamentos_reserva_idx",
+          "columns": [
+            {
+              "expression": "reserva_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "agendamentos_paciente_idx": {
+          "name": "agendamentos_paciente_idx",
+          "columns": [
+            {
+              "expression": "paciente_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "agendamentos_tenant_id_tenants_id_fk": {
+          "name": "agendamentos_tenant_id_tenants_id_fk",
+          "tableFrom": "agendamentos",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "agendamentos_criado_por_users_id_fk": {
+          "name": "agendamentos_criado_por_users_id_fk",
+          "tableFrom": "agendamentos",
+          "tableTo": "users",
+          "columnsFrom": [
+            "criado_por"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "agendamentos_tenant_id_reserva_id_reservas_sala_tenant_id_id_fk": {
+          "name": "agendamentos_tenant_id_reserva_id_reservas_sala_tenant_id_id_fk",
+          "tableFrom": "agendamentos",
+          "tableTo": "reservas_sala",
+          "columnsFrom": [
+            "tenant_id",
+            "reserva_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "agendamentos_tenant_id_profissional_id_profissionais_tenant_id_id_fk": {
+          "name": "agendamentos_tenant_id_profissional_id_profissionais_tenant_id_id_fk",
+          "tableFrom": "agendamentos",
+          "tableTo": "profissionais",
+          "columnsFrom": [
+            "tenant_id",
+            "profissional_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "agendamentos_tenant_id_paciente_id_pacientes_tenant_id_id_fk": {
+          "name": "agendamentos_tenant_id_paciente_id_pacientes_tenant_id_id_fk",
+          "tableFrom": "agendamentos",
+          "tableTo": "pacientes",
+          "columnsFrom": [
+            "tenant_id",
+            "paciente_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "agendamentos_tenant_id_id_key": {
+          "name": "agendamentos_tenant_id_id_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tenant_id",
+            "id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "agendamentos_periodo_check": {
+          "name": "agendamentos_periodo_check",
+          "value": "not isempty(\"agendamentos\".\"periodo\") and lower_inc(\"agendamentos\".\"periodo\") and not upper_inc(\"agendamentos\".\"periodo\")"
+        },
+        "agendamentos_valor_check": {
+          "name": "agendamentos_valor_check",
+          "value": "\"agendamentos\".\"valor_centavos\" is null or \"agendamentos\".\"valor_centavos\" >= 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.anexos_clinicos": {
+      "name": "anexos_clinicos",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "app_current_tenant_id()"
+        },
+        "registro_id": {
+          "name": "registro_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "paciente_id": {
+          "name": "paciente_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "profissional_id": {
+          "name": "profissional_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "nome_arquivo": {
+          "name": "nome_arquivo",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tipo_mime": {
+          "name": "tipo_mime",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tamanho_bytes": {
+          "name": "tamanho_bytes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "hash_arquivo": {
+          "name": "hash_arquivo",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "chave_objeto": {
+          "name": "chave_objeto",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "anexos_clinicos_registro_idx": {
+          "name": "anexos_clinicos_registro_idx",
+          "columns": [
+            {
+              "expression": "registro_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "anexos_clinicos_tenant_id_tenants_id_fk": {
+          "name": "anexos_clinicos_tenant_id_tenants_id_fk",
+          "tableFrom": "anexos_clinicos",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "anexos_clinicos_tenant_id_registro_id_registros_clinicos_tenant_id_id_fk": {
+          "name": "anexos_clinicos_tenant_id_registro_id_registros_clinicos_tenant_id_id_fk",
+          "tableFrom": "anexos_clinicos",
+          "tableTo": "registros_clinicos",
+          "columnsFrom": [
+            "tenant_id",
+            "registro_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "anexos_clinicos_tamanho_check": {
+          "name": "anexos_clinicos_tamanho_check",
+          "value": "\"anexos_clinicos\".\"tamanho_bytes\" > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.audit_log": {
+      "name": "audit_log",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "app_current_tenant_id()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "app_current_user_id()"
+        },
+        "acao": {
+          "name": "acao",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "entidade": {
+          "name": "entidade",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "entidade_id": {
+          "name": "entidade_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "dados": {
+          "name": "dados",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "audit_log_tenant_criado_em_idx": {
+          "name": "audit_log_tenant_criado_em_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "criado_em",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "audit_log_tenant_id_tenants_id_fk": {
+          "name": "audit_log_tenant_id_tenants_id_fk",
+          "tableFrom": "audit_log",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "audit_log_user_id_users_id_fk": {
+          "name": "audit_log_user_id_users_id_fk",
+          "tableFrom": "audit_log",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.audit_plataforma": {
+      "name": "audit_plataforma",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "acao": {
+          "name": "acao",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "alvo_tipo": {
+          "name": "alvo_tipo",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "alvo_id": {
+          "name": "alvo_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "dados": {
+          "name": "dados",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "audit_plataforma_criado_em_idx": {
+          "name": "audit_plataforma_criado_em_idx",
+          "columns": [
+            {
+              "expression": "criado_em",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "audit_plataforma_user_id_users_id_fk": {
+          "name": "audit_plataforma_user_id_users_id_fk",
+          "tableFrom": "audit_plataforma",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.chaves_tenant": {
+      "name": "chaves_tenant",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "app_current_tenant_id()"
+        },
+        "chave_cifrada": {
+          "name": "chave_cifrada",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "chaves_tenant_tenant_key": {
+          "name": "chaves_tenant_tenant_key",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "chaves_tenant_tenant_id_tenants_id_fk": {
+          "name": "chaves_tenant_tenant_id_tenants_id_fk",
+          "tableFrom": "chaves_tenant",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.cobrancas_profissional": {
+      "name": "cobrancas_profissional",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "app_current_tenant_id()"
+        },
+        "profissional_id": {
+          "name": "profissional_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "competencia": {
+          "name": "competencia",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "descricao": {
+          "name": "descricao",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "valor_centavos": {
+          "name": "valor_centavos",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "vencimento": {
+          "name": "vencimento",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "forma": {
+          "name": "forma",
+          "type": "forma_cobranca",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'UNDEFINED'"
+        },
+        "ambiente": {
+          "name": "ambiente",
+          "type": "ambiente_asaas",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "status_cobranca",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pendente'"
+        },
+        "asaas_payment_id": {
+          "name": "asaas_payment_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "invoice_url": {
+          "name": "invoice_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "bank_slip_url": {
+          "name": "bank_slip_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pago_em": {
+          "name": "pago_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pagamento_id": {
+          "name": "pagamento_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ultimo_erro": {
+          "name": "ultimo_erro",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "criado_por": {
+          "name": "criado_por",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "app_current_user_id()"
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "cobrancas_profissional_asaas_key": {
+          "name": "cobrancas_profissional_asaas_key",
+          "columns": [
+            {
+              "expression": "asaas_payment_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "cobrancas_profissional_profissional_idx": {
+          "name": "cobrancas_profissional_profissional_idx",
+          "columns": [
+            {
+              "expression": "profissional_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "criado_em",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "cobrancas_profissional_tenant_id_tenants_id_fk": {
+          "name": "cobrancas_profissional_tenant_id_tenants_id_fk",
+          "tableFrom": "cobrancas_profissional",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "cobrancas_profissional_criado_por_users_id_fk": {
+          "name": "cobrancas_profissional_criado_por_users_id_fk",
+          "tableFrom": "cobrancas_profissional",
+          "tableTo": "users",
+          "columnsFrom": [
+            "criado_por"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "cobrancas_profissional_tenant_id_profissional_id_profissionais_tenant_id_id_fk": {
+          "name": "cobrancas_profissional_tenant_id_profissional_id_profissionais_tenant_id_id_fk",
+          "tableFrom": "cobrancas_profissional",
+          "tableTo": "profissionais",
+          "columnsFrom": [
+            "tenant_id",
+            "profissional_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "cobrancas_profissional_valor_check": {
+          "name": "cobrancas_profissional_valor_check",
+          "value": "\"cobrancas_profissional\".\"valor_centavos\" > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.compartilhamentos_clinicos": {
+      "name": "compartilhamentos_clinicos",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "app_current_tenant_id()"
+        },
+        "paciente_id": {
+          "name": "paciente_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "de_profissional_id": {
+          "name": "de_profissional_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "para_profissional_id": {
+          "name": "para_profissional_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "consentimento": {
+          "name": "consentimento",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "revogado_em": {
+          "name": "revogado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "compartilhamentos_clinicos_ativo_key": {
+          "name": "compartilhamentos_clinicos_ativo_key",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "paciente_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "de_profissional_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "para_profissional_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"compartilhamentos_clinicos\".\"revogado_em\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "compartilhamentos_clinicos_tenant_id_tenants_id_fk": {
+          "name": "compartilhamentos_clinicos_tenant_id_tenants_id_fk",
+          "tableFrom": "compartilhamentos_clinicos",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "compartilhamentos_clinicos_tenant_id_paciente_id_pacientes_tenant_id_id_fk": {
+          "name": "compartilhamentos_clinicos_tenant_id_paciente_id_pacientes_tenant_id_id_fk",
+          "tableFrom": "compartilhamentos_clinicos",
+          "tableTo": "pacientes",
+          "columnsFrom": [
+            "tenant_id",
+            "paciente_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "compartilhamentos_clinicos_tenant_id_de_profissional_id_profissionais_tenant_id_id_fk": {
+          "name": "compartilhamentos_clinicos_tenant_id_de_profissional_id_profissionais_tenant_id_id_fk",
+          "tableFrom": "compartilhamentos_clinicos",
+          "tableTo": "profissionais",
+          "columnsFrom": [
+            "tenant_id",
+            "de_profissional_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "compartilhamentos_clinicos_tenant_id_para_profissional_id_profissionais_tenant_id_id_fk": {
+          "name": "compartilhamentos_clinicos_tenant_id_para_profissional_id_profissionais_tenant_id_id_fk",
+          "tableFrom": "compartilhamentos_clinicos",
+          "tableTo": "profissionais",
+          "columnsFrom": [
+            "tenant_id",
+            "para_profissional_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "compartilhamentos_clinicos_distintos_check": {
+          "name": "compartilhamentos_clinicos_distintos_check",
+          "value": "\"compartilhamentos_clinicos\".\"de_profissional_id\" <> \"compartilhamentos_clinicos\".\"para_profissional_id\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.configuracoes_cobranca": {
+      "name": "configuracoes_cobranca",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "app_current_tenant_id()"
+        },
+        "ativo": {
+          "name": "ativo",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "ambiente": {
+          "name": "ambiente",
+          "type": "ambiente_asaas",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'simulado'"
+        },
+        "api_key_cifrada": {
+          "name": "api_key_cifrada",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "webhook_token_hash": {
+          "name": "webhook_token_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "dias_vencimento": {
+          "name": "dias_vencimento",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 5
+        },
+        "multa_bp": {
+          "name": "multa_bp",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "juros_mes_bp": {
+          "name": "juros_mes_bp",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "configuracoes_cobranca_tenant_key": {
+          "name": "configuracoes_cobranca_tenant_key",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "configuracoes_cobranca_tenant_id_tenants_id_fk": {
+          "name": "configuracoes_cobranca_tenant_id_tenants_id_fk",
+          "tableFrom": "configuracoes_cobranca",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "configuracoes_cobranca_dias_check": {
+          "name": "configuracoes_cobranca_dias_check",
+          "value": "\"configuracoes_cobranca\".\"dias_vencimento\" between 1 and 60"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.configuracoes_fiscais": {
+      "name": "configuracoes_fiscais",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "app_current_tenant_id()"
+        },
+        "ativo": {
+          "name": "ativo",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "ambiente": {
+          "name": "ambiente",
+          "type": "ambiente_fiscal",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'simulado'"
+        },
+        "token_cifrado": {
+          "name": "token_cifrado",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "inscricao_municipal": {
+          "name": "inscricao_municipal",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "codigo_municipio": {
+          "name": "codigo_municipio",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "opcao_simples_nacional": {
+          "name": "opcao_simples_nacional",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 3
+        },
+        "regime_tributario_simples_nacional": {
+          "name": "regime_tributario_simples_nacional",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "regime_especial_tributacao": {
+          "name": "regime_especial_tributacao",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "codigo_tributacao_nacional": {
+          "name": "codigo_tributacao_nacional",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "codigo_nbs": {
+          "name": "codigo_nbs",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "aliquota_iss_bp": {
+          "name": "aliquota_iss_bp",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "descricao_servico": {
+          "name": "descricao_servico",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'Cessão de uso de sala para atendimento'"
+        },
+        "serie_dps": {
+          "name": "serie_dps",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "proximo_numero_dps": {
+          "name": "proximo_numero_dps",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "configuracoes_fiscais_tenant_key": {
+          "name": "configuracoes_fiscais_tenant_key",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "configuracoes_fiscais_tenant_id_tenants_id_fk": {
+          "name": "configuracoes_fiscais_tenant_id_tenants_id_fk",
+          "tableFrom": "configuracoes_fiscais",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "configuracoes_fiscais_simples_check": {
+          "name": "configuracoes_fiscais_simples_check",
+          "value": "\"configuracoes_fiscais\".\"opcao_simples_nacional\" between 1 and 3"
+        },
+        "configuracoes_fiscais_numero_check": {
+          "name": "configuracoes_fiscais_numero_check",
+          "value": "\"configuracoes_fiscais\".\"proximo_numero_dps\" >= 1"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.convites_membro": {
+      "name": "convites_membro",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "app_current_tenant_id()"
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "membership_role",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "profissional_id": {
+          "name": "profissional_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "token_hash": {
+          "name": "token_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expira_em": {
+          "name": "expira_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "aceito_em": {
+          "name": "aceito_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "aceito_por": {
+          "name": "aceito_por",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "revogado_em": {
+          "name": "revogado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "convites_membro_tenant_email_idx": {
+          "name": "convites_membro_tenant_email_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "email",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "convites_membro_token_hash_idx": {
+          "name": "convites_membro_token_hash_idx",
+          "columns": [
+            {
+              "expression": "token_hash",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "convites_membro_tenant_id_tenants_id_fk": {
+          "name": "convites_membro_tenant_id_tenants_id_fk",
+          "tableFrom": "convites_membro",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "convites_membro_profissional_id_profissionais_id_fk": {
+          "name": "convites_membro_profissional_id_profissionais_id_fk",
+          "tableFrom": "convites_membro",
+          "tableTo": "profissionais",
+          "columnsFrom": [
+            "profissional_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "convites_membro_aceito_por_users_id_fk": {
+          "name": "convites_membro_aceito_por_users_id_fk",
+          "tableFrom": "convites_membro",
+          "tableTo": "users",
+          "columnsFrom": [
+            "aceito_por"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "convites_membro_token_hash_unique": {
+          "name": "convites_membro_token_hash_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "token_hash"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.convites_profissional": {
+      "name": "convites_profissional",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "app_current_tenant_id()"
+        },
+        "profissional_id": {
+          "name": "profissional_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "token_hash": {
+          "name": "token_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expira_em": {
+          "name": "expira_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "aceito_em": {
+          "name": "aceito_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "aceito_por": {
+          "name": "aceito_por",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "revogado_em": {
+          "name": "revogado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "convites_profissional_tenant_id_tenants_id_fk": {
+          "name": "convites_profissional_tenant_id_tenants_id_fk",
+          "tableFrom": "convites_profissional",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "convites_profissional_aceito_por_users_id_fk": {
+          "name": "convites_profissional_aceito_por_users_id_fk",
+          "tableFrom": "convites_profissional",
+          "tableTo": "users",
+          "columnsFrom": [
+            "aceito_por"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "convites_profissional_tenant_id_profissional_id_profissionais_tenant_id_id_fk": {
+          "name": "convites_profissional_tenant_id_profissional_id_profissionais_tenant_id_id_fk",
+          "tableFrom": "convites_profissional",
+          "tableTo": "profissionais",
+          "columnsFrom": [
+            "tenant_id",
+            "profissional_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "convites_profissional_token_hash_unique": {
+          "name": "convites_profissional_token_hash_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "token_hash"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.eventos_webhook": {
+      "name": "eventos_webhook",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "app_current_tenant_id()"
+        },
+        "origem": {
+          "name": "origem",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "evento_id": {
+          "name": "evento_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tipo": {
+          "name": "tipo",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "payload": {
+          "name": "payload",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "eventos_webhook_evento_key": {
+          "name": "eventos_webhook_evento_key",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "origem",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "evento_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "eventos_webhook_tenant_id_tenants_id_fk": {
+          "name": "eventos_webhook_tenant_id_tenants_id_fk",
+          "tableFrom": "eventos_webhook",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.faturas_saas": {
+      "name": "faturas_saas",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "app_current_tenant_id()"
+        },
+        "competencia": {
+          "name": "competencia",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "plano_id": {
+          "name": "plano_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "valor_centavos": {
+          "name": "valor_centavos",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "vencimento": {
+          "name": "vencimento",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ambiente": {
+          "name": "ambiente",
+          "type": "ambiente_asaas",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "status_cobranca",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pendente'"
+        },
+        "asaas_payment_id": {
+          "name": "asaas_payment_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "invoice_url": {
+          "name": "invoice_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pago_em": {
+          "name": "pago_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ultimo_erro": {
+          "name": "ultimo_erro",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "faturas_saas_competencia_key": {
+          "name": "faturas_saas_competencia_key",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "competencia",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "faturas_saas_asaas_key": {
+          "name": "faturas_saas_asaas_key",
+          "columns": [
+            {
+              "expression": "asaas_payment_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "faturas_saas_tenant_id_tenants_id_fk": {
+          "name": "faturas_saas_tenant_id_tenants_id_fk",
+          "tableFrom": "faturas_saas",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "faturas_saas_plano_id_planos_saas_id_fk": {
+          "name": "faturas_saas_plano_id_planos_saas_id_fk",
+          "tableFrom": "faturas_saas",
+          "tableTo": "planos_saas",
+          "columnsFrom": [
+            "plano_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "faturas_saas_valor_check": {
+          "name": "faturas_saas_valor_check",
+          "value": "\"faturas_saas\".\"valor_centavos\" > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.fechamentos": {
+      "name": "fechamentos",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "app_current_tenant_id()"
+        },
+        "profissional_id": {
+          "name": "profissional_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "competencia": {
+          "name": "competencia",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "fechamento_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'aberto'"
+        },
+        "saldo_anterior_centavos": {
+          "name": "saldo_anterior_centavos",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "total_debitos_centavos": {
+          "name": "total_debitos_centavos",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "total_creditos_centavos": {
+          "name": "total_creditos_centavos",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "saldo_final_centavos": {
+          "name": "saldo_final_centavos",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "fechado_em": {
+          "name": "fechado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "fechado_por": {
+          "name": "fechado_por",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "fechamentos_profissional_competencia_key": {
+          "name": "fechamentos_profissional_competencia_key",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "profissional_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "competencia",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "fechamentos_tenant_id_tenants_id_fk": {
+          "name": "fechamentos_tenant_id_tenants_id_fk",
+          "tableFrom": "fechamentos",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "fechamentos_fechado_por_users_id_fk": {
+          "name": "fechamentos_fechado_por_users_id_fk",
+          "tableFrom": "fechamentos",
+          "tableTo": "users",
+          "columnsFrom": [
+            "fechado_por"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "fechamentos_tenant_id_profissional_id_profissionais_tenant_id_id_fk": {
+          "name": "fechamentos_tenant_id_profissional_id_profissionais_tenant_id_id_fk",
+          "tableFrom": "fechamentos",
+          "tableTo": "profissionais",
+          "columnsFrom": [
+            "tenant_id",
+            "profissional_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "fechamentos_competencia_check": {
+          "name": "fechamentos_competencia_check",
+          "value": "extract(day from \"fechamentos\".\"competencia\") = 1"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.feriados": {
+      "name": "feriados",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "app_current_tenant_id()"
+        },
+        "unidade_id": {
+          "name": "unidade_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "data": {
+          "name": "data",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "descricao": {
+          "name": "descricao",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "feriados_tenant_data_idx": {
+          "name": "feriados_tenant_data_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "data",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "feriados_tenant_id_tenants_id_fk": {
+          "name": "feriados_tenant_id_tenants_id_fk",
+          "tableFrom": "feriados",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "feriados_tenant_id_unidade_id_unidades_tenant_id_id_fk": {
+          "name": "feriados_tenant_id_unidade_id_unidades_tenant_id_id_fk",
+          "tableFrom": "feriados",
+          "tableTo": "unidades",
+          "columnsFrom": [
+            "tenant_id",
+            "unidade_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.horarios_funcionamento": {
+      "name": "horarios_funcionamento",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "app_current_tenant_id()"
+        },
+        "unidade_id": {
+          "name": "unidade_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "dia_semana": {
+          "name": "dia_semana",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "abre": {
+          "name": "abre",
+          "type": "time",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "fecha": {
+          "name": "fecha",
+          "type": "time",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "horarios_funcionamento_unidade_idx": {
+          "name": "horarios_funcionamento_unidade_idx",
+          "columns": [
+            {
+              "expression": "unidade_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "dia_semana",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "horarios_funcionamento_tenant_id_tenants_id_fk": {
+          "name": "horarios_funcionamento_tenant_id_tenants_id_fk",
+          "tableFrom": "horarios_funcionamento",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "horarios_funcionamento_tenant_id_unidade_id_unidades_tenant_id_id_fk": {
+          "name": "horarios_funcionamento_tenant_id_unidade_id_unidades_tenant_id_id_fk",
+          "tableFrom": "horarios_funcionamento",
+          "tableTo": "unidades",
+          "columnsFrom": [
+            "tenant_id",
+            "unidade_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "horarios_funcionamento_dia_check": {
+          "name": "horarios_funcionamento_dia_check",
+          "value": "\"horarios_funcionamento\".\"dia_semana\" between 0 and 6"
+        },
+        "horarios_funcionamento_intervalo_check": {
+          "name": "horarios_funcionamento_intervalo_check",
+          "value": "\"horarios_funcionamento\".\"fecha\" > \"horarios_funcionamento\".\"abre\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.lancamentos": {
+      "name": "lancamentos",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "app_current_tenant_id()"
+        },
+        "profissional_id": {
+          "name": "profissional_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "competencia": {
+          "name": "competencia",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "data_referencia": {
+          "name": "data_referencia",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "natureza": {
+          "name": "natureza",
+          "type": "natureza_lancamento",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tipo": {
+          "name": "tipo",
+          "type": "tipo_lancamento",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "valor_centavos": {
+          "name": "valor_centavos",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "descricao": {
+          "name": "descricao",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "origem": {
+          "name": "origem",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "estorno_de": {
+          "name": "estorno_de",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "idempotency_key": {
+          "name": "idempotency_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "criado_por": {
+          "name": "criado_por",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "app_current_user_id()"
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "lancamentos_idempotency_key": {
+          "name": "lancamentos_idempotency_key",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "idempotency_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "lancamentos_estorno_de_key": {
+          "name": "lancamentos_estorno_de_key",
+          "columns": [
+            {
+              "expression": "estorno_de",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "lancamentos_profissional_competencia_idx": {
+          "name": "lancamentos_profissional_competencia_idx",
+          "columns": [
+            {
+              "expression": "profissional_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "competencia",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "lancamentos_origem_idx": {
+          "name": "lancamentos_origem_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "origem",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "lancamentos_tenant_id_tenants_id_fk": {
+          "name": "lancamentos_tenant_id_tenants_id_fk",
+          "tableFrom": "lancamentos",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "lancamentos_criado_por_users_id_fk": {
+          "name": "lancamentos_criado_por_users_id_fk",
+          "tableFrom": "lancamentos",
+          "tableTo": "users",
+          "columnsFrom": [
+            "criado_por"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "lancamentos_tenant_id_profissional_id_profissionais_tenant_id_id_fk": {
+          "name": "lancamentos_tenant_id_profissional_id_profissionais_tenant_id_id_fk",
+          "tableFrom": "lancamentos",
+          "tableTo": "profissionais",
+          "columnsFrom": [
+            "tenant_id",
+            "profissional_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "lancamentos_tenant_id_estorno_de_lancamentos_tenant_id_id_fk": {
+          "name": "lancamentos_tenant_id_estorno_de_lancamentos_tenant_id_id_fk",
+          "tableFrom": "lancamentos",
+          "tableTo": "lancamentos",
+          "columnsFrom": [
+            "tenant_id",
+            "estorno_de"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "lancamentos_tenant_id_id_key": {
+          "name": "lancamentos_tenant_id_id_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tenant_id",
+            "id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "lancamentos_valor_check": {
+          "name": "lancamentos_valor_check",
+          "value": "\"lancamentos\".\"valor_centavos\" > 0"
+        },
+        "lancamentos_competencia_check": {
+          "name": "lancamentos_competencia_check",
+          "value": "extract(day from \"lancamentos\".\"competencia\") = 1"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.memberships": {
+      "name": "memberships",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "app_current_tenant_id()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "membership_role",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ativo": {
+          "name": "ativo",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "memberships_tenant_user_key": {
+          "name": "memberships_tenant_user_key",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "memberships_user_id_idx": {
+          "name": "memberships_user_id_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "memberships_tenant_id_tenants_id_fk": {
+          "name": "memberships_tenant_id_tenants_id_fk",
+          "tableFrom": "memberships",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "memberships_user_id_users_id_fk": {
+          "name": "memberships_user_id_users_id_fk",
+          "tableFrom": "memberships",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.notas_fiscais": {
+      "name": "notas_fiscais",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "app_current_tenant_id()"
+        },
+        "profissional_id": {
+          "name": "profissional_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "competencia": {
+          "name": "competencia",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "valor_centavos": {
+          "name": "valor_centavos",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "descricao": {
+          "name": "descricao",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ambiente": {
+          "name": "ambiente",
+          "type": "ambiente_fiscal",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "referencia": {
+          "name": "referencia",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "serie_dps": {
+          "name": "serie_dps",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "numero_dps": {
+          "name": "numero_dps",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "status_nota_fiscal",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pendente'"
+        },
+        "tomador": {
+          "name": "tomador",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "numero": {
+          "name": "numero",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "codigo_verificacao": {
+          "name": "codigo_verificacao",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "url": {
+          "name": "url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "url_danfse": {
+          "name": "url_danfse",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "caminho_xml": {
+          "name": "caminho_xml",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "erros": {
+          "name": "erros",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "tentativas": {
+          "name": "tentativas",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "emitida_em": {
+          "name": "emitida_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "justificativa_cancelamento": {
+          "name": "justificativa_cancelamento",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cancelada_em": {
+          "name": "cancelada_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "criado_por": {
+          "name": "criado_por",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "app_current_user_id()"
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "notas_fiscais_referencia_key": {
+          "name": "notas_fiscais_referencia_key",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "referencia",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "notas_fiscais_numero_dps_key": {
+          "name": "notas_fiscais_numero_dps_key",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "ambiente",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "serie_dps",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "numero_dps",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "notas_fiscais_uma_ativa_key": {
+          "name": "notas_fiscais_uma_ativa_key",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "profissional_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "competencia",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"notas_fiscais\".\"status\" not in ('erro', 'cancelada')",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "notas_fiscais_status_idx": {
+          "name": "notas_fiscais_status_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "notas_fiscais_tenant_id_tenants_id_fk": {
+          "name": "notas_fiscais_tenant_id_tenants_id_fk",
+          "tableFrom": "notas_fiscais",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "notas_fiscais_criado_por_users_id_fk": {
+          "name": "notas_fiscais_criado_por_users_id_fk",
+          "tableFrom": "notas_fiscais",
+          "tableTo": "users",
+          "columnsFrom": [
+            "criado_por"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "notas_fiscais_tenant_id_profissional_id_profissionais_tenant_id_id_fk": {
+          "name": "notas_fiscais_tenant_id_profissional_id_profissionais_tenant_id_id_fk",
+          "tableFrom": "notas_fiscais",
+          "tableTo": "profissionais",
+          "columnsFrom": [
+            "tenant_id",
+            "profissional_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "notas_fiscais_valor_check": {
+          "name": "notas_fiscais_valor_check",
+          "value": "\"notas_fiscais\".\"valor_centavos\" > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.notificacoes_outbox": {
+      "name": "notificacoes_outbox",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "app_current_tenant_id()"
+        },
+        "canal": {
+          "name": "canal",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'whatsapp'"
+        },
+        "tipo": {
+          "name": "tipo",
+          "type": "tipo_notificacao",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "destinatario": {
+          "name": "destinatario",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "parametros": {
+          "name": "parametros",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "agendamento_id": {
+          "name": "agendamento_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reserva_id": {
+          "name": "reserva_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "status_notificacao",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pendente'"
+        },
+        "agendar_para": {
+          "name": "agendar_para",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "tentativas": {
+          "name": "tentativas",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "ultimo_erro": {
+          "name": "ultimo_erro",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "enviado_em": {
+          "name": "enviado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "mensagem_provider_id": {
+          "name": "mensagem_provider_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "idempotency_key": {
+          "name": "idempotency_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "notificacoes_outbox_idempotency_key": {
+          "name": "notificacoes_outbox_idempotency_key",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "idempotency_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "notificacoes_outbox_fila_idx": {
+          "name": "notificacoes_outbox_fila_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "agendar_para",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "notificacoes_outbox_tenant_id_tenants_id_fk": {
+          "name": "notificacoes_outbox_tenant_id_tenants_id_fk",
+          "tableFrom": "notificacoes_outbox",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "notificacoes_outbox_tenant_id_agendamento_id_agendamentos_tenant_id_id_fk": {
+          "name": "notificacoes_outbox_tenant_id_agendamento_id_agendamentos_tenant_id_id_fk",
+          "tableFrom": "notificacoes_outbox",
+          "tableTo": "agendamentos",
+          "columnsFrom": [
+            "tenant_id",
+            "agendamento_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "notificacoes_outbox_tenant_id_reserva_id_reservas_sala_tenant_id_id_fk": {
+          "name": "notificacoes_outbox_tenant_id_reserva_id_reservas_sala_tenant_id_id_fk",
+          "tableFrom": "notificacoes_outbox",
+          "tableTo": "reservas_sala",
+          "columnsFrom": [
+            "tenant_id",
+            "reserva_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.pacientes": {
+      "name": "pacientes",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "app_current_tenant_id()"
+        },
+        "nome": {
+          "name": "nome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "cpf": {
+          "name": "cpf",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "data_nascimento": {
+          "name": "data_nascimento",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "telefone": {
+          "name": "telefone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "consentimento_lembretes": {
+          "name": "consentimento_lembretes",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "consentimento_em": {
+          "name": "consentimento_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ativo": {
+          "name": "ativo",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "anonimizado_em": {
+          "name": "anonimizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "criado_por": {
+          "name": "criado_por",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "app_current_user_id()"
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "pacientes_tenant_cpf_key": {
+          "name": "pacientes_tenant_cpf_key",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "cpf",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "pacientes_tenant_nome_idx": {
+          "name": "pacientes_tenant_nome_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "nome",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "pacientes_tenant_id_tenants_id_fk": {
+          "name": "pacientes_tenant_id_tenants_id_fk",
+          "tableFrom": "pacientes",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "pacientes_criado_por_users_id_fk": {
+          "name": "pacientes_criado_por_users_id_fk",
+          "tableFrom": "pacientes",
+          "tableTo": "users",
+          "columnsFrom": [
+            "criado_por"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "pacientes_tenant_id_id_key": {
+          "name": "pacientes_tenant_id_id_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tenant_id",
+            "id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.pacientes_profissionais": {
+      "name": "pacientes_profissionais",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "app_current_tenant_id()"
+        },
+        "paciente_id": {
+          "name": "paciente_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "profissional_id": {
+          "name": "profissional_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "pacientes_profissionais_key": {
+          "name": "pacientes_profissionais_key",
+          "columns": [
+            {
+              "expression": "paciente_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "profissional_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "pacientes_profissionais_profissional_idx": {
+          "name": "pacientes_profissionais_profissional_idx",
+          "columns": [
+            {
+              "expression": "profissional_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "pacientes_profissionais_tenant_id_tenants_id_fk": {
+          "name": "pacientes_profissionais_tenant_id_tenants_id_fk",
+          "tableFrom": "pacientes_profissionais",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "pacientes_profissionais_tenant_id_paciente_id_pacientes_tenant_id_id_fk": {
+          "name": "pacientes_profissionais_tenant_id_paciente_id_pacientes_tenant_id_id_fk",
+          "tableFrom": "pacientes_profissionais",
+          "tableTo": "pacientes",
+          "columnsFrom": [
+            "tenant_id",
+            "paciente_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "pacientes_profissionais_tenant_id_profissional_id_profissionais_tenant_id_id_fk": {
+          "name": "pacientes_profissionais_tenant_id_profissional_id_profissionais_tenant_id_id_fk",
+          "tableFrom": "pacientes_profissionais",
+          "tableTo": "profissionais",
+          "columnsFrom": [
+            "tenant_id",
+            "profissional_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.pagamentos": {
+      "name": "pagamentos",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "app_current_tenant_id()"
+        },
+        "profissional_id": {
+          "name": "profissional_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "data": {
+          "name": "data",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "valor_centavos": {
+          "name": "valor_centavos",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "direcao": {
+          "name": "direcao",
+          "type": "direcao_pagamento",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "forma": {
+          "name": "forma",
+          "type": "forma_pagamento",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "observacao": {
+          "name": "observacao",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "criado_por": {
+          "name": "criado_por",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "app_current_user_id()"
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "pagamentos_profissional_idx": {
+          "name": "pagamentos_profissional_idx",
+          "columns": [
+            {
+              "expression": "profissional_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "data",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "pagamentos_tenant_id_tenants_id_fk": {
+          "name": "pagamentos_tenant_id_tenants_id_fk",
+          "tableFrom": "pagamentos",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "pagamentos_criado_por_users_id_fk": {
+          "name": "pagamentos_criado_por_users_id_fk",
+          "tableFrom": "pagamentos",
+          "tableTo": "users",
+          "columnsFrom": [
+            "criado_por"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "pagamentos_tenant_id_profissional_id_profissionais_tenant_id_id_fk": {
+          "name": "pagamentos_tenant_id_profissional_id_profissionais_tenant_id_id_fk",
+          "tableFrom": "pagamentos",
+          "tableTo": "profissionais",
+          "columnsFrom": [
+            "tenant_id",
+            "profissional_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "pagamentos_valor_check": {
+          "name": "pagamentos_valor_check",
+          "value": "\"pagamentos\".\"valor_centavos\" > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.planos_saas": {
+      "name": "planos_saas",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "codigo": {
+          "name": "codigo",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "nome": {
+          "name": "nome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "preco_mensal_centavos": {
+          "name": "preco_mensal_centavos",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "limites": {
+          "name": "limites",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "ativo": {
+          "name": "ativo",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "planos_saas_codigo_unique": {
+          "name": "planos_saas_codigo_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "codigo"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.profissionais": {
+      "name": "profissionais",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "app_current_tenant_id()"
+        },
+        "membership_id": {
+          "name": "membership_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "nome": {
+          "name": "nome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "telefone": {
+          "name": "telefone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "conselho": {
+          "name": "conselho",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "registro": {
+          "name": "registro",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "especialidade": {
+          "name": "especialidade",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "tipo_documento": {
+          "name": "tipo_documento",
+          "type": "tipo_documento",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "documento": {
+          "name": "documento",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "asaas_customer_id": {
+          "name": "asaas_customer_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "agendamento_online": {
+          "name": "agendamento_online",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "slug_publico": {
+          "name": "slug_publico",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "duracao_consulta_min": {
+          "name": "duracao_consulta_min",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 60
+        },
+        "antecedencia_min_horas": {
+          "name": "antecedencia_min_horas",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 2
+        },
+        "janela_dias": {
+          "name": "janela_dias",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 30
+        },
+        "mensagem_publica": {
+          "name": "mensagem_publica",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ativo": {
+          "name": "ativo",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "profissionais_tenant_email_key": {
+          "name": "profissionais_tenant_email_key",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "email",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "profissionais_membership_key": {
+          "name": "profissionais_membership_key",
+          "columns": [
+            {
+              "expression": "membership_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "profissionais_slug_publico_key": {
+          "name": "profissionais_slug_publico_key",
+          "columns": [
+            {
+              "expression": "slug_publico",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "profissionais_tenant_id_tenants_id_fk": {
+          "name": "profissionais_tenant_id_tenants_id_fk",
+          "tableFrom": "profissionais",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "profissionais_membership_id_memberships_id_fk": {
+          "name": "profissionais_membership_id_memberships_id_fk",
+          "tableFrom": "profissionais",
+          "tableTo": "memberships",
+          "columnsFrom": [
+            "membership_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "profissionais_tenant_id_id_key": {
+          "name": "profissionais_tenant_id_id_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tenant_id",
+            "id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "profissionais_duracao_check": {
+          "name": "profissionais_duracao_check",
+          "value": "\"profissionais\".\"duracao_consulta_min\" between 15 and 480"
+        },
+        "profissionais_janela_check": {
+          "name": "profissionais_janela_check",
+          "value": "\"profissionais\".\"janela_dias\" between 1 and 180 and \"profissionais\".\"antecedencia_min_horas\" between 0 and 168"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.rate_limits": {
+      "name": "rate_limits",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "key": {
+          "name": "key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "count": {
+          "name": "count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "last_request": {
+          "name": "last_request",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "rate_limits_key_unique": {
+          "name": "rate_limits_key_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "key"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.recursos_sala": {
+      "name": "recursos_sala",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "app_current_tenant_id()"
+        },
+        "sala_id": {
+          "name": "sala_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "nome": {
+          "name": "nome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "recursos_sala_sala_nome_key": {
+          "name": "recursos_sala_sala_nome_key",
+          "columns": [
+            {
+              "expression": "sala_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "nome",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "recursos_sala_tenant_id_tenants_id_fk": {
+          "name": "recursos_sala_tenant_id_tenants_id_fk",
+          "tableFrom": "recursos_sala",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "recursos_sala_tenant_id_sala_id_salas_tenant_id_id_fk": {
+          "name": "recursos_sala_tenant_id_sala_id_salas_tenant_id_id_fk",
+          "tableFrom": "recursos_sala",
+          "tableTo": "salas",
+          "columnsFrom": [
+            "tenant_id",
+            "sala_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.registros_clinicos": {
+      "name": "registros_clinicos",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "app_current_tenant_id()"
+        },
+        "paciente_id": {
+          "name": "paciente_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "profissional_id": {
+          "name": "profissional_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "agendamento_id": {
+          "name": "agendamento_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "tipo": {
+          "name": "tipo",
+          "type": "tipo_registro_clinico",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'evolucao'"
+        },
+        "adendo_de": {
+          "name": "adendo_de",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "status_registro_clinico",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'rascunho'"
+        },
+        "conteudo_cifrado": {
+          "name": "conteudo_cifrado",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "hash_integridade": {
+          "name": "hash_integridade",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "finalizado_em": {
+          "name": "finalizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "registros_clinicos_paciente_idx": {
+          "name": "registros_clinicos_paciente_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "paciente_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "criado_em",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "registros_clinicos_tenant_id_tenants_id_fk": {
+          "name": "registros_clinicos_tenant_id_tenants_id_fk",
+          "tableFrom": "registros_clinicos",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "registros_clinicos_tenant_id_paciente_id_pacientes_tenant_id_id_fk": {
+          "name": "registros_clinicos_tenant_id_paciente_id_pacientes_tenant_id_id_fk",
+          "tableFrom": "registros_clinicos",
+          "tableTo": "pacientes",
+          "columnsFrom": [
+            "tenant_id",
+            "paciente_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "registros_clinicos_tenant_id_profissional_id_profissionais_tenant_id_id_fk": {
+          "name": "registros_clinicos_tenant_id_profissional_id_profissionais_tenant_id_id_fk",
+          "tableFrom": "registros_clinicos",
+          "tableTo": "profissionais",
+          "columnsFrom": [
+            "tenant_id",
+            "profissional_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "registros_clinicos_tenant_id_agendamento_id_agendamentos_tenant_id_id_fk": {
+          "name": "registros_clinicos_tenant_id_agendamento_id_agendamentos_tenant_id_id_fk",
+          "tableFrom": "registros_clinicos",
+          "tableTo": "agendamentos",
+          "columnsFrom": [
+            "tenant_id",
+            "agendamento_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "registros_clinicos_tenant_id_adendo_de_registros_clinicos_tenant_id_id_fk": {
+          "name": "registros_clinicos_tenant_id_adendo_de_registros_clinicos_tenant_id_id_fk",
+          "tableFrom": "registros_clinicos",
+          "tableTo": "registros_clinicos",
+          "columnsFrom": [
+            "tenant_id",
+            "adendo_de"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "registros_clinicos_tenant_id_id_key": {
+          "name": "registros_clinicos_tenant_id_id_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tenant_id",
+            "id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "registros_clinicos_adendo_check": {
+          "name": "registros_clinicos_adendo_check",
+          "value": "(\"registros_clinicos\".\"tipo\" = 'adendo') = (\"registros_clinicos\".\"adendo_de\" is not null)"
+        },
+        "registros_clinicos_finalizado_check": {
+          "name": "registros_clinicos_finalizado_check",
+          "value": "(\"registros_clinicos\".\"status\" = 'finalizado') = (\"registros_clinicos\".\"finalizado_em\" is not null and \"registros_clinicos\".\"hash_integridade\" is not null)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.regras_recorrencia": {
+      "name": "regras_recorrencia",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "app_current_tenant_id()"
+        },
+        "acordo_id": {
+          "name": "acordo_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sala_id": {
+          "name": "sala_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "profissional_id": {
+          "name": "profissional_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "dia_semana": {
+          "name": "dia_semana",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "hora_inicio": {
+          "name": "hora_inicio",
+          "type": "time",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "hora_fim": {
+          "name": "hora_fim",
+          "type": "time",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "data_inicio": {
+          "name": "data_inicio",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "data_fim": {
+          "name": "data_fim",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "materializada_ate": {
+          "name": "materializada_ate",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "encerrada_em": {
+          "name": "encerrada_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "criado_por": {
+          "name": "criado_por",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "app_current_user_id()"
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "regras_recorrencia_tenant_id_tenants_id_fk": {
+          "name": "regras_recorrencia_tenant_id_tenants_id_fk",
+          "tableFrom": "regras_recorrencia",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "regras_recorrencia_criado_por_users_id_fk": {
+          "name": "regras_recorrencia_criado_por_users_id_fk",
+          "tableFrom": "regras_recorrencia",
+          "tableTo": "users",
+          "columnsFrom": [
+            "criado_por"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "regras_recorrencia_tenant_id_sala_id_salas_tenant_id_id_fk": {
+          "name": "regras_recorrencia_tenant_id_sala_id_salas_tenant_id_id_fk",
+          "tableFrom": "regras_recorrencia",
+          "tableTo": "salas",
+          "columnsFrom": [
+            "tenant_id",
+            "sala_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "regras_recorrencia_tenant_id_profissional_id_profissionais_tenant_id_id_fk": {
+          "name": "regras_recorrencia_tenant_id_profissional_id_profissionais_tenant_id_id_fk",
+          "tableFrom": "regras_recorrencia",
+          "tableTo": "profissionais",
+          "columnsFrom": [
+            "tenant_id",
+            "profissional_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "regras_recorrencia_tenant_id_id_key": {
+          "name": "regras_recorrencia_tenant_id_id_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tenant_id",
+            "id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "regras_recorrencia_dia_check": {
+          "name": "regras_recorrencia_dia_check",
+          "value": "\"regras_recorrencia\".\"dia_semana\" between 0 and 6"
+        },
+        "regras_recorrencia_intervalo_check": {
+          "name": "regras_recorrencia_intervalo_check",
+          "value": "\"regras_recorrencia\".\"hora_fim\" > \"regras_recorrencia\".\"hora_inicio\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.reservas_sala": {
+      "name": "reservas_sala",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "app_current_tenant_id()"
+        },
+        "sala_id": {
+          "name": "sala_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "profissional_id": {
+          "name": "profissional_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "periodo": {
+          "name": "periodo",
+          "type": "tstzrange",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "reserva_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'ativa'"
+        },
+        "recorrencia_id": {
+          "name": "recorrencia_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "data_ocorrencia": {
+          "name": "data_ocorrencia",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cancelada_em": {
+          "name": "cancelada_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cancelada_por": {
+          "name": "cancelada_por",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "motivo_cancelamento": {
+          "name": "motivo_cancelamento",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "criado_por": {
+          "name": "criado_por",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "app_current_user_id()"
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "reservas_sala_recorrencia_data_key": {
+          "name": "reservas_sala_recorrencia_data_key",
+          "columns": [
+            {
+              "expression": "recorrencia_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "data_ocorrencia",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "reservas_sala_profissional_idx": {
+          "name": "reservas_sala_profissional_idx",
+          "columns": [
+            {
+              "expression": "profissional_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "reservas_sala_tenant_id_tenants_id_fk": {
+          "name": "reservas_sala_tenant_id_tenants_id_fk",
+          "tableFrom": "reservas_sala",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "reservas_sala_criado_por_users_id_fk": {
+          "name": "reservas_sala_criado_por_users_id_fk",
+          "tableFrom": "reservas_sala",
+          "tableTo": "users",
+          "columnsFrom": [
+            "criado_por"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "reservas_sala_tenant_id_sala_id_salas_tenant_id_id_fk": {
+          "name": "reservas_sala_tenant_id_sala_id_salas_tenant_id_id_fk",
+          "tableFrom": "reservas_sala",
+          "tableTo": "salas",
+          "columnsFrom": [
+            "tenant_id",
+            "sala_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "reservas_sala_tenant_id_profissional_id_profissionais_tenant_id_id_fk": {
+          "name": "reservas_sala_tenant_id_profissional_id_profissionais_tenant_id_id_fk",
+          "tableFrom": "reservas_sala",
+          "tableTo": "profissionais",
+          "columnsFrom": [
+            "tenant_id",
+            "profissional_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "reservas_sala_tenant_id_recorrencia_id_regras_recorrencia_tenant_id_id_fk": {
+          "name": "reservas_sala_tenant_id_recorrencia_id_regras_recorrencia_tenant_id_id_fk",
+          "tableFrom": "reservas_sala",
+          "tableTo": "regras_recorrencia",
+          "columnsFrom": [
+            "tenant_id",
+            "recorrencia_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "reservas_sala_tenant_id_id_key": {
+          "name": "reservas_sala_tenant_id_id_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tenant_id",
+            "id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "reservas_sala_periodo_check": {
+          "name": "reservas_sala_periodo_check",
+          "value": "not isempty(\"reservas_sala\".\"periodo\") and lower_inc(\"reservas_sala\".\"periodo\") and not upper_inc(\"reservas_sala\".\"periodo\")"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.salas": {
+      "name": "salas",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "app_current_tenant_id()"
+        },
+        "unidade_id": {
+          "name": "unidade_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "nome": {
+          "name": "nome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "descricao": {
+          "name": "descricao",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ativo": {
+          "name": "ativo",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "salas_unidade_nome_key": {
+          "name": "salas_unidade_nome_key",
+          "columns": [
+            {
+              "expression": "unidade_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "nome",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "salas_tenant_id_tenants_id_fk": {
+          "name": "salas_tenant_id_tenants_id_fk",
+          "tableFrom": "salas",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "salas_tenant_id_unidade_id_unidades_tenant_id_id_fk": {
+          "name": "salas_tenant_id_unidade_id_unidades_tenant_id_id_fk",
+          "tableFrom": "salas",
+          "tableTo": "unidades",
+          "columnsFrom": [
+            "tenant_id",
+            "unidade_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "salas_tenant_id_id_key": {
+          "name": "salas_tenant_id_id_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tenant_id",
+            "id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.sessions": {
+      "name": "sessions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "token": {
+          "name": "token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "ip_address": {
+          "name": "ip_address",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "user_agent": {
+          "name": "user_agent",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "impersonated_by": {
+          "name": "impersonated_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "sessions_user_id_idx": {
+          "name": "sessions_user_id_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "sessions_user_id_users_id_fk": {
+          "name": "sessions_user_id_users_id_fk",
+          "tableFrom": "sessions",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "sessions_token_unique": {
+          "name": "sessions_token_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "token"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.tenant_settings": {
+      "name": "tenant_settings",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "app_current_tenant_id()"
+        },
+        "timezone": {
+          "name": "timezone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'America/Sao_Paulo'"
+        },
+        "preferencias": {
+          "name": "preferencias",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "antecedencia_cancelamento_horas": {
+          "name": "antecedencia_cancelamento_horas",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 24
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "tenant_settings_tenant_id_key": {
+          "name": "tenant_settings_tenant_id_key",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "tenant_settings_tenant_id_tenants_id_fk": {
+          "name": "tenant_settings_tenant_id_tenants_id_fk",
+          "tableFrom": "tenant_settings",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.tenants": {
+      "name": "tenants",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "nome": {
+          "name": "nome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tipo_documento": {
+          "name": "tipo_documento",
+          "type": "tipo_documento",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "documento": {
+          "name": "documento",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "plano_id": {
+          "name": "plano_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "tenant_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'ativo'"
+        },
+        "asaas_customer_id": {
+          "name": "asaas_customer_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "tenants_plano_id_planos_saas_id_fk": {
+          "name": "tenants_plano_id_planos_saas_id_fk",
+          "tableFrom": "tenants",
+          "tableTo": "planos_saas",
+          "columnsFrom": [
+            "plano_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.two_factors": {
+      "name": "two_factors",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "secret": {
+          "name": "secret",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "backup_codes": {
+          "name": "backup_codes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "verified": {
+          "name": "verified",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": true
+        },
+        "failed_verification_count": {
+          "name": "failed_verification_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 0
+        },
+        "locked_until": {
+          "name": "locked_until",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "two_factors_user_id_idx": {
+          "name": "two_factors_user_id_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "two_factors_secret_idx": {
+          "name": "two_factors_secret_idx",
+          "columns": [
+            {
+              "expression": "secret",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "two_factors_user_id_users_id_fk": {
+          "name": "two_factors_user_id_users_id_fk",
+          "tableFrom": "two_factors",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.unidades": {
+      "name": "unidades",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "app_current_tenant_id()"
+        },
+        "nome": {
+          "name": "nome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "endereco": {
+          "name": "endereco",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "timezone": {
+          "name": "timezone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'America/Sao_Paulo'"
+        },
+        "slot_minutos": {
+          "name": "slot_minutos",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 30
+        },
+        "ativo": {
+          "name": "ativo",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "unidades_tenant_id_tenants_id_fk": {
+          "name": "unidades_tenant_id_tenants_id_fk",
+          "tableFrom": "unidades",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "unidades_tenant_id_id_key": {
+          "name": "unidades_tenant_id_id_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tenant_id",
+            "id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "unidades_slot_minutos_check": {
+          "name": "unidades_slot_minutos_check",
+          "value": "\"unidades\".\"slot_minutos\" in (15, 30, 60)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.users": {
+      "name": "users",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "email_verified": {
+          "name": "email_verified",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "image": {
+          "name": "image",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "role": {
+          "name": "role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'user'"
+        },
+        "banned": {
+          "name": "banned",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        },
+        "ban_reason": {
+          "name": "ban_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ban_expires": {
+          "name": "ban_expires",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "two_factor_enabled": {
+          "name": "two_factor_enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "users_email_unique": {
+          "name": "users_email_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "email"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.verifications": {
+      "name": "verifications",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "identifier": {
+          "name": "identifier",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "value": {
+          "name": "value",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "verifications_identifier_idx": {
+          "name": "verifications_identifier_idx",
+          "columns": [
+            {
+              "expression": "identifier",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {
+    "public.agendamento_status": {
+      "name": "agendamento_status",
+      "schema": "public",
+      "values": [
+        "agendado",
+        "confirmado",
+        "presente",
+        "realizado",
+        "falta",
+        "cancelado"
+      ]
+    },
+    "public.ambiente_asaas": {
+      "name": "ambiente_asaas",
+      "schema": "public",
+      "values": [
+        "simulado",
+        "sandbox",
+        "producao"
+      ]
+    },
+    "public.ambiente_fiscal": {
+      "name": "ambiente_fiscal",
+      "schema": "public",
+      "values": [
+        "simulado",
+        "homologacao",
+        "producao"
+      ]
+    },
+    "public.direcao_pagamento": {
+      "name": "direcao_pagamento",
+      "schema": "public",
+      "values": [
+        "profissional_para_espaco",
+        "espaco_para_profissional"
+      ]
+    },
+    "public.fechamento_status": {
+      "name": "fechamento_status",
+      "schema": "public",
+      "values": [
+        "aberto",
+        "fechado"
+      ]
+    },
+    "public.fluxo_recebimento": {
+      "name": "fluxo_recebimento",
+      "schema": "public",
+      "values": [
+        "centralizado",
+        "direto"
+      ]
+    },
+    "public.forma_cobranca": {
+      "name": "forma_cobranca",
+      "schema": "public",
+      "values": [
+        "PIX",
+        "BOLETO",
+        "UNDEFINED"
+      ]
+    },
+    "public.forma_pagamento": {
+      "name": "forma_pagamento",
+      "schema": "public",
+      "values": [
+        "pix",
+        "dinheiro",
+        "cartao",
+        "transferencia",
+        "boleto",
+        "outro"
+      ]
+    },
+    "public.membership_role": {
+      "name": "membership_role",
+      "schema": "public",
+      "values": [
+        "admin",
+        "recepcao",
+        "profissional"
+      ]
+    },
+    "public.modelo_cobranca": {
+      "name": "modelo_cobranca",
+      "schema": "public",
+      "values": [
+        "hora",
+        "consulta",
+        "percentual",
+        "mensalidade",
+        "sala_fixa"
+      ]
+    },
+    "public.natureza_lancamento": {
+      "name": "natureza_lancamento",
+      "schema": "public",
+      "values": [
+        "debito",
+        "credito"
+      ]
+    },
+    "public.origem_agendamento": {
+      "name": "origem_agendamento",
+      "schema": "public",
+      "values": [
+        "equipe",
+        "online"
+      ]
+    },
+    "public.regra_falta": {
+      "name": "regra_falta",
+      "schema": "public",
+      "values": [
+        "isenta",
+        "integral",
+        "percentual"
+      ]
+    },
+    "public.reserva_status": {
+      "name": "reserva_status",
+      "schema": "public",
+      "values": [
+        "ativa",
+        "concluida",
+        "cancelada"
+      ]
+    },
+    "public.status_cobranca": {
+      "name": "status_cobranca",
+      "schema": "public",
+      "values": [
+        "pendente",
+        "vencida",
+        "paga",
+        "estornada",
+        "cancelada",
+        "erro"
+      ]
+    },
+    "public.status_nota_fiscal": {
+      "name": "status_nota_fiscal",
+      "schema": "public",
+      "values": [
+        "pendente",
+        "processando",
+        "autorizada",
+        "erro",
+        "cancelada"
+      ]
+    },
+    "public.status_notificacao": {
+      "name": "status_notificacao",
+      "schema": "public",
+      "values": [
+        "pendente",
+        "enviando",
+        "enviado",
+        "falhou",
+        "cancelado"
+      ]
+    },
+    "public.status_registro_clinico": {
+      "name": "status_registro_clinico",
+      "schema": "public",
+      "values": [
+        "rascunho",
+        "finalizado"
+      ]
+    },
+    "public.tenant_status": {
+      "name": "tenant_status",
+      "schema": "public",
+      "values": [
+        "ativo",
+        "suspenso",
+        "cancelado"
+      ]
+    },
+    "public.tipo_documento": {
+      "name": "tipo_documento",
+      "schema": "public",
+      "values": [
+        "cpf",
+        "cnpj"
+      ]
+    },
+    "public.tipo_lancamento": {
+      "name": "tipo_lancamento",
+      "schema": "public",
+      "values": [
+        "locacao_hora",
+        "locacao_consulta",
+        "locacao_percentual",
+        "falta",
+        "multa_cancelamento",
+        "mensalidade",
+        "excedente_horas",
+        "recebimento_paciente",
+        "pagamento_profissional",
+        "repasse_profissional",
+        "ajuste"
+      ]
+    },
+    "public.tipo_notificacao": {
+      "name": "tipo_notificacao",
+      "schema": "public",
+      "values": [
+        "lembrete_agendamento",
+        "lembrete_reserva"
+      ]
+    },
+    "public.tipo_registro_clinico": {
+      "name": "tipo_registro_clinico",
+      "schema": "public",
+      "values": [
+        "evolucao",
+        "adendo"
+      ]
+    }
+  },
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

@@ -50,11 +50,14 @@ export function ListaAtendimentos({
   atendimentos,
   mostrarProfissional = true,
   linkProntuario = false,
+  cancelamentoPeloEspaco = true,
 }: {
   atendimentos: AtendimentoDoDia[];
   mostrarProfissional?: boolean;
   /** Profissional: atalho para o prontuário do paciente. */
   linkProntuario?: boolean;
+  /** A equipe pode registrar que o espaço cancelou (não cobra o profissional). */
+  cancelamentoPeloEspaco?: boolean;
 }) {
   if (atendimentos.length === 0) return <p className="text-sm text-muted-foreground">Nenhum atendimento.</p>;
   return (
@@ -135,6 +138,11 @@ export function ListaAtendimentos({
                 confirmar="Cancelar este agendamento?"
                 className="flex flex-wrap items-center gap-2 ml-auto"
               >
+                <NativeSelect name="quem" defaultValue="paciente" aria-label="Quem pediu o cancelamento" className="h-8 w-40 text-xs">
+                  <option value="paciente">Paciente pediu</option>
+                  <option value="profissional">Profissional pediu</option>
+                  {cancelamentoPeloEspaco && <option value="espaco">Espaço cancelou (sem cobrança)</option>}
+                </NativeSelect>
                 <Input name="motivo" placeholder="Motivo (opcional)" aria-label="Motivo do cancelamento" className="h-8 w-36 text-xs" />
               </FormAcao>
             )}

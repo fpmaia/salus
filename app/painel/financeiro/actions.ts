@@ -5,7 +5,6 @@ import { lerMoeda, lerPercentualBp } from "@/src/domain/dinheiro";
 import { type EstadoAcao, executarAcao, texto } from "@/src/server/acao";
 import { ErroNegocio } from "@/src/server/erros";
 import {
-  criarAcordo,
   definirValorAgendamento,
   fecharCompetencia,
   lancarAjuste,
@@ -38,71 +37,6 @@ function percentual(formData: FormData, campo: string): number | null {
   const valor = lerPercentualBp(bruto);
   if (valor === null) throw new ErroNegocio(`Percentual inválido: ${bruto}`);
   return valor;
-}
-
-import { criarRecorrencia } from "@/src/server/reservas";
-import { diaSemana, somarDias } from "@/src/domain/tempo";
-
-export async function criarAcordoAcao(profissionalId: string, _estado: EstadoAcao, formData: FormData) {
-  return executarAcao(async () => {
-    const ctx = await obterContextoTenant();
-    const horas = texto(formData, "horasIncluidas").trim();
-    const modelo = texto(formData, "modelo");
-    const salaId = texto(formData, "salaId") || null;
-    const vigenteDe = texto(formData, "vigenteDe");
-    const vigenteAte = texto(formData, "vigenteAte") || null;
-
-    await criarAcordo(ctx, {
-      profissionalId,
-      salaId,
-      modelo: modelo as never,
-      fluxoRecebimento: texto(formData, "fluxoRecebimento") as never,
-      valorHoraCentavos: moeda(formData, "valorHora"),
-      valorConsultaCentavos: moeda(formData, "valorConsulta"),
-      percentualBp: percentual(formData, "percentual"),
-      mensalidadeCentavos: moeda(formData, "mensalidade"),
-      horasIncluidas: horas ? Number(horas) : null,
-      regraFalta: texto(formData, "regraFalta") as never,
-      faltaPercentualBp: percentual(formData, "faltaPercentual"),
-      vigenteDe,
-      vigenteAte,
-    });
-
-    // Se for sala fixa e horários foram especificados, registra a recorrência na agenda
-    if (modelo === "sala_fixa" && salaId) {
-      const horaInicio = texto(formData, "horaInicio");
-      const horaFim = texto(formData, "horaFim");
-      const diasSelecionados = formData
-        .getAll("diasSemana")
-        .map(Number)
-        .filter((d) => !isNaN(d) && d >= 0 && d <= 6);
-
-      if (horaInicio && horaFim && diasSelecionados.length > 0) {
-        for (const dia of diasSelecionados) {
-          let dataInicio = vigenteDe;
-          for (let i = 0; i < 7; i++) {
-            if (diaSemana(dataInicio) === dia) break;
-            dataInicio = somarDias(dataInicio, 1);
-          }
-          try {
-            await criarRecorrencia(ctx, {
-              salaId,
-              profissionalId,
-              dataInicio,
-              dataFim: vigenteAte,
-              horaInicio,
-              horaFim,
-            });
-          } catch {
-            // Se houver sobreposição em algum dia específico, ignora o erro para não abortar o acordo
-          }
-        }
-        return "Contrato de sala fixa salvo e horários reservados na agenda com sucesso!";
-      }
-    }
-
-    return "Acordo salvo";
-  });
 }
 
 export async function fecharCompetenciaAcao(profissionalId: string, competencia: string) {

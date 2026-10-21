@@ -6,6 +6,7 @@ import { erroPostgres, PG } from "../db/erros";
 import {
   acordosFinanceiros,
   agendamentos,
+  regrasRecorrencia,
   fechamentos,
   lancamentos,
   pagamentos,
@@ -22,11 +23,11 @@ import {
   conciliar,
   lancamentosDaMensalidade,
   lancamentosDaReserva,
+  lancamentosDaReservaCancelada,
   lancamentosDoAgendamento,
   MODELOS,
   proximaCompetencia,
   ultimoDiaDaCompetencia,
-  type Acordo,
   type LancamentoDesejado,
   type Natureza,
   type TipoLancamento,
@@ -39,12 +40,17 @@ import { profissionalDoUsuario } from "./profissionais";
 import { carregarConfigUnidade } from "./unidades";
 
 // ---------------------------------------------------------------------------
-// Acordos
+// Contratos (acordos financeiros versionados)
 // ---------------------------------------------------------------------------
 
 const centavos = z.number().int().nonnegative().nullable().default(null);
 const bp = z.number().int().min(1).max(10_000).nullable().default(null);
 
+/**
+ * Uma versão do contrato do profissional. Modelos: hora, consulta, percentual e mensalidade
+ * (pacote de horas, ou turno fixo quando `horasIncluidas` é nulo). O prazo de cancelamento é do
+ * contrato; sem ele, vale o padrão do espaço.
+ */
 export const acordoSchema = z
   .object({
     profissionalId: z.uuid(),
@@ -58,6 +64,10 @@ export const acordoSchema = z
     horasIncluidas: z.number().int().nonnegative().nullable().default(null),
     regraFalta: z.enum(["isenta", "integral", "percentual"]).default("isenta"),
     faltaPercentualBp: bp,
+    prazoCancelamentoHoras: z.number().int().min(0).max(720).nullable().optional().default(null),
+    multaCancelamentoReservaBp: bp,
+    termos: z.string().trim().max(50_000).nullable().optional().default(null),
+    observacoes: z.string().trim().max(1000).nullable().optional().default(null),
     vigenteDe: z.string().refine(dataValida, "Data de início inválida"),
     vigenteAte: z.string().refine(dataValida, "Data de término inválida").nullable().optional().default(null),
   })
@@ -66,94 +76,123 @@ export const acordoSchema = z
     if (a.modelo === "hora") exigir(Boolean(a.valorHoraCentavos), "Informe o valor da hora");
     if (a.modelo === "consulta") exigir(Boolean(a.valorConsultaCentavos), "Informe o valor por consulta");
     if (a.modelo === "percentual") exigir(Boolean(a.percentualBp), "Informe o percentual");
-    if (a.modelo === "mensalidade") {
-      exigir(Boolean(a.mensalidadeCentavos), "Informe o valor da mensalidade");
-      exigir(a.horasIncluidas !== null, "Informe as horas incluídas no pacote");
-    }
-    if (a.modelo === "sala_fixa") {
-      exigir(Boolean(a.mensalidadeCentavos), "Informe o valor da mensalidade fixa da sala");
-      exigir(Boolean(a.salaId), "Selecione a sala contratada de forma fixa");
+    if (a.modelo === "mensalidade") exigir(Boolean(a.mensalidadeCentavos), "Informe o valor da mensalidade");
+    if (a.modelo === "mensalidade" && a.valorConsultaCentavos && a.percentualBp) {
+      exigir(false, "No turno fixo, cobre por consulta ou por percentual, não os dois");
     }
     if (a.regraFalta === "percentual") exigir(Boolean(a.faltaPercentualBp), "Informe o percentual cobrado na falta");
+    if (a.vigenteAte) exigir(a.vigenteAte >= a.vigenteDe, "O término deve ser depois do início");
   });
 
 /** Só os campos relevantes ao modelo são gravados (o resto fica nulo). */
 function camposDoModelo(a: z.output<typeof acordoSchema>) {
+  const mensal = a.modelo === "mensalidade";
+  const fixo = mensal && a.horasIncluidas === null;
   return {
-    salaId: a.modelo === "sala_fixa" ? a.salaId : null,
-    valorHoraCentavos: a.modelo === "hora" || a.modelo === "mensalidade" ? (a.valorHoraCentavos ?? 0) : null,
-    valorConsultaCentavos:
-      a.modelo === "consulta" || (a.modelo === "sala_fixa" && Boolean(a.valorConsultaCentavos))
-        ? a.valorConsultaCentavos
-        : null,
-    percentualBp:
-      a.modelo === "percentual" || (a.modelo === "sala_fixa" && Boolean(a.percentualBp))
-        ? a.percentualBp
-        : null,
-    mensalidadeCentavos: a.modelo === "mensalidade" || a.modelo === "sala_fixa" ? a.mensalidadeCentavos : null,
-    horasIncluidas: a.modelo === "mensalidade" ? a.horasIncluidas : null,
+    salaId: mensal ? a.salaId : null,
+    valorHoraCentavos: a.modelo === "hora" || mensal ? (a.valorHoraCentavos ?? 0) : null,
+    valorConsultaCentavos: a.modelo === "consulta" || (fixo && a.valorConsultaCentavos) ? a.valorConsultaCentavos : null,
+    percentualBp: a.modelo === "percentual" || (fixo && a.percentualBp) ? a.percentualBp : null,
+    mensalidadeCentavos: mensal ? a.mensalidadeCentavos : null,
+    horasIncluidas: mensal ? a.horasIncluidas : null,
     faltaPercentualBp: a.regraFalta === "percentual" ? a.faltaPercentualBp : null,
+    multaCancelamentoReservaBp: a.modelo === "hora" ? a.multaCancelamentoReservaBp : null,
   };
 }
 
-export async function carregarAcordos(tx: Transaction, profissionalId: string): Promise<Acordo[]> {
-  const linhas = await tx
+export async function carregarAcordos(tx: Transaction, profissionalId: string): Promise<(typeof acordosFinanceiros.$inferSelect)[]> {
+  return tx
     .select()
     .from(acordosFinanceiros)
     .where(eq(acordosFinanceiros.profissionalId, profissionalId))
     .orderBy(asc(acordosFinanceiros.vigenteDe));
-  return linhas;
+}
+
+/** Antecedência que separa o cancelamento tardio: a do contrato vigente na data, ou a do espaço. */
+export async function prazoDeCancelamento(tx: Transaction, profissionalId: string, data: DataLocal): Promise<number> {
+  const contrato = acordoVigente(await carregarAcordos(tx, profissionalId), data);
+  return contrato ? contrato.prazoCancelamentoHoras : prazoPadraoDoEspaco(tx);
+}
+
+/** Prazo de cancelamento padrão do espaço (contratos sem prazo próprio). */
+export async function prazoPadraoDoEspaco(tx: Transaction): Promise<number> {
+  const [config] = await tx.select({ horas: tenantSettings.antecedenciaCancelamentoHoras }).from(tenantSettings);
+  return Math.min(config?.horas ?? 24, 720);
+}
+
+/** Próximo código CTR-AAAA-NNNN do espaço (chamar com o lock de contratos). */
+async function proximoCodigo(tx: Transaction, ano: number): Promise<string> {
+  const [linha] = await tx
+    .select({ ultimo: sql<string | null>`max(${acordosFinanceiros.codigo})` })
+    .from(acordosFinanceiros)
+    .where(sql`${acordosFinanceiros.codigo} ~ ${`^CTR-${ano}-[0-9]{4}$`}`);
+  const n = linha?.ultimo ? Number(linha.ultimo.slice(-4)) + 1 : 1;
+  return `CTR-${ano}-${String(n).padStart(4, "0")}`;
 }
 
 /**
- * Novo acordo a partir de `vigenteDe`. Se houver um acordo em aberto que começou antes,
- * ele é encerrado na véspera (reajuste). Sobreposição com acordos futuros é recusada.
+ * Nova versão do contrato a partir de `vigenteDe`. A versão em aberto que começou antes é
+ * encerrada na véspera (reajuste) e a grade fixa dela passa para a nova versão. Sobreposição com
+ * outra versão é recusada pelo banco (acordos_sem_sobreposicao).
  */
+export async function inserirVersaoDoContrato(
+  tx: Transaction,
+  a: z.output<typeof acordoSchema>,
+): Promise<{ id: string; codigo: string; anteriorId: string | null }> {
+  await tx.execute(sql`select pg_advisory_xact_lock(hashtext('contratos:' || app_current_tenant_id()::text))`);
+  const anteriores = await carregarAcordos(tx, a.profissionalId);
+  const aberto = anteriores.find((x) => x.vigenteAte === null && x.vigenteDe < a.vigenteDe);
+  if (aberto) {
+    await tx.update(acordosFinanceiros).set({ vigenteAte: somarDias(a.vigenteDe, -1) }).where(eq(acordosFinanceiros.id, aberto.id));
+  }
+  const codigo = await proximoCodigo(tx, Number(a.vigenteDe.slice(0, 4)));
+  const [contrato] = await tx
+    .insert(acordosFinanceiros)
+    .values({
+      codigo,
+      profissionalId: a.profissionalId,
+      modelo: a.modelo,
+      fluxoRecebimento: a.fluxoRecebimento,
+      regraFalta: a.regraFalta,
+      prazoCancelamentoHoras: a.prazoCancelamentoHoras ?? (await prazoPadraoDoEspaco(tx)),
+      termos: a.termos,
+      observacoes: a.observacoes,
+      vigenteDe: a.vigenteDe,
+      vigenteAte: a.vigenteAte,
+      ...camposDoModelo(a),
+    })
+    .returning({ id: acordosFinanceiros.id })
+    .catch((erro: unknown) => {
+      const pg = erroPostgres(erro);
+      if (pg?.code === PG.violacaoExclusao) throw new ErroNegocio("Já existe um contrato deste profissional nesse período");
+      if (pg?.code === PG.violacaoFk) throw new ErroNegocio("Profissional ou sala não encontrado");
+      throw erro;
+    });
+  if (aberto) {
+    // Reajuste: a grade fixa continua, agora ligada à versão nova.
+    await tx
+      .update(regrasRecorrencia)
+      .set({ acordoId: contrato.id })
+      .where(and(eq(regrasRecorrencia.acordoId, aberto.id), isNull(regrasRecorrencia.encerradaEm)));
+  }
+  await registrarAuditoria(tx, {
+    acao: "contrato.criado",
+    entidade: "acordos_financeiros",
+    entidadeId: contrato.id,
+    dados: { ...a, termos: a.termos ? "(texto)" : null, codigo, encerrouVersao: aberto?.id ?? null },
+  });
+  return { id: contrato.id, codigo, anteriorId: aberto?.id ?? null };
+}
+
+/** Versão do contrato sem mexer na grade (seed, testes e reajustes simples). */
 export async function criarAcordo(
   ctx: ContextoTenant,
   dados: z.input<typeof acordoSchema>,
   database?: Database,
-): Promise<{ id: string }> {
+): Promise<{ id: string; codigo: string }> {
   exigirPermissao(ctx.role, "acordos.gerenciar");
   const a = acordoSchema.parse(dados);
-  return withTenant(
-    ctx,
-    async (tx) => {
-      const anteriores = await carregarAcordos(tx, a.profissionalId);
-      const aberto = anteriores.find((x) => x.vigenteAte === null && x.vigenteDe < a.vigenteDe);
-      if (aberto) {
-        await tx
-          .update(acordosFinanceiros)
-          .set({ vigenteAte: somarDias(a.vigenteDe, -1) })
-          .where(eq(acordosFinanceiros.id, aberto.id));
-      }
-      const [acordo] = await tx
-        .insert(acordosFinanceiros)
-        .values({
-          profissionalId: a.profissionalId,
-          modelo: a.modelo,
-          fluxoRecebimento: a.fluxoRecebimento,
-          regraFalta: a.regraFalta,
-          vigenteDe: a.vigenteDe,
-          ...camposDoModelo(a),
-        })
-        .returning({ id: acordosFinanceiros.id })
-        .catch((erro: unknown) => {
-          const pg = erroPostgres(erro);
-          if (pg?.code === PG.violacaoExclusao) throw new ErroNegocio("Já existe um acordo vigente nesse período");
-          if (pg?.code === PG.violacaoFk) throw new ErroNegocio("Profissional não encontrado");
-          throw erro;
-        });
-      await registrarAuditoria(tx, {
-        acao: "acordo.criado",
-        entidade: "acordos_financeiros",
-        entidadeId: acordo.id,
-        dados: { ...a, encerrouAcordo: aberto?.id ?? null },
-      });
-      return acordo;
-    },
-    database,
-  );
+  return withTenant(ctx, (tx) => inserirVersaoDoContrato(tx, a), database);
 }
 
 export async function listarAcordos(ctx: ContextoTenant, profissionalId: string, database?: Database) {
@@ -248,19 +287,33 @@ async function reconciliarOrigem(
   return { criados: criar.length, estornados: estornar.length };
 }
 
-/** Reserva: locação por hora quando concluída (estorna se deixar de valer). */
+/**
+ * Reserva: locação por hora quando concluída; multa quando o profissional cancela tarde uma
+ * data da grade fixa do contrato (turno fixo por hora). Estorna o que deixar de valer.
+ */
 export async function gerarLancamentosReserva(tx: Transaction, reservaId: string): Promise<ResultadoConciliacao> {
   const [r] = await tx
-    .select({ reserva: reservasSala, timezone: unidades.timezone })
+    .select({ reserva: reservasSala, timezone: unidades.timezone, acordoDaGrade: regrasRecorrencia.acordoId })
     .from(reservasSala)
     .innerJoin(salas, eq(salas.id, reservasSala.salaId))
     .innerJoin(unidades, eq(unidades.id, salas.unidadeId))
+    .leftJoin(regrasRecorrencia, eq(regrasRecorrencia.id, reservasSala.recorrenciaId))
     .where(eq(reservasSala.id, reservaId));
   if (!r) return { criados: 0, estornados: 0 };
   const data = partesLocais(r.reserva.periodo.inicio, r.timezone).data;
   const acordo = acordoVigente(await carregarAcordos(tx, r.reserva.profissionalId), data);
   const minutos = Math.round((r.reserva.periodo.fim.getTime() - r.reserva.periodo.inicio.getTime()) / 60_000);
-  const desejados = r.reserva.status === "concluida" ? lancamentosDaReserva(acordo, minutos) : [];
+  let desejados: LancamentoDesejado[] = [];
+  if (r.reserva.status === "concluida") desejados = lancamentosDaReserva(acordo, minutos);
+  if (r.reserva.status === "cancelada" && acordo && r.reserva.canceladaEm) {
+    const limite = r.reserva.periodo.inicio.getTime() - acordo.prazoCancelamentoHoras * 3_600_000;
+    desejados = lancamentosDaReservaCancelada(acordo, {
+      minutos,
+      tardia: r.reserva.canceladaEm.getTime() > limite,
+      canceladaPor: r.reserva.canceladaPor,
+      daGradeDoContrato: r.acordoDaGrade === acordo.id,
+    });
+  }
   return reconciliarOrigem(tx, { profissionalId: r.reserva.profissionalId, origem: `reserva:${reservaId}`, dataReferencia: data, desejados });
 }
 
@@ -290,13 +343,14 @@ function janelaAmpla(competencia: DataLocal) {
   return sql`tstzrange(${instanteLocal(somarDias(competencia, -1), "00:00", "UTC").toISOString()}::timestamptz, ${instanteLocal(somarDias(proximaCompetencia(competencia), 1), "00:00", "UTC").toISOString()}::timestamptz)`;
 }
 
-/** Minutos de reservas concluídas do profissional na competência (base da mensalidade). */
-async function minutosConcluidos(tx: Transaction, profissionalId: string, competencia: DataLocal): Promise<number> {
+/** Minutos de reservas concluídas na competência; à parte, os que não são da grade do contrato. */
+async function usoDoMes(tx: Transaction, profissionalId: string, competencia: DataLocal, acordoId: string | null) {
   const linhas = await tx
-    .select({ periodo: reservasSala.periodo, timezone: unidades.timezone })
+    .select({ periodo: reservasSala.periodo, timezone: unidades.timezone, acordoDaGrade: regrasRecorrencia.acordoId })
     .from(reservasSala)
     .innerJoin(salas, eq(salas.id, reservasSala.salaId))
     .innerJoin(unidades, eq(unidades.id, salas.unidadeId))
+    .leftJoin(regrasRecorrencia, eq(regrasRecorrencia.id, reservasSala.recorrenciaId))
     .where(
       and(
         eq(reservasSala.profissionalId, profissionalId),
@@ -304,9 +358,12 @@ async function minutosConcluidos(tx: Transaction, profissionalId: string, compet
         sql`${reservasSala.periodo} && ${janelaAmpla(competencia)}`,
       ),
     );
-  return linhas
-    .filter((l) => competenciaDe(partesLocais(l.periodo.inicio, l.timezone).data) === competencia)
-    .reduce((acc, l) => acc + Math.round((l.periodo.fim.getTime() - l.periodo.inicio.getTime()) / 60_000), 0);
+  const doMes = linhas.filter((l) => competenciaDe(partesLocais(l.periodo.inicio, l.timezone).data) === competencia);
+  const minutos = (l: (typeof doMes)[number]) => Math.round((l.periodo.fim.getTime() - l.periodo.inicio.getTime()) / 60_000);
+  return {
+    total: doMes.reduce((acc, l) => acc + minutos(l), 0),
+    foraDaGrade: doMes.filter((l) => !acordoId || l.acordoDaGrade !== acordoId).reduce((acc, l) => acc + minutos(l), 0),
+  };
 }
 
 /** Mensalidade + excedente da competência (pelo acordo vigente no 1º dia, ou o primeiro do mês). */
@@ -317,7 +374,7 @@ async function gerarMensalidade(tx: Transaction, profissionalId: string, compete
     acordoVigente(acordos, competencia) ??
     acordos.find((x) => x.vigenteDe > competencia && x.vigenteDe <= fim) ??
     null;
-  const desejados = lancamentosDaMensalidade(acordo, await minutosConcluidos(tx, profissionalId, competencia));
+  const desejados = lancamentosDaMensalidade(acordo, await usoDoMes(tx, profissionalId, competencia, acordo?.id ?? null));
   return reconciliarOrigem(tx, {
     profissionalId,
     origem: `competencia:${profissionalId}:${competencia.slice(0, 7)}`,

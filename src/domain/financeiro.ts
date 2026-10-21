@@ -3,8 +3,11 @@
 import { aplicarBp, formatarMoeda, formatarPercentual } from "./dinheiro";
 import { somarDias, type DataLocal } from "./tempo";
 
-export const MODELOS = ["hora", "consulta", "percentual", "mensalidade", "sala_fixa"] as const;
-export type ModeloCobranca = (typeof MODELOS)[number];
+export const MODELOS = ["hora", "consulta", "percentual", "mensalidade"] as const;
+// "sala_fixa" só existe no enum do banco (legado, convertido em mensalidade sem limite na 0029).
+export type ModeloCobranca = (typeof MODELOS)[number] | "sala_fixa";
+/** Quem cancelou a consulta/reserva (o tardio pelo espaço não cobra o profissional). */
+export type QuemCancelou = "paciente" | "profissional" | "espaco";
 export type FluxoRecebimento = "centralizado" | "direto";
 export type RegraFalta = "isenta" | "integral" | "percentual";
 export type Natureza = "debito" | "credito";
@@ -13,6 +16,7 @@ export type TipoLancamento =
   | "locacao_consulta"
   | "locacao_percentual"
   | "falta"
+  | "multa_cancelamento"
   | "mensalidade"
   | "excedente_horas"
   | "recebimento_paciente"
@@ -24,8 +28,8 @@ export const ROTULOS_MODELO: Record<ModeloCobranca, string> = {
   hora: "Por hora reservada",
   consulta: "Valor fixo por consulta",
   percentual: "Percentual do atendimento",
-  mensalidade: "Mensalidade (pacote de horas)",
-  sala_fixa: "Sala Fixa (Locação Mensal)",
+  mensalidade: "Mensalidade (pacote de horas ou turno fixo)",
+  sala_fixa: "Mensalidade (turno fixo)",
 };
 
 export const ROTULOS_TIPO: Record<TipoLancamento, string> = {
@@ -33,6 +37,7 @@ export const ROTULOS_TIPO: Record<TipoLancamento, string> = {
   locacao_consulta: "Locação por consulta",
   locacao_percentual: "Locação percentual",
   falta: "Falta / cancelamento tardio",
+  multa_cancelamento: "Cancelamento tardio de turno fixo",
   mensalidade: "Mensalidade",
   excedente_horas: "Horas excedentes",
   recebimento_paciente: "Recebido do paciente (repasse)",
@@ -54,6 +59,8 @@ export type Acordo = {
   horasIncluidas: number | null;
   regraFalta: RegraFalta;
   faltaPercentualBp: number | null;
+  prazoCancelamentoHoras?: number;
+  multaCancelamentoReservaBp?: number | null;
   vigenteDe: DataLocal;
   vigenteAte: DataLocal | null;
 };
@@ -105,7 +112,14 @@ export type FatoAgendamento = {
   status: "agendado" | "confirmado" | "presente" | "realizado" | "falta" | "cancelado";
   cancelamentoTardio: boolean;
   valorCentavos: number | null;
+  /** null: cancelamento anterior ao registro do autor (cobra como antes). */
+  canceladoPor?: QuemCancelou | null;
 };
+
+/** Mensalidade sem limite de horas: turno fixo ou sala dedicada (antiga "sala fixa"). */
+export function turnoFixo(acordo: Pick<Acordo, "modelo" | "horasIncluidas">): boolean {
+  return (acordo.modelo === "mensalidade" && acordo.horasIncluidas === null) || acordo.modelo === "sala_fixa";
+}
 
 /**
  * Agendamento:
@@ -126,7 +140,8 @@ export function lancamentosDoAgendamento(acordo: Acordo | null, fato: FatoAgenda
     if (acordo.modelo === "percentual" && acordo.percentualBp && valor !== null) {
       return { valor: aplicarBp(valor, acordo.percentualBp), tipo: "percentual" };
     }
-    if (acordo.modelo === "sala_fixa") {
+    // Turno fixo pode cobrar também por atendimento (valor fixo ou percentual), se o contrato prevê.
+    if (turnoFixo(acordo)) {
       if (acordo.valorConsultaCentavos && acordo.valorConsultaCentavos > 0) {
         return { valor: acordo.valorConsultaCentavos, tipo: "consulta" };
       }
@@ -161,7 +176,9 @@ export function lancamentosDoAgendamento(acordo: Acordo | null, fato: FatoAgenda
     }
   }
 
-  const cobraFalta = fato.status === "falta" || (fato.status === "cancelado" && fato.cancelamentoTardio);
+  // Tardio cobra se quem cancelou foi o paciente ou o profissional; se foi o espaço, não.
+  const cobraFalta =
+    fato.status === "falta" || (fato.status === "cancelado" && fato.cancelamentoTardio && fato.canceladoPor !== "espaco");
   if (cobraFalta && acordo.regraFalta !== "isenta") {
     const info = base();
     const cheio = info?.valor ?? null;
@@ -172,45 +189,79 @@ export function lancamentosDoAgendamento(acordo: Acordo | null, fato: FatoAgenda
         tipo: "falta",
         natureza: "debito",
         valorCentavos: cobranca,
-        descricao: fato.status === "falta" ? "Falta do paciente" : "Cancelamento tardio do paciente",
+        descricao:
+          fato.status === "falta"
+            ? "Falta do paciente"
+            : fato.canceladoPor === "profissional"
+              ? "Cancelamento tardio pelo profissional"
+              : "Cancelamento tardio do paciente",
       });
     }
   }
   return desejados;
 }
 
-/** Mensalidade da competência + horas usadas além do pacote (ou locação de sala fixa). */
-export function lancamentosDaMensalidade(acordo: Acordo | null, minutosUsados: number): LancamentoDesejado[] {
+/** Minutos de reservas concluídas na competência; os da grade fixa do contrato à parte. */
+export type UsoDoMes = { total: number; foraDaGrade: number };
+
+/**
+ * Mensalidade da competência:
+ * - pacote de horas: mensalidade + horas além do pacote × valor da hora;
+ * - turno fixo (sem limite): mensalidade cobre a grade do contrato; reservas fora dela são
+ *   cobradas pela hora do contrato, se houver valor.
+ */
+export function lancamentosDaMensalidade(acordo: Acordo | null, uso: UsoDoMes | number): LancamentoDesejado[] {
   if (!acordo || !acordo.mensalidadeCentavos) return [];
-  if (acordo.modelo === "sala_fixa") {
-    return [
-      {
-        tipo: "mensalidade",
-        natureza: "debito",
-        valorCentavos: acordo.mensalidadeCentavos,
-        descricao: "Aluguel fixo mensal da sala",
-      },
-    ];
-  }
-  if (acordo.modelo !== "mensalidade") return [];
+  if (acordo.modelo !== "mensalidade" && acordo.modelo !== "sala_fixa") return [];
+  const { total, foraDaGrade } = typeof uso === "number" ? { total: uso, foraDaGrade: 0 } : uso;
+  const fixo = turnoFixo(acordo);
   const desejados: LancamentoDesejado[] = [
     {
       tipo: "mensalidade",
       natureza: "debito",
       valorCentavos: acordo.mensalidadeCentavos,
-      descricao: `Mensalidade (${acordo.horasIncluidas ?? 0}h incluídas)`,
+      descricao: fixo ? "Mensalidade (turno fixo)" : `Mensalidade (${acordo.horasIncluidas ?? 0}h incluídas)`,
     },
   ];
-  const excedente = minutosUsados - (acordo.horasIncluidas ?? 0) * 60;
+  const excedente = fixo ? foraDaGrade : total - (acordo.horasIncluidas ?? 0) * 60;
   if (excedente > 0 && acordo.valorHoraCentavos) {
     desejados.push({
       tipo: "excedente_horas",
       natureza: "debito",
       valorCentavos: Math.round((excedente * acordo.valorHoraCentavos) / 60),
-      descricao: `${horasTexto(excedente)} além do pacote × ${formatarMoeda(acordo.valorHoraCentavos)}/h`,
+      descricao: `${horasTexto(excedente)} ${fixo ? "fora do turno fixo" : "além do pacote"} × ${formatarMoeda(acordo.valorHoraCentavos)}/h`,
     });
   }
   return desejados;
+}
+
+export type FatoReservaCancelada = {
+  minutos: number;
+  /** Cancelada dentro do prazo do contrato (prazoCancelamentoHoras). */
+  tardia: boolean;
+  canceladaPor: "profissional" | "espaco" | null;
+  /** A reserva é uma data da grade fixa deste contrato. */
+  daGradeDoContrato: boolean;
+};
+
+/**
+ * Turno fixo por hora: o profissional que cancela tarde uma data da grade paga o percentual
+ * do contrato sobre as horas daquela data. Avulsa, fora do prazo ou cancelada pelo espaço: nada.
+ */
+export function lancamentosDaReservaCancelada(acordo: Acordo | null, fato: FatoReservaCancelada): LancamentoDesejado[] {
+  if (!acordo || acordo.modelo !== "hora" || !acordo.valorHoraCentavos || !acordo.multaCancelamentoReservaBp) return [];
+  if (!fato.daGradeDoContrato || !fato.tardia || fato.canceladaPor !== "profissional") return [];
+  const cheio = Math.round((fato.minutos * acordo.valorHoraCentavos) / 60);
+  const valor = aplicarBp(cheio, acordo.multaCancelamentoReservaBp);
+  if (valor <= 0) return [];
+  return [
+    {
+      tipo: "multa_cancelamento",
+      natureza: "debito",
+      valorCentavos: valor,
+      descricao: `Cancelamento tardio do turno fixo: ${formatarPercentual(acordo.multaCancelamentoReservaBp)} de ${horasTexto(fato.minutos)}`,
+    },
+  ];
 }
 
 /** Saldo do profissional: positivo = deve ao espaço; negativo = tem a receber. */
