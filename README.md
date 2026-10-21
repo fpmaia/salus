@@ -119,3 +119,5 @@ Usuários do seed: `admin|recepcao|profissional@alfa.salus.dev` e `...@beta.salu
 | Pós-MVP | Prontuário eletrônico (sigilo por profissional, cifrado, imutável com adendo) | ✅ |
 
 Detalhes e decisões de cada fase: [docs/plano-desenvolvimento.md](docs/plano-desenvolvimento.md).
+
+Revisão de produto, maturidade para produção e plano de evolução (out/2026): [docs/revisao-produto-2026-10.md](docs/revisao-produto-2026-10.md).
