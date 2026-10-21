@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { datasDaRecorrencia, limiteDaJanela } from "./recorrencia";
-import { ErroReserva, slotAberto, slotsDaGrade, validarJanela, type ConfigUnidade } from "./reservas";
+import { calcularHorariosVagos, ErroReserva, segmentarReserva, slotAberto, slotsDaGrade, validarJanela, type ConfigUnidade } from "./reservas";
 
 // Segunda a sexta 08–12 e 14–18; sábado 08–12; domingo fechado.
 const config: ConfigUnidade = {
@@ -97,3 +97,172 @@ describe("recorrência", () => {
     expect(limiteDaJanela("2026-10-16")).toBe("2026-12-11");
   });
 });
+
+describe("calcularHorariosVagos", () => {
+  it("retorna todo o período da reserva quando não há agendamentos", () => {
+    const vagos = calcularHorariosVagos(
+      { horaInicio: "08:00", horaFim: "12:00" },
+      [],
+    );
+    expect(vagos).toEqual([
+      { inicio: "08:00", fim: "12:00", duracaoMinutos: 240 },
+    ]);
+  });
+
+  it("calcula intervalos livres antes, entre e após agendamentos", () => {
+    const vagos = calcularHorariosVagos(
+      { horaInicio: "08:00", horaFim: "12:00" },
+      [
+        { horaInicio: "09:00", horaFim: "10:00" },
+        { horaInicio: "10:30", horaFim: "11:30" },
+      ],
+    );
+    expect(vagos).toEqual([
+      { inicio: "08:00", fim: "09:00", duracaoMinutos: 60 },
+      { inicio: "10:00", fim: "10:30", duracaoMinutos: 30 },
+      { inicio: "11:30", fim: "12:00", duracaoMinutos: 30 },
+    ]);
+  });
+
+  it("retorna lista vazia quando toda a reserva está ocupada", () => {
+    const vagos = calcularHorariosVagos(
+      { horaInicio: "08:00", horaFim: "12:00" },
+      [{ horaInicio: "08:00", horaFim: "12:00" }],
+    );
+    expect(vagos).toEqual([]);
+  });
+
+  it("funde agendamentos sobrepostos ou contíguos", () => {
+    const vagos = calcularHorariosVagos(
+      { horaInicio: "08:00", horaFim: "12:00" },
+      [
+        { horaInicio: "08:30", horaFim: "09:30" },
+        { horaInicio: "09:00", horaFim: "10:00" },
+      ],
+    );
+    expect(vagos).toEqual([
+      { inicio: "08:00", fim: "08:30", duracaoMinutos: 30 },
+      { inicio: "10:00", fim: "12:00", duracaoMinutos: 120 },
+    ]);
+  });
+});
+
+describe("segmentarReserva", () => {
+  it("devolve 1 segmento vago quando reserva não possui agendamentos", () => {
+    const segmentos = segmentarReserva({
+      id: "res-1",
+      horaInicio: "08:00",
+      horaFim: "10:00",
+      atendimentos: [],
+    });
+    expect(segmentos).toHaveLength(1);
+    expect(segmentos[0].tipo).toBe("vago");
+    expect(segmentos[0].horaInicio).toBe("08:00");
+    expect(segmentos[0].horaFim).toBe("10:00");
+  });
+
+  it("segmenta corretamente reserva de 08:00 às 10:00 com agendamento das 08:00 às 09:00", () => {
+    const segmentos = segmentarReserva({
+      id: "res-2",
+      horaInicio: "08:00",
+      horaFim: "10:00",
+      atendimentos: [
+        {
+          id: "ag-1",
+          pacienteNome: "Carlos Silva",
+          horaInicio: "08:00",
+          horaFim: "09:00",
+          status: "confirmado",
+        },
+      ],
+    });
+
+    expect(segmentos).toHaveLength(2);
+
+    // Bloco 1: Ocupado com o paciente das 08:00 às 09:00
+    expect(segmentos[0].tipo).toBe("ocupado");
+    expect(segmentos[0].horaInicio).toBe("08:00");
+    expect(segmentos[0].horaFim).toBe("09:00");
+    expect(segmentos[0].pacienteNome).toBe("Carlos Silva");
+    expect(segmentos[0].statusAtendimento).toBe("confirmado");
+
+    // Bloco 2: Vago/disponível das 09:00 às 10:00
+    expect(segmentos[1].tipo).toBe("vago");
+    expect(segmentos[1].horaInicio).toBe("09:00");
+    expect(segmentos[1].horaFim).toBe("10:00");
+    expect(segmentos[1].pacienteNome).toBeUndefined();
+  });
+
+  it("segmenta agendamento no meio do período da reserva", () => {
+    const segmentos = segmentarReserva({
+      id: "res-3",
+      horaInicio: "08:00",
+      horaFim: "12:00",
+      atendimentos: [
+        {
+          id: "ag-2",
+          pacienteNome: "Ana Paula",
+          horaInicio: "09:00",
+          horaFim: "10:00",
+          status: "agendado",
+        },
+      ],
+    });
+
+    expect(segmentos).toHaveLength(3);
+    expect(segmentos[0]).toMatchObject({ tipo: "vago", horaInicio: "08:00", horaFim: "09:00" });
+    expect(segmentos[1]).toMatchObject({ tipo: "ocupado", horaInicio: "09:00", horaFim: "10:00", pacienteNome: "Ana Paula" });
+    expect(segmentos[2]).toMatchObject({ tipo: "vago", horaInicio: "10:00", horaFim: "12:00" });
+  });
+
+  it("segmenta múltiplos agendamentos com horários vagos intercalados", () => {
+    const segmentos = segmentarReserva({
+      id: "res-4",
+      horaInicio: "08:00",
+      horaFim: "12:00",
+      atendimentos: [
+        {
+          id: "ag-3",
+          pacienteNome: "Paciente 1",
+          horaInicio: "08:00",
+          horaFim: "09:00",
+          status: "atendido",
+        },
+        {
+          id: "ag-4",
+          pacienteNome: "Paciente 2",
+          horaInicio: "10:00",
+          horaFim: "11:30",
+          status: "confirmado",
+        },
+      ],
+    });
+
+    expect(segmentos).toHaveLength(4);
+    expect(segmentos[0]).toMatchObject({ tipo: "ocupado", horaInicio: "08:00", horaFim: "09:00", pacienteNome: "Paciente 1" });
+    expect(segmentos[1]).toMatchObject({ tipo: "vago", horaInicio: "09:00", horaFim: "10:00" });
+    expect(segmentos[2]).toMatchObject({ tipo: "ocupado", horaInicio: "10:00", horaFim: "11:30", pacienteNome: "Paciente 2" });
+    expect(segmentos[3]).toMatchObject({ tipo: "vago", horaInicio: "11:30", horaFim: "12:00" });
+  });
+
+  it("devolve 1 segmento ocupado quando o agendamento cobre toda a reserva", () => {
+    const segmentos = segmentarReserva({
+      id: "res-5",
+      horaInicio: "08:00",
+      horaFim: "09:00",
+      atendimentos: [
+        {
+          id: "ag-5",
+          pacienteNome: "Paciente Total",
+          horaInicio: "08:00",
+          horaFim: "09:00",
+          status: "confirmado",
+        },
+      ],
+    });
+
+    expect(segmentos).toHaveLength(1);
+    expect(segmentos[0]).toMatchObject({ tipo: "ocupado", horaInicio: "08:00", horaFim: "09:00", pacienteNome: "Paciente Total" });
+  });
+});
+

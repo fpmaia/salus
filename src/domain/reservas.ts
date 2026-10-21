@@ -112,3 +112,160 @@ export function slotAberto(config: ConfigUnidade, data: DataLocal, hora: HoraLoc
   const m = minutosDoDia(hora);
   return intervalosDoDia(config, data).some((i) => i.abre <= m && m + config.slotMinutos <= i.fecha);
 }
+
+export type HorarioVago = {
+  inicio: HoraLocal;
+  fim: HoraLocal;
+  duracaoMinutos: number;
+};
+
+/**
+ * Calcula intervalos vagos (livres) dentro de uma reserva a partir dos intervalos ocupados
+ * por agendamentos já marcados.
+ */
+export function calcularHorariosVagos(
+  reserva: { horaInicio: HoraLocal; horaFim: HoraLocal },
+  ocupados: Array<{ horaInicio: HoraLocal; horaFim: HoraLocal }>,
+): HorarioVago[] {
+  const inicioReserva = minutosDoDia(reserva.horaInicio);
+  const fimReserva = minutosDoDia(reserva.horaFim);
+  if (fimReserva <= inicioReserva) return [];
+
+  const intervalosOcupados = ocupados
+    .map((o) => ({
+      inicio: Math.max(inicioReserva, minutosDoDia(o.horaInicio)),
+      fim: Math.min(fimReserva, minutosDoDia(o.horaFim)),
+    }))
+    .filter((o) => o.fim > o.inicio)
+    .sort((a, b) => a.inicio - b.inicio);
+
+  const unidos: Array<{ inicio: number; fim: number }> = [];
+  for (const intervalo of intervalosOcupados) {
+    const anterior = unidos[unidos.length - 1];
+    if (anterior && intervalo.inicio <= anterior.fim) {
+      anterior.fim = Math.max(anterior.fim, intervalo.fim);
+    } else {
+      unidos.push({ inicio: intervalo.inicio, fim: intervalo.fim });
+    }
+  }
+
+  const vagos: HorarioVago[] = [];
+  let ponteiro = inicioReserva;
+
+  for (const ocupado of unidos) {
+    if (ocupado.inicio > ponteiro) {
+      vagos.push({
+        inicio: horaDeMinutos(ponteiro),
+        fim: horaDeMinutos(ocupado.inicio),
+        duracaoMinutos: ocupado.inicio - ponteiro,
+      });
+    }
+    ponteiro = Math.max(ponteiro, ocupado.fim);
+  }
+
+  if (ponteiro < fimReserva) {
+    vagos.push({
+      inicio: horaDeMinutos(ponteiro),
+      fim: horaDeMinutos(fimReserva),
+      duracaoMinutos: fimReserva - ponteiro,
+    });
+  }
+
+  return vagos;
+}
+
+export type SegmentoReserva = {
+  chave: string;
+  tipo: "ocupado" | "vago";
+  horaInicio: HoraLocal;
+  horaFim: HoraLocal;
+  pacienteNome?: string;
+  statusAtendimento?: string;
+  atendimentoId?: string;
+};
+
+/**
+ * Segmenta uma reserva em blocos de horários ocupados (com pacientes) e vagos (sem paciente),
+ * permitindo que a agenda reflita com fidelidade os horários já agendados e os ainda disponíveis.
+ */
+export function segmentarReserva(
+  reserva: {
+    id: string;
+    horaInicio: HoraLocal;
+    horaFim: HoraLocal;
+    pacientes?: number;
+    pacientesNomes?: string[];
+    atendimentos?: Array<{
+      id: string;
+      pacienteNome: string;
+      horaInicio: HoraLocal;
+      horaFim: HoraLocal;
+      status: string;
+    }>;
+  },
+): SegmentoReserva[] {
+  const inicioReserva = minutosDoDia(reserva.horaInicio);
+  const fimReserva = minutosDoDia(reserva.horaFim);
+  if (fimReserva <= inicioReserva) return [];
+
+  if (!reserva.atendimentos || reserva.atendimentos.length === 0) {
+    return [
+      {
+        chave: `${reserva.id}-vago-${reserva.horaInicio}-${reserva.horaFim}`,
+        tipo: (reserva.pacientes ?? 0) > 0 ? "ocupado" : "vago",
+        horaInicio: reserva.horaInicio,
+        horaFim: reserva.horaFim,
+        pacienteNome: reserva.pacientesNomes?.[0],
+      },
+    ];
+  }
+
+  const atendsValidos = reserva.atendimentos
+    .map((at) => ({
+      at,
+      iniMin: Math.max(inicioReserva, minutosDoDia(at.horaInicio)),
+      fimMin: Math.min(fimReserva, minutosDoDia(at.horaFim)),
+    }))
+    .filter((item) => item.fimMin > item.iniMin)
+    .sort((a, b) => a.iniMin - b.iniMin);
+
+  const segmentos: SegmentoReserva[] = [];
+  let ponteiro = inicioReserva;
+
+  for (const item of atendsValidos) {
+    if (item.iniMin > ponteiro) {
+      segmentos.push({
+        chave: `${reserva.id}-vago-${ponteiro}-${item.iniMin}`,
+        tipo: "vago",
+        horaInicio: horaDeMinutos(ponteiro),
+        horaFim: horaDeMinutos(item.iniMin),
+      });
+      ponteiro = item.iniMin;
+    }
+
+    if (item.fimMin > ponteiro) {
+      segmentos.push({
+        chave: `${reserva.id}-ocupado-${item.iniMin}-${item.fimMin}-${item.at.id}`,
+        tipo: "ocupado",
+        horaInicio: horaDeMinutos(item.iniMin),
+        horaFim: horaDeMinutos(item.fimMin),
+        pacienteNome: item.at.pacienteNome,
+        statusAtendimento: item.at.status,
+        atendimentoId: item.at.id,
+      });
+      ponteiro = item.fimMin;
+    }
+  }
+
+  if (ponteiro < fimReserva) {
+    segmentos.push({
+      chave: `${reserva.id}-vago-${ponteiro}-${fimReserva}`,
+      tipo: "vago",
+      horaInicio: horaDeMinutos(ponteiro),
+      horaFim: horaDeMinutos(fimReserva),
+    });
+  }
+
+  return segmentos;
+}
+

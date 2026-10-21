@@ -28,11 +28,10 @@ type Opcoes = { agora?: Date; gateway?: GatewayCobranca; database?: Database };
 // ---------------------------------------------------------------------------
 
 async function usoAtual(tx: Transaction): Promise<Record<RecursoLimitado, number>> {
-  const [[u], [s], [p]] = await Promise.all([
-    tx.select({ total: count() }).from(unidades).where(eq(unidades.ativo, true)),
-    tx.select({ total: count() }).from(salas).where(eq(salas.ativo, true)),
-    tx.select({ total: count() }).from(profissionais).where(eq(profissionais.ativo, true)),
-  ]);
+  // Em sequência: uma transação usa um único client do pg (Promise.all aqui enfileira e o pg@9 recusa).
+  const [u] = await tx.select({ total: count() }).from(unidades).where(eq(unidades.ativo, true));
+  const [s] = await tx.select({ total: count() }).from(salas).where(eq(salas.ativo, true));
+  const [p] = await tx.select({ total: count() }).from(profissionais).where(eq(profissionais.ativo, true));
   return { unidades: u.total, salas: s.total, profissionais: p.total };
 }
 
@@ -62,11 +61,9 @@ export async function obterAssinatura(ctx: ContextoTenant, database?: Database) 
     ctx,
     async (tx) => {
       const plano = await planoDoTenant(tx);
-      const [uso, planos, faturas] = await Promise.all([
-        usoAtual(tx),
-        tx.select().from(planosSaas).where(eq(planosSaas.ativo, true)).orderBy(asc(planosSaas.precoMensalCentavos)),
-        tx.select().from(faturasSaas).orderBy(desc(faturasSaas.competencia)).limit(12),
-      ]);
+      const uso = await usoAtual(tx);
+      const planos = await tx.select().from(planosSaas).where(eq(planosSaas.ativo, true)).orderBy(asc(planosSaas.precoMensalCentavos));
+      const faturas = await tx.select().from(faturasSaas).orderBy(desc(faturasSaas.competencia)).limit(12);
       return { plano, uso, planos, faturas, emAtraso: faturas.some((f) => f.status === "vencida") };
     },
     database,

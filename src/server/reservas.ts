@@ -1,13 +1,13 @@
-import { and, asc, eq, gte, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { registrarAuditoria } from "../db/audit";
 import type { Database, Transaction } from "../db/client";
 import { erroPostgres, PG } from "../db/erros";
-import { agendamentos, profissionais, regrasRecorrencia, reservasSala, salas, unidades } from "../db/schema";
+import { agendamentos, acordosFinanceiros, contratosLocacao, pacientes, profissionais, regrasRecorrencia, reservasSala, salas, unidades } from "../db/schema";
 import { type ContextoTenant, withTenant } from "../db/tenant";
 import { exigirPermissao, pode } from "../domain/rbac";
 import { datasDaRecorrencia, limiteDaJanela } from "../domain/recorrencia";
-import { ErroReserva, validarJanela, type ConfigUnidade, type JanelaLocal } from "../domain/reservas";
+import { calcularHorariosVagos, ErroReserva, validarJanela, type ConfigUnidade, type HorarioVago, type JanelaLocal } from "../domain/reservas";
 import {
   dataValida,
   diaSemana,
@@ -219,7 +219,32 @@ async function inserirOcorrencia(
     );
     return inseridas.length > 0 ? "criada" : "ignorada";
   } catch (erro) {
-    if (erroPostgres(erro)?.code === PG.violacaoExclusao) return "conflito";
+    if (erroPostgres(erro)?.code === PG.violacaoExclusao) {
+      // Se já existe uma reserva ativa na MESMA sala para o MESMO profissional no mesmo intervalo,
+      // atualizamos a reserva vinculando-a à regra do contrato em vez de considerar conflito.
+      const existentes = await tx
+        .select({ id: reservasSala.id })
+        .from(reservasSala)
+        .where(
+          and(
+            eq(reservasSala.salaId, regra.salaId),
+            eq(reservasSala.profissionalId, regra.profissionalId),
+            eq(reservasSala.status, "ativa"),
+            sql`${reservasSala.periodo} && ${sqlRange(periodo.inicio, periodo.fim)}`,
+          ),
+        )
+        .limit(1);
+
+      if (existentes.length > 0) {
+        await tx
+          .update(reservasSala)
+          .set({ recorrenciaId: regra.id, dataOcorrencia: data })
+          .where(eq(reservasSala.id, existentes[0].id));
+        return "criada";
+      }
+
+      return "conflito";
+    }
     throw erro;
   }
 }
@@ -380,7 +405,13 @@ export async function encerrarRecorrencia(
 export async function materializarRecorrencias(
   tx: Transaction,
   agora = new Date(),
-): Promise<{ criadas: number; conflitos: number }> {
+  opcoes?: { contratoId?: string },
+): Promise<{ criadas: number; conflitos: number; datasConflito?: string[] }> {
+  const condicoes = [isNull(regrasRecorrencia.encerradaEm)];
+  if (opcoes?.contratoId) {
+    condicoes.push(eq(regrasRecorrencia.contratoId, opcoes.contratoId));
+  }
+
   const regras = await tx
     .select({
       regra: regrasRecorrencia,
@@ -391,11 +422,13 @@ export async function materializarRecorrencias(
     .from(regrasRecorrencia)
     .innerJoin(salas, eq(salas.id, regrasRecorrencia.salaId))
     .innerJoin(profissionais, eq(profissionais.id, regrasRecorrencia.profissionalId))
-    .where(isNull(regrasRecorrencia.encerradaEm));
+    .where(and(...condicoes));
 
   const configs = new Map<string, ConfigUnidade | null>();
   let criadas = 0;
   let conflitos = 0;
+  const datasConflito: string[] = [];
+
   for (const { regra, salaAtiva, unidadeId, profissionalAtivo } of regras) {
     if (!salaAtiva || !profissionalAtivo) continue;
     if (!configs.has(unidadeId)) configs.set(unidadeId, await carregarConfigUnidade(tx, unidadeId));
@@ -421,6 +454,7 @@ export async function materializarRecorrencias(
       if (resultado === "criada") criadas++;
       if (resultado === "conflito") {
         conflitos++;
+        datasConflito.push(`${data} ${regra.horaInicio}-${regra.horaFim}`);
         await registrarAuditoria(tx, {
           acao: "recorrencia.conflito",
           entidade: "regras_recorrencia",
@@ -431,7 +465,7 @@ export async function materializarRecorrencias(
     }
     await tx.update(regrasRecorrencia).set({ materializadaAte: limite }).where(eq(regrasRecorrencia.id, regra.id));
   }
-  return { criadas, conflitos };
+  return opcoes?.contratoId ? { criadas, conflitos, datasConflito } : { criadas, conflitos };
 }
 
 /** Marca como concluídas as reservas ativas que já terminaram e gera a locação por hora. */
@@ -449,6 +483,14 @@ export async function concluirReservasPassadas(tx: Transaction, agora = new Date
 // Leitura da agenda
 // ---------------------------------------------------------------------------
 
+export type AtendimentoNaReserva = {
+  id: string;
+  pacienteNome: string;
+  horaInicio: string;
+  horaFim: string;
+  status: string;
+};
+
 export type ReservaNaAgenda = {
   id: string;
   salaId: string;
@@ -460,8 +502,13 @@ export type ReservaNaAgenda = {
   profissionalNome: string | null;
   propria: boolean;
   recorrenciaId: string | null;
+  ehSalaFixa: boolean;
+  contratoCodigo: string | null;
+  contratoId: string | null;
   /** Pacientes com agendamento ativo/realizado na reserva (só para quem vê a reserva). */
   pacientes: number;
+  pacientesNomes: string[];
+  atendimentos: AtendimentoNaReserva[];
 };
 
 /** Reservas não canceladas das salas no período; para profissionais, as de terceiros vêm anônimas. */
@@ -484,6 +531,27 @@ async function reservasNoPeriodo(
       profissionalId: reservasSala.profissionalId,
       profissionalNome: profissionais.nome,
       recorrenciaId: reservasSala.recorrenciaId,
+      ehSalaFixa: sql<boolean>`exists (
+        select 1 from ${acordosFinanceiros}
+        where ${acordosFinanceiros.profissionalId} = ${reservasSala.profissionalId}
+          and ${acordosFinanceiros.salaId} = ${reservasSala.salaId}
+          and ${acordosFinanceiros.modelo} = 'sala_fixa'
+      ) or exists (
+        select 1 from ${regrasRecorrencia}
+        where ${regrasRecorrencia.id} = ${reservasSala.recorrenciaId}
+          and ${regrasRecorrencia.contratoId} is not null
+      )`,
+      contratoCodigo: sql<string | null>`(
+        select ${contratosLocacao.codigo} from ${regrasRecorrencia}
+        inner join ${contratosLocacao} on ${contratosLocacao.id} = ${regrasRecorrencia.contratoId}
+        where ${regrasRecorrencia.id} = ${reservasSala.recorrenciaId}
+        limit 1
+      )`,
+      contratoId: sql<string | null>`(
+        select ${regrasRecorrencia.contratoId} from ${regrasRecorrencia}
+        where ${regrasRecorrencia.id} = ${reservasSala.recorrenciaId}
+        limit 1
+      )`,
       pacientes: sql<number>`(select count(*)::int from ${agendamentos}
         where ${agendamentos.reservaId} = ${reservasSala.id} and ${agendamentos.status} <> 'cancelado')`,
     })
@@ -499,10 +567,58 @@ async function reservasNoPeriodo(
     .orderBy(asc(reservasSala.periodo));
 
   const veTudo = pode(ctx.role, "reservas.gerenciar");
+
+  const resIds = linhas.map((r) => r.id);
+  const atendimentos = resIds.length > 0
+    ? await tx
+        .select({
+          id: agendamentos.id,
+          reservaId: agendamentos.reservaId,
+          pacienteNome: pacientes.nome,
+          periodo: agendamentos.periodo,
+          status: agendamentos.status,
+        })
+        .from(agendamentos)
+        .innerJoin(pacientes, eq(pacientes.id, agendamentos.pacienteId))
+        .where(
+          and(
+            inArray(agendamentos.reservaId, resIds),
+            ne(agendamentos.status, "cancelado"),
+          ),
+        )
+        .orderBy(asc(agendamentos.periodo))
+    : [];
+
+  const atendimentosPorReserva = new Map<string, AtendimentoNaReserva[]>();
+  const pacientesPorReserva = new Map<string, string[]>();
+  for (const a of atendimentos) {
+    const aIni = partesLocais(a.periodo.inicio, timezone);
+    const aFim = partesLocais(a.periodo.fim, timezone);
+    const horaIni = aIni.hora;
+    const horaFim = aFim.data === aIni.data ? aFim.hora : "24:00";
+
+    const atList = atendimentosPorReserva.get(a.reservaId) ?? [];
+    atList.push({
+      id: a.id,
+      pacienteNome: a.pacienteNome,
+      horaInicio: horaIni,
+      horaFim,
+      status: a.status,
+    });
+    atendimentosPorReserva.set(a.reservaId, atList);
+
+    const lista = pacientesPorReserva.get(a.reservaId) ?? [];
+    if (!lista.includes(a.pacienteNome)) lista.push(a.pacienteNome);
+    pacientesPorReserva.set(a.reservaId, lista);
+  }
+
   return linhas.map((r) => {
     const ini = partesLocais(r.periodo.inicio, timezone);
     const fimLocal = partesLocais(r.periodo.fim, timezone);
     const propria = proprio?.id === r.profissionalId;
+    const podeVerDetalhes = veTudo || propria;
+    const nomes = podeVerDetalhes ? (pacientesPorReserva.get(r.id) ?? []) : [];
+    const ats = podeVerDetalhes ? (atendimentosPorReserva.get(r.id) ?? []) : [];
     return {
       id: r.id,
       salaId: r.salaId,
@@ -510,10 +626,15 @@ async function reservasNoPeriodo(
       horaInicio: ini.hora,
       horaFim: fimLocal.data === ini.data ? fimLocal.hora : "24:00",
       status: r.status,
-      profissionalNome: veTudo || propria ? r.profissionalNome : null,
+      profissionalNome: podeVerDetalhes ? r.profissionalNome : null,
       propria,
-      recorrenciaId: veTudo || propria ? r.recorrenciaId : null,
-      pacientes: veTudo || propria ? r.pacientes : 0,
+      recorrenciaId: podeVerDetalhes ? r.recorrenciaId : null,
+      ehSalaFixa: Boolean(r.ehSalaFixa),
+      contratoCodigo: podeVerDetalhes ? r.contratoCodigo : null,
+      contratoId: podeVerDetalhes ? r.contratoId : null,
+      pacientes: podeVerDetalhes ? r.pacientes : 0,
+      pacientesNomes: nomes,
+      atendimentos: ats,
     };
   });
 }
@@ -573,6 +694,59 @@ export async function obterReserva(ctx: ContextoTenant, reservaId: string, datab
       if (!pode(ctx.role, "reservas.gerenciar") && !propria) return null;
       const ini = partesLocais(linha.reserva.periodo.inicio, linha.timezone);
       const fim = partesLocais(linha.reserva.periodo.fim, linha.timezone);
+
+      const [acordoSalaFixa] = await tx
+        .select({ id: acordosFinanceiros.id })
+        .from(acordosFinanceiros)
+        .where(
+          and(
+            eq(acordosFinanceiros.profissionalId, linha.reserva.profissionalId),
+            eq(acordosFinanceiros.salaId, linha.reserva.salaId),
+            eq(acordosFinanceiros.modelo, "sala_fixa"),
+          ),
+        )
+        .limit(1);
+
+      const [vinculoContrato] = linha.reserva.recorrenciaId
+        ? await tx
+            .select({
+              contratoId: regrasRecorrencia.contratoId,
+              codigo: contratosLocacao.codigo,
+            })
+            .from(regrasRecorrencia)
+            .innerJoin(contratosLocacao, eq(contratosLocacao.id, regrasRecorrencia.contratoId))
+            .where(eq(regrasRecorrencia.id, linha.reserva.recorrenciaId))
+            .limit(1)
+        : [];
+
+      const agsAtivos = await tx
+        .select({
+          id: agendamentos.id,
+          periodo: agendamentos.periodo,
+        })
+        .from(agendamentos)
+        .where(
+          and(
+            eq(agendamentos.reservaId, reservaId),
+            inArray(agendamentos.status, ["agendado", "confirmado", "presente"]),
+          ),
+        )
+        .orderBy(asc(agendamentos.periodo));
+
+      const ocupados = agsAtivos.map((a) => {
+        const aIni = partesLocais(a.periodo.inicio, linha.timezone);
+        const aFim = partesLocais(a.periodo.fim, linha.timezone);
+        return {
+          horaInicio: aIni.hora,
+          horaFim: aFim.data === ini.data ? aFim.hora : "24:00",
+        };
+      });
+
+      const horariosVagos = calcularHorariosVagos(
+        { horaInicio: ini.hora, horaFim: fim.hora },
+        ocupados,
+      );
+
       return {
         id: linha.reserva.id,
         status: linha.reserva.status,
@@ -586,6 +760,10 @@ export async function obterReserva(ctx: ContextoTenant, reservaId: string, datab
         recorrenciaId: linha.reserva.recorrenciaId,
         dataOcorrencia: linha.reserva.dataOcorrencia,
         propria,
+        ehSalaFixa: Boolean(acordoSalaFixa || vinculoContrato),
+        contratoId: vinculoContrato?.contratoId ?? null,
+        contratoCodigo: vinculoContrato?.codigo ?? null,
+        horariosVagos,
       };
     },
     database,
@@ -649,4 +827,187 @@ export async function listarProfissionaisParaReserva(ctx: ContextoTenant, databa
 export function formatarDataBr(data: DataLocal): string {
   const [a, m, d] = data.split("-");
   return `${d}/${m}/${a}`;
+}
+
+export type SalaPanorama = {
+  id: string;
+  nome: string;
+  estado: "em_atendimento" | "reservada_vaga" | "livre";
+  reserva?: {
+    id: string;
+    profissionalNome: string;
+    horaInicio: string;
+    horaFim: string;
+    ehSalaFixa: boolean;
+  };
+  atendimentoAtual?: {
+    id: string;
+    pacienteNome: string;
+    status: "agendado" | "confirmado" | "presente";
+    horaInicio: string;
+    horaFim: string;
+  };
+};
+
+export type PanoramaUnidade = {
+  salas: SalaPanorama[];
+  resumoDia: {
+    totalConsultas: number;
+    pacientesAguardando: number;
+    consultasRealizadas: number;
+  };
+};
+
+export async function obterPanoramaSalas(
+  ctx: ContextoTenant,
+  unidadeId: string,
+  agora = new Date(),
+  database?: Database,
+): Promise<PanoramaUnidade | null> {
+  exigirPermissao(ctx.role, "agenda.ver");
+  return withTenant(
+    ctx,
+    async (tx) => {
+      const config = await carregarConfigUnidade(tx, unidadeId);
+      if (!config) return null;
+
+      const salasAtivas = await tx
+        .select({ id: salas.id, nome: salas.nome })
+        .from(salas)
+        .where(and(eq(salas.unidadeId, unidadeId), eq(salas.ativo, true)))
+        .orderBy(asc(salas.nome));
+
+      if (salasAtivas.length === 0) {
+        return {
+          salas: [],
+          resumoDia: { totalConsultas: 0, pacientesAguardando: 0, consultasRealizadas: 0 },
+        };
+      }
+
+      const salaIds = salasAtivas.map((s) => s.id);
+      const hoje = hojeNoFuso(config.timezone, agora);
+      const inicioDia = instanteLocal(hoje, "00:00", config.timezone);
+      const fimDia = instanteLocal(somarDias(hoje, 1), "00:00", config.timezone);
+
+      const reservasAgora = await tx
+        .select({
+          id: reservasSala.id,
+          salaId: reservasSala.salaId,
+          periodo: reservasSala.periodo,
+          profissionalId: reservasSala.profissionalId,
+          profissionalNome: profissionais.nome,
+          ehSalaFixa: sql<boolean>`exists (
+            select 1 from ${acordosFinanceiros}
+            where ${acordosFinanceiros.profissionalId} = ${reservasSala.profissionalId}
+              and ${acordosFinanceiros.salaId} = ${reservasSala.salaId}
+              and ${acordosFinanceiros.modelo} = 'sala_fixa'
+          ) or exists (
+            select 1 from ${regrasRecorrencia}
+            where ${regrasRecorrencia.id} = ${reservasSala.recorrenciaId}
+              and ${regrasRecorrencia.contratoId} is not null
+          )`,
+        })
+        .from(reservasSala)
+        .innerJoin(profissionais, eq(profissionais.id, reservasSala.profissionalId))
+        .where(
+          and(
+            inArray(reservasSala.salaId, salaIds),
+            eq(reservasSala.status, "ativa"),
+            sql`${reservasSala.periodo} @> ${agora.toISOString()}::timestamptz`,
+          ),
+        );
+
+      const resIds = reservasAgora.map((r) => r.id);
+      const agendamentosAgora = resIds.length > 0
+        ? await tx
+            .select({
+              id: agendamentos.id,
+              reservaId: agendamentos.reservaId,
+              periodo: agendamentos.periodo,
+              status: agendamentos.status,
+              pacienteNome: pacientes.nome,
+            })
+            .from(agendamentos)
+            .innerJoin(pacientes, eq(pacientes.id, agendamentos.pacienteId))
+            .where(
+              and(
+                inArray(agendamentos.reservaId, resIds),
+                inArray(agendamentos.status, ["agendado", "confirmado", "presente"]),
+                sql`${agendamentos.periodo} @> ${agora.toISOString()}::timestamptz`,
+              ),
+            )
+        : [];
+
+      const atendimentosHoje = await tx
+        .select({
+          status: agendamentos.status,
+        })
+        .from(agendamentos)
+        .innerJoin(reservasSala, eq(reservasSala.id, agendamentos.reservaId))
+        .where(
+          and(
+            inArray(reservasSala.salaId, salaIds),
+            sql`${agendamentos.periodo} && tstzrange(${inicioDia.toISOString()}::timestamptz, ${fimDia.toISOString()}::timestamptz)`,
+            ne(agendamentos.status, "cancelado"),
+          ),
+        );
+
+      const totalConsultas = atendimentosHoje.length;
+      const pacientesAguardando = atendimentosHoje.filter((a) => a.status === "presente").length;
+      const consultasRealizadas = atendimentosHoje.filter((a) => a.status === "realizado").length;
+
+      const salasMap: SalaPanorama[] = salasAtivas.map((s) => {
+        const res = reservasAgora.find((r) => r.salaId === s.id);
+        if (!res) {
+          return { id: s.id, nome: s.nome, estado: "livre" };
+        }
+        const ag = agendamentosAgora.find((a) => a.reservaId === res.id);
+        const iniRes = partesLocais(res.periodo.inicio, config.timezone);
+        const fimRes = partesLocais(res.periodo.fim, config.timezone);
+
+        if (ag) {
+          const iniAg = partesLocais(ag.periodo.inicio, config.timezone);
+          const fimAg = partesLocais(ag.periodo.fim, config.timezone);
+          return {
+            id: s.id,
+            nome: s.nome,
+            estado: "em_atendimento",
+            reserva: {
+              id: res.id,
+              profissionalNome: res.profissionalNome,
+              horaInicio: iniRes.hora,
+              horaFim: fimRes.hora,
+              ehSalaFixa: Boolean(res.ehSalaFixa),
+            },
+            atendimentoAtual: {
+              id: ag.id,
+              pacienteNome: ag.pacienteNome,
+              status: ag.status as "agendado" | "confirmado" | "presente",
+              horaInicio: iniAg.hora,
+              horaFim: fimAg.hora,
+            },
+          };
+        }
+
+        return {
+          id: s.id,
+          nome: s.nome,
+          estado: "reservada_vaga",
+          reserva: {
+            id: res.id,
+            profissionalNome: res.profissionalNome,
+            horaInicio: iniRes.hora,
+            horaFim: fimRes.hora,
+            ehSalaFixa: Boolean(res.ehSalaFixa),
+          },
+        };
+      });
+
+      return {
+        salas: salasMap,
+        resumoDia: { totalConsultas, pacientesAguardando, consultasRealizadas },
+      };
+    },
+    database,
+  );
 }

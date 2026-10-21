@@ -3,7 +3,7 @@
 import { aplicarBp, formatarMoeda, formatarPercentual } from "./dinheiro";
 import { somarDias, type DataLocal } from "./tempo";
 
-export const MODELOS = ["hora", "consulta", "percentual", "mensalidade"] as const;
+export const MODELOS = ["hora", "consulta", "percentual", "mensalidade", "sala_fixa"] as const;
 export type ModeloCobranca = (typeof MODELOS)[number];
 export type FluxoRecebimento = "centralizado" | "direto";
 export type RegraFalta = "isenta" | "integral" | "percentual";
@@ -25,6 +25,7 @@ export const ROTULOS_MODELO: Record<ModeloCobranca, string> = {
   consulta: "Valor fixo por consulta",
   percentual: "Percentual do atendimento",
   mensalidade: "Mensalidade (pacote de horas)",
+  sala_fixa: "Sala Fixa (Locação Mensal)",
 };
 
 export const ROTULOS_TIPO: Record<TipoLancamento, string> = {
@@ -42,6 +43,8 @@ export const ROTULOS_TIPO: Record<TipoLancamento, string> = {
 
 export type Acordo = {
   id: string;
+  profissionalId?: string;
+  salaId: string | null;
   modelo: ModeloCobranca;
   fluxoRecebimento: FluxoRecebimento;
   valorHoraCentavos: number | null;
@@ -116,22 +119,34 @@ export function lancamentosDoAgendamento(acordo: Acordo | null, fato: FatoAgenda
   const valor = fato.valorCentavos;
 
   // Base de cobrança por atendimento (null = modelo não cobra por atendimento ou falta o valor).
-  const base = (): number | null => {
-    if (acordo.modelo === "consulta") return acordo.valorConsultaCentavos;
-    if (acordo.modelo === "percentual" && acordo.percentualBp && valor !== null) return aplicarBp(valor, acordo.percentualBp);
+  const base = (): { valor: number; tipo: "consulta" | "percentual" } | null => {
+    if (acordo.modelo === "consulta" && acordo.valorConsultaCentavos) {
+      return { valor: acordo.valorConsultaCentavos, tipo: "consulta" };
+    }
+    if (acordo.modelo === "percentual" && acordo.percentualBp && valor !== null) {
+      return { valor: aplicarBp(valor, acordo.percentualBp), tipo: "percentual" };
+    }
+    if (acordo.modelo === "sala_fixa") {
+      if (acordo.valorConsultaCentavos && acordo.valorConsultaCentavos > 0) {
+        return { valor: acordo.valorConsultaCentavos, tipo: "consulta" };
+      }
+      if (acordo.percentualBp && valor !== null) {
+        return { valor: aplicarBp(valor, acordo.percentualBp), tipo: "percentual" };
+      }
+    }
     return null;
   };
 
   if (fato.status === "realizado") {
     const cobranca = base();
-    if (cobranca && cobranca > 0) {
+    if (cobranca && cobranca.valor > 0) {
       desejados.push(
-        acordo.modelo === "consulta"
-          ? { tipo: "locacao_consulta", natureza: "debito", valorCentavos: cobranca, descricao: "Locação por consulta" }
+        cobranca.tipo === "consulta"
+          ? { tipo: "locacao_consulta", natureza: "debito", valorCentavos: cobranca.valor, descricao: "Locação por consulta" }
           : {
               tipo: "locacao_percentual",
               natureza: "debito",
-              valorCentavos: cobranca,
+              valorCentavos: cobranca.valor,
               descricao: `${formatarPercentual(acordo.percentualBp!)} de ${formatarMoeda(valor!)}`,
             },
       );
@@ -148,7 +163,8 @@ export function lancamentosDoAgendamento(acordo: Acordo | null, fato: FatoAgenda
 
   const cobraFalta = fato.status === "falta" || (fato.status === "cancelado" && fato.cancelamentoTardio);
   if (cobraFalta && acordo.regraFalta !== "isenta") {
-    const cheio = base();
+    const info = base();
+    const cheio = info?.valor ?? null;
     const cobranca =
       cheio === null ? null : acordo.regraFalta === "integral" ? cheio : aplicarBp(cheio, acordo.faltaPercentualBp ?? 0);
     if (cobranca && cobranca > 0) {
@@ -163,9 +179,20 @@ export function lancamentosDoAgendamento(acordo: Acordo | null, fato: FatoAgenda
   return desejados;
 }
 
-/** Mensalidade da competência + horas usadas além do pacote. */
+/** Mensalidade da competência + horas usadas além do pacote (ou locação de sala fixa). */
 export function lancamentosDaMensalidade(acordo: Acordo | null, minutosUsados: number): LancamentoDesejado[] {
-  if (!acordo || acordo.modelo !== "mensalidade" || !acordo.mensalidadeCentavos) return [];
+  if (!acordo || !acordo.mensalidadeCentavos) return [];
+  if (acordo.modelo === "sala_fixa") {
+    return [
+      {
+        tipo: "mensalidade",
+        natureza: "debito",
+        valorCentavos: acordo.mensalidadeCentavos,
+        descricao: "Aluguel fixo mensal da sala",
+      },
+    ];
+  }
+  if (acordo.modelo !== "mensalidade") return [];
   const desejados: LancamentoDesejado[] = [
     {
       tipo: "mensalidade",

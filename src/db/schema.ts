@@ -85,6 +85,10 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   emailVerified: boolean("email_verified").notNull().default(false),
   image: text("image"),
+  role: text("role").default("user"),
+  banned: boolean("banned").default(false),
+  banReason: text("ban_reason"),
+  banExpires: timestamp("ban_expires", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
@@ -105,6 +109,7 @@ export const sessions = pgTable(
       .$onUpdate(() => new Date()),
     ipAddress: text("ip_address"),
     userAgent: text("user_agent"),
+    impersonatedBy: text("impersonated_by"),
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
@@ -225,6 +230,21 @@ export const auditLog = pgTable(
   (t) => [index("audit_log_tenant_criado_em_idx").on(t.tenantId, t.criadoEm)],
 );
 
+// Auditoria da plataforma (ações globais de superadmin)
+export const auditPlataforma = pgTable(
+  "audit_plataforma",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    acao: text("acao").notNull(),
+    alvoTipo: text("alvo_tipo").notNull(),
+    alvoId: text("alvo_id"),
+    dados: jsonb("dados").$type<Record<string, unknown>>(),
+    criadoEm: criadoEm(),
+  },
+  (t) => [index("audit_plataforma_criado_em_idx").on(t.criadoEm)],
+);
+
 // ---------------------------------------------------------------------------
 // Fase 1: espaço, profissionais e reservas de sala (RLS)
 // ---------------------------------------------------------------------------
@@ -298,6 +318,10 @@ export const salas = pgTable(
     nome: text("nome").notNull(),
     descricao: text("descricao"),
     ativo: boolean("ativo").notNull().default(true),
+    valorMensalCentavos: integer("valor_mensal_centavos"),
+    cobrancaConsultaTipo: text("cobranca_consulta_tipo").notNull().default("nenhuma"),
+    cobrancaConsultaValorCentavos: integer("cobranca_consulta_valor_centavos"),
+    cobrancaConsultaPercentualBp: integer("cobranca_consulta_percentual_bp"),
     criadoEm: criadoEm(),
     atualizadoEm: atualizadoEm(),
   },
@@ -382,12 +406,74 @@ export const convitesProfissional = pgTable(
   ],
 );
 
+// Convites genéricos para qualquer papel da equipe (admin, recepcao, profissional)
+export const convitesMembro = pgTable(
+  "convites_membro",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: tenantIdDoContexto(),
+    email: text("email").notNull(),
+    role: membershipRole("role").notNull(),
+    profissionalId: uuid("profissional_id").references(() => profissionais.id, { onDelete: "set null" }),
+    tokenHash: text("token_hash").notNull().unique(),
+    expiraEm: timestamp("expira_em", { withTimezone: true }).notNull(),
+    aceitoEm: timestamp("aceito_em", { withTimezone: true }),
+    aceitoPor: uuid("aceito_por").references(() => users.id, { onDelete: "set null" }),
+    revogadoEm: timestamp("revogado_em", { withTimezone: true }),
+    criadoEm: criadoEm(),
+  },
+  (t) => [
+    index("convites_membro_tenant_email_idx").on(t.tenantId, t.email),
+    uniqueIndex("convites_membro_token_hash_idx").on(t.tokenHash),
+  ],
+);
+
+// Contratos de aluguel fixo de consultório/sala e termos customizáveis
+export const contratosLocacao = pgTable(
+  "contratos_locacao",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: tenantIdDoContexto(),
+    codigo: text("codigo").notNull(),
+    profissionalId: uuid("profissional_id").notNull(),
+    salaId: uuid("sala_id").notNull(),
+    status: text("status").notNull().default("ativo"),
+    dataInicio: date("data_inicio", { mode: "string" }).notNull(),
+    dataFim: date("data_fim", { mode: "string" }),
+    valorMensalCentavos: integer("valor_mensal_centavos").notNull(),
+    diaVencimento: smallint("dia_vencimento").notNull().default(10),
+    cobrancaConsultaTipo: text("cobranca_consulta_tipo").notNull().default("nenhuma"),
+    cobrancaConsultaValorCentavos: integer("cobranca_consulta_valor_centavos"),
+    cobrancaConsultaPercentualBp: integer("cobranca_consulta_percentual_bp"),
+    gradeHorarios: jsonb("grade_horarios")
+      .$type<Array<{ diaSemana: number; horaInicio: string; horaFim: string }>>()
+      .notNull()
+      .default([]),
+    termosContrato: text("termos_contrato").notNull(),
+    observacoes: text("observacoes"),
+    criadoPor: uuid("criado_por").default(sql`app_current_user_id()`).references(() => users.id, { onDelete: "set null" }),
+    criadoEm: criadoEm(),
+    atualizadoEm: atualizadoEm(),
+    encerradoEm: timestamp("encerrado_em", { withTimezone: true }),
+  },
+  (t) => [
+    unique("contratos_locacao_tenant_id_id_key").on(t.tenantId, t.id),
+    unique("contratos_locacao_tenant_codigo_key").on(t.tenantId, t.codigo),
+    foreignKey({ columns: [t.tenantId, t.salaId], foreignColumns: [salas.tenantId, salas.id] }),
+    foreignKey({ columns: [t.tenantId, t.profissionalId], foreignColumns: [profissionais.tenantId, profissionais.id] }),
+    check("contratos_locacao_status_check", sql`${t.status} in ('ativo', 'encerrado', 'rascunho')`),
+    check("contratos_locacao_dia_vencimento_check", sql`${t.diaVencimento} between 1 and 31`),
+    check("contratos_locacao_valor_check", sql`${t.valorMensalCentavos} >= 0`),
+  ],
+);
+
 // Recorrência semanal; o worker materializa as reservas numa janela à frente.
 export const regrasRecorrencia = pgTable(
   "regras_recorrencia",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     tenantId: tenantIdDoContexto(),
+    contratoId: uuid("contrato_id"),
     salaId: uuid("sala_id").notNull(),
     profissionalId: uuid("profissional_id").notNull(),
     diaSemana: smallint("dia_semana").notNull(),
@@ -405,6 +491,7 @@ export const regrasRecorrencia = pgTable(
     unique("regras_recorrencia_tenant_id_id_key").on(t.tenantId, t.id),
     foreignKey({ columns: [t.tenantId, t.salaId], foreignColumns: [salas.tenantId, salas.id] }),
     foreignKey({ columns: [t.tenantId, t.profissionalId], foreignColumns: [profissionais.tenantId, profissionais.id] }),
+    foreignKey({ columns: [t.tenantId, t.contratoId], foreignColumns: [contratosLocacao.tenantId, contratosLocacao.id] }),
     check("regras_recorrencia_dia_check", sql`${t.diaSemana} between 0 and 6`),
     check("regras_recorrencia_intervalo_check", sql`${t.horaFim} > ${t.horaInicio}`),
   ],
@@ -546,7 +633,7 @@ export const agendamentos = pgTable(
 // Fase 3: financeiro (RLS)
 // ---------------------------------------------------------------------------
 
-export const modeloCobranca = pgEnum("modelo_cobranca", ["hora", "consulta", "percentual", "mensalidade"]);
+export const modeloCobranca = pgEnum("modelo_cobranca", ["hora", "consulta", "percentual", "mensalidade", "sala_fixa"]);
 export const fluxoRecebimento = pgEnum("fluxo_recebimento", ["centralizado", "direto"]);
 export const regraFalta = pgEnum("regra_falta", ["isenta", "integral", "percentual"]);
 export const naturezaLancamento = pgEnum("natureza_lancamento", ["debito", "credito"]);
@@ -574,6 +661,7 @@ export const acordosFinanceiros = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     tenantId: tenantIdDoContexto(),
     profissionalId: uuid("profissional_id").notNull(),
+    salaId: uuid("sala_id"),
     modelo: modeloCobranca("modelo").notNull(),
     fluxoRecebimento: fluxoRecebimento("fluxo_recebimento").notNull().default("direto"),
     valorHoraCentavos: integer("valor_hora_centavos"),
@@ -592,6 +680,7 @@ export const acordosFinanceiros = pgTable(
   },
   (t) => [
     foreignKey({ columns: [t.tenantId, t.profissionalId], foreignColumns: [profissionais.tenantId, profissionais.id] }),
+    foreignKey({ columns: [t.tenantId, t.salaId], foreignColumns: [salas.tenantId, salas.id] }).onDelete("set null"),
     index("acordos_financeiros_profissional_idx").on(t.profissionalId, t.vigenteDe),
     check("acordos_vigencia_check", sql`${t.vigenteAte} is null or ${t.vigenteAte} >= ${t.vigenteDe}`),
     check(
@@ -602,6 +691,7 @@ export const acordosFinanceiros = pgTable(
         when 'consulta' then ${t.valorConsultaCentavos} > 0
         when 'percentual' then ${t.percentualBp} between 1 and 10000
         when 'mensalidade' then ${t.mensalidadeCentavos} > 0 and ${t.horasIncluidas} >= 0 and ${t.valorHoraCentavos} >= 0
+        when 'sala_fixa' then ${t.mensalidadeCentavos} > 0 and ${t.salaId} is not null
       end, false)`,
     ),
     check(

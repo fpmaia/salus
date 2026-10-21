@@ -82,14 +82,28 @@ export async function removerFeriadoAcao(feriadoId: string) {
   });
 }
 
+import { lerMoeda, lerPercentualBp } from "@/src/domain/dinheiro";
+
+function dadosSala(formData: FormData) {
+  const mensal = texto(formData, "valorMensal");
+  const tipoConsulta = texto(formData, "cobrancaConsultaTipo") || "nenhuma";
+  const valorConsulta = texto(formData, "cobrancaConsultaValor");
+  const pctConsulta = texto(formData, "cobrancaConsultaPercentual");
+  return {
+    nome: texto(formData, "nome"),
+    descricao: texto(formData, "descricao"),
+    recursos: recursosDe(formData),
+    valorMensalCentavos: mensal ? lerMoeda(mensal) : null,
+    cobrancaConsultaTipo: (tipoConsulta as "nenhuma" | "fixo" | "percentual") || "nenhuma",
+    cobrancaConsultaValorCentavos: tipoConsulta === "fixo" && valorConsulta ? lerMoeda(valorConsulta) : null,
+    cobrancaConsultaPercentualBp: tipoConsulta === "percentual" && pctConsulta ? lerPercentualBp(pctConsulta) : null,
+  };
+}
+
 export async function criarSalaAcao(unidadeId: string, _estado: EstadoAcao, formData: FormData) {
   return executarAcao(async () => {
     const ctx = await obterContextoTenant();
-    await criarSala(ctx, unidadeId, {
-      nome: texto(formData, "nome"),
-      descricao: texto(formData, "descricao"),
-      recursos: recursosDe(formData),
-    });
+    await criarSala(ctx, unidadeId, dadosSala(formData));
     return "Sala criada";
   });
 }
@@ -98,9 +112,7 @@ export async function atualizarSalaAcao(salaId: string, _estado: EstadoAcao, for
   return executarAcao(async () => {
     const ctx = await obterContextoTenant();
     await atualizarSala(ctx, salaId, {
-      nome: texto(formData, "nome"),
-      descricao: texto(formData, "descricao"),
-      recursos: recursosDe(formData),
+      ...dadosSala(formData),
       ativo: formData.get("ativo") === "on",
     });
     return "Sala atualizada";

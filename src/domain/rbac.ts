@@ -9,7 +9,7 @@ export const PERMISSOES = {
   "membros.gerenciar": ["admin"],
   "auditoria.ver": ["admin"],
   "salas.gerenciar": ["admin"],
-  "profissionais.gerenciar": ["admin"],
+  "profissionais.gerenciar": ["admin", "recepcao"],
   "acordos.gerenciar": ["admin"],
   "financeiro.ver": ["admin", "recepcao"],
   "financeiro.fechar": ["admin"],
@@ -33,6 +33,8 @@ export const PERMISSOES = {
   "prontuario.solicitacao": ["admin"],
   "prontuario.menu": ["admin", "profissional"],
   "extrato.proprio": ["profissional"],
+  "contratos.gerenciar": ["admin", "recepcao"],
+  "contratos.ver": ["admin", "recepcao", "profissional"],
 } as const satisfies Record<string, readonly Role[]>;
 
 export type Permissao = keyof typeof PERMISSOES;

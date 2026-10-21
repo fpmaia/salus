@@ -134,6 +134,41 @@
       "when": 1792203001761,
       "tag": "0018_rls_prontuario",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1792300000000,
+      "tag": "0019_enum_sala_fixa",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1792300001000,
+      "tag": "0020_sala_fixa_e_contratos",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1792400000000,
+      "tag": "0021_contratos_locacao",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1792400001000,
+      "tag": "0022_corrige_contratos_tenant",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1792500000000,
+      "tag": "0023_convites_membro_e_admin",
+      "breakpoints": true
     }
   ]
 }

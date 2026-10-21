@@ -16,6 +16,7 @@ import {
 
 const base: Acordo = {
   id: "a",
+  salaId: null,
   modelo: "consulta",
   fluxoRecebimento: "direto",
   valorHoraCentavos: null,
@@ -33,6 +34,9 @@ const hora: Acordo = { ...base, modelo: "hora", valorHoraCentavos: 4000 };
 const consulta: Acordo = { ...base, modelo: "consulta", valorConsultaCentavos: 3000 };
 const percentual: Acordo = { ...base, modelo: "percentual", percentualBp: 3000 };
 const mensalidade: Acordo = { ...base, modelo: "mensalidade", mensalidadeCentavos: 80000, horasIncluidas: 20, valorHoraCentavos: 3500 };
+const salaFixaPura: Acordo = { ...base, modelo: "sala_fixa", salaId: "s1", mensalidadeCentavos: 150000 };
+const salaFixaComConsulta: Acordo = { ...base, modelo: "sala_fixa", salaId: "s1", mensalidadeCentavos: 150000, valorConsultaCentavos: 2500 };
+const salaFixaComPercentual: Acordo = { ...base, modelo: "sala_fixa", salaId: "s1", mensalidadeCentavos: 150000, percentualBp: 1500 };
 
 const realizado = (valor: number | null = null): FatoAgendamento => ({ status: "realizado", cancelamentoTardio: false, valorCentavos: valor });
 const falta = (valor: number | null = null): FatoAgendamento => ({ status: "falta", cancelamentoTardio: false, valorCentavos: valor });
@@ -92,6 +96,13 @@ describe("agendamento: modelo × fato × fluxo", () => {
     ["hora centralizado", centralizado(hora), realizado(20000), ["recebimento_paciente:credito:20000"]],
     ["hora falta integral", faltaIntegral(hora), falta(20000), []],
     ["mensalidade centralizado", centralizado(mensalidade), realizado(15000), ["recebimento_paciente:credito:15000"]],
+    // sala fixa pura (não cobra consulta)
+    ["sala fixa pura realizado", salaFixaPura, realizado(20000), []],
+    ["sala fixa pura centralizado", centralizado(salaFixaPura), realizado(20000), ["recebimento_paciente:credito:20000"]],
+    // sala fixa com consulta fixa
+    ["sala fixa com consulta", salaFixaComConsulta, realizado(20000), ["locacao_consulta:debito:2500"]],
+    // sala fixa com percentual por consulta
+    ["sala fixa com percentual", salaFixaComPercentual, realizado(20000), ["locacao_percentual:debito:3000"]],
     // ativos não geram nada
     ["agendado", faltaIntegral(consulta), { status: "agendado", cancelamentoTardio: false, valorCentavos: 100 }, []],
     ["sem acordo", null, realizado(20000), []],
@@ -107,6 +118,10 @@ describe("mensalidade", () => {
     [22.5 * 60, ["mensalidade:debito:80000", "excedente_horas:debito:8750"]],
   ])("%i min usados", (minutos, esperado) => {
     expect(resumo(lancamentosDaMensalidade(mensalidade, minutos))).toEqual(esperado);
+  });
+
+  it("sala fixa gera mensalidade fixa sem excedente de horas", () => {
+    expect(resumo(lancamentosDaMensalidade(salaFixaPura, 6000))).toEqual(["mensalidade:debito:150000"]);
   });
 
   it("outros modelos não geram mensalidade", () => {

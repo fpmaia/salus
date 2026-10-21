@@ -48,6 +48,7 @@ const bp = z.number().int().min(1).max(10_000).nullable().default(null);
 export const acordoSchema = z
   .object({
     profissionalId: z.uuid(),
+    salaId: z.uuid().nullable().optional().default(null),
     modelo: z.enum(MODELOS),
     fluxoRecebimento: z.enum(["centralizado", "direto"]).default("direto"),
     valorHoraCentavos: centavos,
@@ -58,6 +59,7 @@ export const acordoSchema = z
     regraFalta: z.enum(["isenta", "integral", "percentual"]).default("isenta"),
     faltaPercentualBp: bp,
     vigenteDe: z.string().refine(dataValida, "Data de início inválida"),
+    vigenteAte: z.string().refine(dataValida, "Data de término inválida").nullable().optional().default(null),
   })
   .superRefine((a, ctx) => {
     const exigir = (ok: boolean, mensagem: string) => ok || ctx.addIssue({ code: "custom", message: mensagem });
@@ -68,16 +70,27 @@ export const acordoSchema = z
       exigir(Boolean(a.mensalidadeCentavos), "Informe o valor da mensalidade");
       exigir(a.horasIncluidas !== null, "Informe as horas incluídas no pacote");
     }
+    if (a.modelo === "sala_fixa") {
+      exigir(Boolean(a.mensalidadeCentavos), "Informe o valor da mensalidade fixa da sala");
+      exigir(Boolean(a.salaId), "Selecione a sala contratada de forma fixa");
+    }
     if (a.regraFalta === "percentual") exigir(Boolean(a.faltaPercentualBp), "Informe o percentual cobrado na falta");
   });
 
 /** Só os campos relevantes ao modelo são gravados (o resto fica nulo). */
 function camposDoModelo(a: z.output<typeof acordoSchema>) {
   return {
+    salaId: a.modelo === "sala_fixa" ? a.salaId : null,
     valorHoraCentavos: a.modelo === "hora" || a.modelo === "mensalidade" ? (a.valorHoraCentavos ?? 0) : null,
-    valorConsultaCentavos: a.modelo === "consulta" ? a.valorConsultaCentavos : null,
-    percentualBp: a.modelo === "percentual" ? a.percentualBp : null,
-    mensalidadeCentavos: a.modelo === "mensalidade" ? a.mensalidadeCentavos : null,
+    valorConsultaCentavos:
+      a.modelo === "consulta" || (a.modelo === "sala_fixa" && Boolean(a.valorConsultaCentavos))
+        ? a.valorConsultaCentavos
+        : null,
+    percentualBp:
+      a.modelo === "percentual" || (a.modelo === "sala_fixa" && Boolean(a.percentualBp))
+        ? a.percentualBp
+        : null,
+    mensalidadeCentavos: a.modelo === "mensalidade" || a.modelo === "sala_fixa" ? a.mensalidadeCentavos : null,
     horasIncluidas: a.modelo === "mensalidade" ? a.horasIncluidas : null,
     faltaPercentualBp: a.regraFalta === "percentual" ? a.faltaPercentualBp : null,
   };
