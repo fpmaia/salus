@@ -608,6 +608,11 @@ export const pacientes = pgTable(
     cpf: text("cpf"),
     dataNascimento: date("data_nascimento", { mode: "string" }),
     telefone: text("telefone"),
+    // Telefone em E.164 (+55…), calculado pelo banco com a mesma regra de normalizarTelefoneBr:
+    // a busca do agendamento online usa o índice em vez de carregar todos os pacientes (C15).
+    telefoneNormalizado: text("telefone_normalizado").generatedAlwaysAs(
+      sql`case when (case when length(regexp_replace(regexp_replace(coalesce(telefone, ''), '\\D', '', 'g'), '^00', '')) in (12, 13) and regexp_replace(regexp_replace(coalesce(telefone, ''), '\\D', '', 'g'), '^00', '') like '55%' then substr(regexp_replace(regexp_replace(coalesce(telefone, ''), '\\D', '', 'g'), '^00', ''), 3) else regexp_replace(regexp_replace(coalesce(telefone, ''), '\\D', '', 'g'), '^00', '') end) ~ '^[1-9][0-9]{9,10}$' then '+55' || (case when length(regexp_replace(regexp_replace(coalesce(telefone, ''), '\\D', '', 'g'), '^00', '')) in (12, 13) and regexp_replace(regexp_replace(coalesce(telefone, ''), '\\D', '', 'g'), '^00', '') like '55%' then substr(regexp_replace(regexp_replace(coalesce(telefone, ''), '\\D', '', 'g'), '^00', ''), 3) else regexp_replace(regexp_replace(coalesce(telefone, ''), '\\D', '', 'g'), '^00', '') end) end`,
+    ),
     email: text("email"),
     // Responsável legal (obrigatório para menores de 18): é quem paga e aparece no recibo.
     responsavelNome: text("responsavel_nome"),
@@ -636,6 +641,7 @@ export const pacientes = pgTable(
     unique("pacientes_tenant_id_id_key").on(t.tenantId, t.id),
     uniqueIndex("pacientes_tenant_cpf_key").on(t.tenantId, t.cpf),
     index("pacientes_tenant_nome_idx").on(t.tenantId, t.nome),
+    index("pacientes_tenant_telefone_idx").on(t.tenantId, t.telefoneNormalizado),
   ],
 );
 

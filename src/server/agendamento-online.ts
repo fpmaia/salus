@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { and, asc, eq, gt, inArray, isNotNull, ne, sql } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 import { registrarAuditoria } from "../db/audit";
 import { getDb, type Database, type Transaction } from "../db/client";
@@ -249,8 +249,14 @@ async function encontrarPaciente(tx: Transaction, cpf: string | null, telefone: 
     const [porCpf] = await tx.select().from(pacientes).where(eq(pacientes.cpf, cpf));
     if (porCpf) return porCpf;
   }
-  const comTelefone = await tx.select().from(pacientes).where(and(isNotNull(pacientes.telefone), eq(pacientes.ativo, true)));
-  return comTelefone.find((p) => normalizarTelefoneBr(p.telefone) === telefone) ?? null;
+  // Pela coluna normalizada (com índice), sem carregar todos os pacientes (C15).
+  const [porTelefone] = await tx
+    .select()
+    .from(pacientes)
+    .where(and(eq(pacientes.telefoneNormalizado, telefone), eq(pacientes.ativo, true)))
+    .orderBy(asc(pacientes.criadoEm))
+    .limit(1);
+  return porTelefone ?? null;
 }
 
 /**
