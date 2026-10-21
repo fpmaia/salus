@@ -6,6 +6,7 @@ import { criarTenantComAdmin } from "../../server/onboarding";
 import { listarMembershipsDoUsuario } from "../../server/memberships";
 import { createDb } from "../client";
 import { criarAcordo } from "../../server/financeiro";
+import { registrarAceite } from "../../server/aceites";
 import { criarPaciente } from "../../server/pacientes";
 import { criarSala, criarUnidade, definirHorarios } from "../../server/unidades";
 import { acordosFinanceiros, memberships, pacientes, profissionais, unidades, users } from "../schema";
@@ -54,6 +55,7 @@ async function main() {
     const { user } = await auth.api.signUpEmail({ body: { name: nome, email, password: SENHA_DEV } });
     // Contas de dev já nascem confirmadas (o login exige e-mail verificado).
     await db.update(users).set({ emailVerified: true }).where(eq(users.id, user.id));
+    await registrarAceite(user.id, "script", {}, db);
     return user.id;
   }
 

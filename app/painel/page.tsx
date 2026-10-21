@@ -233,7 +233,7 @@ export default async function PainelPage() {
               100%
             </span>
             <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
-              Garantido via GIST
+              Garantido pelo sistema
             </span>
           </div>
         </div>

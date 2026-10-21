@@ -1,11 +1,17 @@
 import type { BetterAuthOptions } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { APIError, createAuthMiddleware } from "better-auth/api";
 import { admin, captcha } from "better-auth/plugins";
 import type { Database } from "../db/client";
 import * as schema from "../db/schema";
-import { cabecalhosDeIp } from "../seguranca/ip";
+import { VERSAO_DOCUMENTOS } from "../legal/documentos";
+import { cabecalhosDeIp, ipDoCliente } from "../seguranca/ip";
+import { registrarAceite } from "../server/aceites";
 import { emailDoAmbiente, type MensagemEmail } from "../server/email";
 import { emailRedefinirSenha, emailVerificacao } from "../server/email-modelos";
+
+/** Versão dos Termos/Política aceita na tela de cadastro (src/legal/documentos.ts). */
+const CABECALHO_ACEITE = "x-aceite-documentos";
 
 /** Falha de envio vai para o log sem o conteúdo (o link carrega o token). */
 async function enviarSemVazar(mensagem: MensagemEmail) {
@@ -32,6 +38,31 @@ export function opcoesAuth(database: Database) {
       revokeSessionsOnPasswordReset: true,
       sendResetPassword: async ({ user, url }) => {
         await enviarSemVazar(emailRedefinirSenha(user.email, user.name, url));
+      },
+    },
+    // Cadastro pela tela exige o aceite da versão vigente dos Termos e da Política (LGPD);
+    // chamadas internas (seed, scripts) não passam por aqui e registram o aceite por conta própria.
+    hooks: {
+      before: createAuthMiddleware(async (ctx) => {
+        if (ctx.path === "/sign-up/email" && ctx.request && ctx.request.headers.get(CABECALHO_ACEITE) !== VERSAO_DOCUMENTOS) {
+          throw new APIError("BAD_REQUEST", { message: "Aceite os Termos de Uso e a Política de Privacidade para criar a conta" });
+        }
+      }),
+    },
+    databaseHooks: {
+      user: {
+        create: {
+          after: async (user, ctx) => {
+            if (ctx?.request && ctx.request.headers.get(CABECALHO_ACEITE) === VERSAO_DOCUMENTOS) {
+              await registrarAceite(
+                user.id,
+                "cadastro",
+                { ip: ipDoCliente(ctx.request.headers), userAgent: ctx.request.headers.get("user-agent") },
+                database,
+              );
+            }
+          },
+        },
       },
     },
     emailVerification: {

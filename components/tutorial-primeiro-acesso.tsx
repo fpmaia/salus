@@ -38,7 +38,7 @@ const PASSOS: PassoTutorial[] = [
     destaques: [
       "Multi-unidades e salas equipadas (maca, divã, consultório)",
       "Acesso seguro por papéis: Administrador, Recepção e Profissional",
-      "Segurança jurídica e total conformidade com a LGPD",
+      "Consentimento, auditoria e direitos do titular (LGPD) no próprio sistema",
     ],
     dica: "Este guia rápido dura menos de 1 minuto e vai te mostrar como extrair o máximo do sistema.",
   },

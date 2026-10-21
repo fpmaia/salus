@@ -76,6 +76,9 @@ jobs:
           BACKUP_DESTINO=x
           BACKUP_S3_ACCESS_KEY=x
           BACKUP_S3_SECRET_KEY=x
+          SALUS_EMPRESA_NOME=x
+          SALUS_EMPRESA_CNPJ=x
+          SALUS_ENCARREGADO_EMAIL=x
           FIM
           docker compose -f docker-compose.prod.yml --env-file /tmp/producao.env config --quiet
 

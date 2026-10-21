@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { SalusLogo } from "@/components/brand/salus-logo";
 import { LSCodeBadge } from "@/components/brand/ls-code";
+import { RodapeLegal } from "@/components/rodape-legal";
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -24,9 +25,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         {/* Assinatura LS Code */}
         <div className="mt-2 flex flex-col items-center gap-2">
           <LSCodeBadge variant="compact" />
-          <p className="text-[11px] text-muted-foreground">
-            Protegido com criptografia e isolamento por tenant.
-          </p>
+          <RodapeLegal />
         </div>
       </div>
     </main>

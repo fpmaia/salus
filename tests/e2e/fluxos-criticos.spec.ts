@@ -73,6 +73,7 @@ test("cadastro pede a confirmação do e-mail e não entra sem ela", async ({ pa
   await page.locator("#nome").fill("Dono Novo");
   await page.locator("#email").fill(email);
   await page.locator("#senha").fill("senha-forte-123");
+  await page.getByRole("checkbox", { name: /Li e aceito os Termos de Uso/ }).check();
   await page.getByRole("button", { name: "Prosseguir com o Cadastro" }).click();
   await expect(page.getByText("Confirme seu e-mail")).toBeVisible();
   await expect(page.getByText(email)).toBeVisible();
@@ -109,4 +110,13 @@ test("health check responde com o banco no ar e sem cache", async ({ request }) 
   expect(resposta.status()).toBe(200);
   expect(resposta.headers()["cache-control"]).toBe("no-store");
   expect(await resposta.json()).toMatchObject({ status: "ok", banco: true });
+});
+
+test("documentos legais públicos, com versão e contato do encarregado", async ({ page }) => {
+  await page.goto("/privacidade");
+  await expect(page.getByRole("heading", { name: "Política de Privacidade" })).toBeVisible();
+  await expect(page.getByText(/Versão de \d{2}\/\d{2}\/\d{4}/)).toBeVisible();
+  await expect(page.getByRole("heading", { name: "8. Encarregado (DPO)" })).toBeVisible();
+  await page.getByRole("link", { name: "Termos de Uso" }).first().click();
+  await expect(page.getByRole("heading", { name: "Termos de Uso" })).toBeVisible();
 });

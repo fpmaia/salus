@@ -17,6 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { SalusLogo } from "@/components/brand/salus-logo";
 import { LSCodeBadge } from "@/components/brand/ls-code";
+import { RodapeLegal } from "@/components/rodape-legal";
 
 export default function Home() {
   return (
@@ -100,7 +101,7 @@ export default function Home() {
               </div>
               <div className="flex items-center gap-1.5">
                 <CheckCircle2 className="size-4 text-emerald-500" />
-                <span>Conformidade total com a LGPD</span>
+                <span>Pensado para a LGPD</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <CheckCircle2 className="size-4 text-emerald-500" />
@@ -124,7 +125,7 @@ export default function Home() {
                 </div>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>Ambiente Seguro • Row Level Security Ativo</span>
+                  <span>Dados isolados por espaço</span>
                 </div>
               </div>
 
@@ -181,8 +182,8 @@ export default function Home() {
                     Funcionamento: Seg–Sex, 07h às 21h
                   </p>
                   <div className="mt-3 flex items-center justify-between border-t border-border/40 pt-2 text-xs">
-                    <span className="text-muted-foreground">Bloqueio de sobreposição:</span>
-                    <span className="font-mono text-emerald-600 dark:text-emerald-400 font-semibold">Ativo (GIST)</span>
+                    <span className="text-muted-foreground">Conflito de horário:</span>
+                    <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Bloqueado</span>
                   </div>
                 </div>
               </div>
@@ -238,7 +239,7 @@ export default function Home() {
                   Prontuário & LGPD
                 </h3>
                 <p className="mt-2 text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                  Histórico clínico imutável, suporte a anexos de exames criptografados e controle rígido de consentimento para mensagens.
+                  Registros finalizados não mudam (correção por adendo), anexos cifrados, acesso só do profissional autor e consentimento registrado para lembretes.
                 </p>
               </div>
 
@@ -313,10 +314,14 @@ export default function Home() {
               </div>
               <div>
                 <h3 className="font-heading text-xl font-bold text-foreground">
-                  Arquitetura Segura & Conformidade LGPD
+                  Segurança e privacidade
                 </h3>
                 <p className="mt-1 text-sm text-muted-foreground leading-relaxed">
-                  Isolamento rígido com Row Level Security (RLS) no PostgreSQL: cada tenant possui seus dados estritamente segregados. Trilha de auditoria imutável para ações críticas e proteção de dados de saúde.
+                  Os dados de cada espaço ficam isolados, o prontuário é cifrado e só o profissional autor o lê, e cada acesso fica registrado. O paciente pode pedir acesso aos dados ou a anonimização, e você atende pelo próprio sistema. Detalhes na{" "}
+                  <Link href="/privacidade" className="text-primary underline-offset-4 hover:underline">
+                    Política de Privacidade
+                  </Link>
+                  .
                 </p>
               </div>
             </div>
@@ -351,6 +356,8 @@ export default function Home() {
               © {new Date().getFullYear()} Salus Gestão em Saúde. Todos os direitos reservados.
             </p>
           </div>
+
+          <RodapeLegal />
 
           {/* Destaque LS Code */}
           <LSCodeBadge variant="footer" />

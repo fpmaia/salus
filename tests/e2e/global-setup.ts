@@ -10,6 +10,7 @@ import { memberships, profissionais, users } from "../../src/db/schema";
 import { type ContextoTenant, withTenant } from "../../src/db/tenant";
 import { hojeNoFuso, somarDias } from "../../src/domain/tempo";
 import { definirProvedorEmail, EmailMemoria } from "../../src/server/email";
+import { registrarAceite } from "../../src/server/aceites";
 import { criarAcordo } from "../../src/server/financeiro";
 import { listarMembershipsDoUsuario } from "../../src/server/memberships";
 import { criarTenantComAdmin } from "../../src/server/onboarding";
@@ -54,6 +55,7 @@ export default async function setup() {
     ] as const) {
       const { user } = await auth.api.signUpEmail({ body: { name: nome, email: usuario(role), password: SENHA } });
       await db.update(users).set({ emailVerified: true }).where(eq(users.id, user.id));
+      await registrarAceite(user.id, "script", {}, db);
       ids[role] = user.id;
     }
 

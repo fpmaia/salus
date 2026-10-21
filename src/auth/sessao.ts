@@ -2,6 +2,7 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 import type { ContextoTenant } from "../db/tenant";
+import { aceiteVigente } from "../server/aceites";
 import { listarMembershipsDoUsuario } from "../server/memberships";
 import { getAuth } from "./server";
 
@@ -15,8 +16,12 @@ export const obterSessao = cache(async () => {
 export async function exigirUsuario() {
   const sessao = await obterSessao();
   if (!sessao) redirect("/entrar");
+  // Termos/Política em versão nova (ou nunca aceitos): aceite antes de seguir.
+  if (!(await aceiteVigenteDoUsuario(sessao.user.id))) redirect("/aceite-termos");
   return sessao.user;
 }
+
+const aceiteVigenteDoUsuario = cache((userId: string) => aceiteVigente(userId));
 
 export type ContextoUsuario = ContextoTenant & {
   tenantNome: string;

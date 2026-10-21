@@ -91,6 +91,8 @@ Contas novas precisam confirmar o e-mail antes de entrar; em dev, o link aparece
 
 Segurança HTTP: a CSP (com nonce) sai do `proxy.ts` e os demais cabeçalhos do `next.config.ts` (`src/seguranca/cabecalhos.ts`). O rate limit fica na tabela `rate_limits` e lê o IP de `IP_HEADER` (padrão `x-real-ip`), que o reverse proxy deve sobrescrever. O captcha (Turnstile) liga com `TURNSTILE_SITE_KEY`/`TURNSTILE_SECRET_KEY`.
 
+LGPD: Termos e Política em `/termos` e `/privacidade` (versão em `src/legal/documentos.ts`; mudou a versão, todos aceitam de novo ao entrar). Na ficha do paciente, o admin exporta os dados (JSON) e anonimiza o cadastro a pedido do titular.
+
 Usuários do seed: `admin|recepcao|profissional@alfa.salus.dev` e `...@beta.salus.dev`. Cada espaço vem com a "Unidade Centro" (3 salas) um profissional sem acesso (`convidado@...`) para testar o convite e três pacientes fictícios.
 
 | Comando | O quê |

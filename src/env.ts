@@ -38,6 +38,10 @@ export function errosDoAmbiente(processo: "app" | "worker"): string[] {
   const demo = ["true", "1"].includes(process.env.SALUS_DEMO ?? "");
   if (processo === "app" && emProducao() && !demo) {
     for (const nome of ["TURNSTILE_SITE_KEY", "TURNSTILE_SECRET_KEY"]) if (!variavel(nome)) erros.push(`${nome} não definida (captcha das páginas públicas)`);
+    // Identificação na Política de Privacidade e nos Termos (LGPD art. 9º e 41).
+    for (const nome of ["SALUS_EMPRESA_NOME", "SALUS_EMPRESA_CNPJ", "SALUS_ENCARREGADO_EMAIL"]) {
+      if (!variavel(nome)) erros.push(`${nome} não definida (documentos legais)`);
+    }
   }
   return erros;
 }

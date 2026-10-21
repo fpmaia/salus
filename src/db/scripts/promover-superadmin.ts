@@ -35,6 +35,7 @@ async function main() {
 
     // Conta criada por script, pelo dono da plataforma: dispensa o link de confirmação.
     await db.update(users).set({ role: "superadmin", banned: false, emailVerified: true }).where(eq(users.id, usuario.id));
+    // O dono da plataforma aceita os documentos na primeira tela (portão de aceite), como todos.
     console.log(`${usuario.email} agora é superadmin. Acesso: /plataforma`);
   } finally {
     await db.$client.end();

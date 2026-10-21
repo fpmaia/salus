@@ -9,7 +9,8 @@ import { pode } from "@/src/domain/rbac";
 import { obterPaciente } from "@/src/server/pacientes";
 import { acessosAoProntuario, horarioLocal, ROTULOS_ACESSO } from "@/src/server/prontuario";
 import { formatarDataBr } from "@/src/server/reservas";
-import { atualizarPacienteAcao } from "../actions";
+import { anonimizarPacienteAcao, atualizarPacienteAcao } from "../actions";
+import { Input } from "@/components/ui/input";
 import { CamposPaciente } from "../campos-paciente";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -23,6 +24,7 @@ export default async function PacientePage({ params }: PageProps<"/painel/pacien
   if (!detalhe) notFound();
   const { paciente, historico } = detalhe;
   const acessos = pode(ctx.role, "auditoria.ver") ? await acessosAoProntuario(ctx, paciente.id) : null;
+  const titular = pode(ctx.role, "pacientes.titular");
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6">
@@ -80,6 +82,59 @@ export default async function PacientePage({ params }: PageProps<"/painel/pacien
           )}
         </CardContent>
       </Card>
+
+      {titular && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Direitos do titular (LGPD)</CardTitle>
+            <CardDescription>
+              Atenda aos pedidos do paciente sobre os dados dele. O conteúdo do prontuário não entra aqui: é sigiloso, exportado pelo
+              profissional responsável e guardado por 20 anos.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-5 text-sm">
+            <div className="flex flex-col gap-2">
+              <p className="font-medium">Acesso e portabilidade</p>
+              <p className="text-muted-foreground">Cadastro, atendimentos, mensagens enviadas e acessos ao prontuário, em JSON.</p>
+              <a
+                href={`/api/pacientes/${paciente.id}/exportar`}
+                className="w-fit rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-muted"
+              >
+                Exportar dados do paciente
+              </a>
+            </div>
+            {paciente.anonimizadoEm ? (
+              <p className="text-muted-foreground">
+                Anonimizado em {paciente.anonimizadoEm.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}.
+              </p>
+            ) : (
+              <div className="flex flex-col gap-2 border-t pt-4">
+                <p className="font-medium">Anonimização</p>
+                <p className="text-muted-foreground">
+                  Apaga nome, CPF, nascimento, contatos e observações; mantém o histórico de atendimentos e o financeiro sem identificação.
+                  Não dá para desfazer. Exige cancelar os atendimentos futuros; não é possível se houver prontuário.
+                </p>
+                <FormAcao
+                  acao={anonimizarPacienteAcao.bind(null, paciente.id)}
+                  textoBotao="Anonimizar paciente"
+                  textoPendente="Anonimizando…"
+                  variante="destructive"
+                  confirmar="Anonimizar este paciente? Os dados pessoais serão apagados e isso não pode ser desfeito."
+                >
+                  <Input
+                    name="justificativa"
+                    minLength={10}
+                    maxLength={500}
+                    required
+                    placeholder="Pedido do titular (ex.: e-mail de 21/10, protocolo nº…)"
+                    aria-label="Justificativa da anonimização"
+                  />
+                </FormAcao>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {acessos && (
         <Card>

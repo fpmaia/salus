@@ -13,6 +13,9 @@ const VALIDO = {
   EMAIL_FROM: "Salus <nao-responda@exemplo.com>",
   TURNSTILE_SITE_KEY: "0x4AAA",
   TURNSTILE_SECRET_KEY: "0x4AAA-segredo",
+  SALUS_EMPRESA_NOME: "Empresa Exemplo Ltda",
+  SALUS_EMPRESA_CNPJ: "11.222.333/0001-81",
+  SALUS_ENCARREGADO_EMAIL: "privacidade@exemplo.com",
 };
 
 afterEach(() => vi.unstubAllEnvs());
@@ -52,6 +55,12 @@ describe("validação do ambiente", () => {
     vi.stubEnv("NODE_ENV", "production");
     expect(errosDoAmbiente("app")).toEqual(["TURNSTILE_SECRET_KEY não definida (captcha das páginas públicas)"]);
     expect(errosDoAmbiente("worker")).toEqual([]);
+  });
+
+  it("em produção o app exige a identificação da empresa e do encarregado", () => {
+    definir({ SALUS_ENCARREGADO_EMAIL: "" });
+    vi.stubEnv("NODE_ENV", "production");
+    expect(errosDoAmbiente("app")).toEqual(["SALUS_ENCARREGADO_EMAIL não definida (documentos legais)"]);
   });
 
   it("em produção impede o boot; fora dela só avisa", () => {

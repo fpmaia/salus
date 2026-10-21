@@ -5,6 +5,7 @@ import { obterPaginaPublica } from "@/src/server/agendamento-online";
 import { agendarOnlineAcao } from "./actions";
 import { chaveSiteTurnstile } from "@/src/server/turnstile";
 import { FormularioAgendamento } from "./formulario";
+import { RodapeLegal } from "@/components/rodape-legal";
 
 const DIAS = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
 
@@ -18,7 +19,7 @@ export default async function AgendarPage({ params }: PageProps<"/agendar/[slug]
   const pagina = await obterPaginaPublica(slug);
 
   return (
-    <main className="flex flex-1 justify-center bg-muted/40 px-4 py-10">
+    <main className="flex flex-1 flex-col items-center gap-6 bg-muted/40 px-4 py-10">
       <Card className="h-fit w-full max-w-xl">
         {!pagina ? (
           <CardHeader>
@@ -57,6 +58,7 @@ export default async function AgendarPage({ params }: PageProps<"/agendar/[slug]
           </>
         )}
       </Card>
+      <RodapeLegal />
     </main>
   );
 }

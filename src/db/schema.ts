@@ -159,6 +159,25 @@ export const verifications = pgTable(
   (t) => [index("verifications_identifier_idx").on(t.identifier)],
 );
 
+// Aceites dos Termos de Uso e da Política de Privacidade (LGPD: prova do consentimento).
+// Append-only: o app só insere e lê. Uma linha por usuário e versão (src/legal/documentos.ts).
+export const aceitesDocumentos = pgTable(
+  "aceites_documentos",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    versao: text("versao").notNull(),
+    // cadastro | reaceite | script
+    origem: text("origem").notNull(),
+    ip: text("ip"),
+    userAgent: text("user_agent"),
+    aceitoEm: criadoEm(),
+  },
+  (t) => [unique("aceites_documentos_user_versao_key").on(t.userId, t.versao)],
+);
+
 // Contadores de rate limit: do Better Auth (storage "database", chaves "<ip><rota>") e dos
 // endpoints públicos (src/server/limite-taxa.ts, chaves "salus:..."). Fora da RLS: não é dado de tenant.
 export const rateLimits = pgTable("rate_limits", {
@@ -571,6 +590,8 @@ export const pacientes = pgTable(
     consentimentoLembretes: boolean("consentimento_lembretes").notNull().default(false),
     consentimentoEm: timestamp("consentimento_em", { withTimezone: true }),
     ativo: boolean("ativo").notNull().default(true),
+    // Anonimizado a pedido do titular (LGPD art. 18): sem dados identificáveis, irreversível.
+    anonimizadoEm: timestamp("anonimizado_em", { withTimezone: true }),
     criadoPor: uuid("criado_por").default(sql`app_current_user_id()`).references(() => users.id, { onDelete: "set null" }),
     criadoEm: criadoEm(),
     atualizadoEm: atualizadoEm(),

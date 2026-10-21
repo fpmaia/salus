@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ROTULOS_STATUS } from "@/src/domain/agendamentos";
 import { obterAgendamentoPublico } from "@/src/server/notificacoes";
 import { acaoDoPacienteAcao } from "./actions";
+import { RodapeLegal } from "@/components/rodape-legal";
 
 // O link carrega o token na URL: não deixe buscadores indexarem nem vazarem via Referer.
 export const metadata: Metadata = { title: "Seu atendimento · Salus", robots: { index: false, follow: false }, referrer: "no-referrer" };
@@ -13,7 +14,7 @@ export default async function LinkDoPacientePage({ params }: PageProps<"/c/[toke
   const agendamento = await obterAgendamentoPublico(token);
 
   return (
-    <main className="flex flex-1 items-center justify-center bg-muted/40 px-4 py-16">
+    <main className="flex flex-1 flex-col items-center justify-center gap-6 bg-muted/40 px-4 py-16">
       <Card className="w-full max-w-md">
         {!agendamento ? (
           <CardHeader>
@@ -62,6 +63,7 @@ export default async function LinkDoPacientePage({ params }: PageProps<"/c/[toke
           </>
         )}
       </Card>
+      <RodapeLegal />
     </main>
   );
 }

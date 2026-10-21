@@ -48,6 +48,13 @@ EMAIL_FROM=Salus <nao-responda@seudominio.com.br>
 TURNSTILE_SITE_KEY=
 TURNSTILE_SECRET_KEY=
 
+# Termos de Uso e Política de Privacidade (LGPD)
+SALUS_EMPRESA_NOME=LS Code Tecnologia Ltda
+SALUS_EMPRESA_CNPJ=
+SALUS_EMPRESA_ENDERECO=
+SALUS_ENCARREGADO_NOME=
+SALUS_ENCARREGADO_EMAIL=privacidade@seudominio.com.br
+
 # Anexos do prontuário (ex.: Cloudflare R2)
 S3_ENDPOINT=https://<conta>.r2.cloudflarestorage.com
 S3_BUCKET=salus-anexos
@@ -166,4 +173,6 @@ A saída esperada é `[restauro] OK: contagens conferem {...}`. O CI roda o mesm
 - [ ] O primeiro backup aparece no destino e o `restaurar-teste` deu OK.
 - [ ] `SECRETS_KEY` e a chave privada age estão guardadas fora do servidor.
 - [ ] Monitor externo aponta para `/api/health`.
+- [ ] **Termos de Uso e Política de Privacidade revisados por advogado** (`app/(legal)`, versão em `src/legal/documentos.ts`) e encarregado (DPO) nomeado.
+- [ ] Contrato com os espaços prevê o papel de operador do Salus (LGPD art. 39) e os suboperadores listados na política.
 - [ ] Bucket de backups com retenção/Object Lock; bucket de anexos com versionamento.

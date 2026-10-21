@@ -21,6 +21,8 @@ export const PERMISSOES = {
   "cobrancas.gerenciar": ["admin", "recepcao"],
   "assinatura.ver": ["admin"],
   "pacientes.gerenciar": ["admin", "recepcao"],
+  // Direitos do titular (LGPD): exportar e anonimizar o cadastro do paciente.
+  "pacientes.titular": ["admin"],
   "pacientes.proprios": ["profissional"],
   "pacientes.ver": ["admin", "recepcao", "profissional"],
   "agenda.gerenciar": ["admin", "recepcao"],

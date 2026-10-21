@@ -115,6 +115,7 @@ export async function atualizarPaciente(
       const acesso = await acessoAPacientes(tx, ctx);
       if (!(await pacienteVisivel(tx, acesso, pacienteId))) throw new ErroNegocio("Paciente não encontrado");
       const [atual] = await tx.select().from(pacientes).where(eq(pacientes.id, pacienteId));
+      if (atual.anonimizadoEm) throw new ErroNegocio("Paciente anonimizado: o cadastro não pode mais ser alterado");
       const mudouConsentimento = atual.consentimentoLembretes !== valores.consentimentoLembretes;
       await tx
         .update(pacientes)

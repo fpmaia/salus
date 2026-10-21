@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authClient } from "@/src/auth/client";
+import { VERSAO_DOCUMENTOS, versaoPorExtenso } from "@/src/legal/documentos";
 import { Turnstile } from "@/components/turnstile";
 
 // Volta para o convite depois de entrar/cadastrar (só aceita token, nunca URL arbitrária).
@@ -41,7 +42,13 @@ export function FormularioCadastro({
       password: String(formData.get("senha")),
       // Depois de confirmar o e-mail, a pessoa entra direto e segue para cá.
       callbackURL: destino ?? "/onboarding",
-      fetchOptions: captcha ? { headers: { "x-captcha-response": captcha } } : undefined,
+      fetchOptions: {
+        headers: {
+          // Versão aceita dos Termos/Política: o servidor confere e registra a prova do aceite.
+          ...(formData.get("aceiteDocumentos") === "on" ? { "x-aceite-documentos": VERSAO_DOCUMENTOS } : {}),
+          ...(captcha ? { "x-captcha-response": captcha } : {}),
+        },
+      },
     });
     setEnviando(false);
     if (error) {
@@ -141,6 +148,20 @@ export function FormularioCadastro({
               {erro}
             </div>
           )}
+          <label className="flex items-start gap-2 text-xs text-muted-foreground">
+            <input type="checkbox" name="aceiteDocumentos" required className="mt-0.5" />
+            <span>
+              Li e aceito os{" "}
+              <Link href="/termos" target="_blank" className="text-primary underline-offset-4 hover:underline">
+                Termos de Uso
+              </Link>{" "}
+              e a{" "}
+              <Link href="/privacidade" target="_blank" className="text-primary underline-offset-4 hover:underline">
+                Política de Privacidade
+              </Link>{" "}
+              (versão de {versaoPorExtenso()}).
+            </span>
+          </label>
           <Turnstile chaveSite={chaveTurnstile} acao="cadastro" aoMudar={setCaptcha} />
         </CardContent>
 
