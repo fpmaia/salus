@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { use, useState } from "react";
+import { ArrowRight, Lock, Mail, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -44,35 +45,92 @@ export default function CadastroPage({
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Criar conta</CardTitle>
-        <CardDescription>{destino ? "Use o e-mail do convite." : "Depois você cadastra o seu espaço."}</CardDescription>
+    <Card className="border-border/70 bg-card/90 shadow-xl backdrop-blur-xl">
+      <CardHeader className="space-y-1.5 pb-4">
+        <CardTitle className="font-heading text-xl font-bold tracking-tight text-foreground sm:text-2xl">
+          Criar Nova Conta
+        </CardTitle>
+        <CardDescription className="text-xs sm:text-sm text-muted-foreground">
+          {destino ? "Cadastre-se para aceitar o convite do seu espaço." : "Cadastre-se para começar a gerenciar sua clínica ou espaço."}
+        </CardDescription>
       </CardHeader>
+
       <form action={cadastrar}>
         <CardContent className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
-            <Label htmlFor="nome">Seu nome</Label>
-            <Input id="nome" name="nome" autoComplete="name" defaultValue={valorInicial("nome")} required />
+            <Label htmlFor="nome" className="text-xs font-medium flex items-center gap-1.5">
+              <User className="size-3.5 text-muted-foreground" />
+              Seu nome completo
+            </Label>
+            <Input
+              id="nome"
+              name="nome"
+              autoComplete="name"
+              defaultValue={valorInicial("nome")}
+              placeholder="Dr(a). Nome Sobrenome"
+              className="h-9"
+              required
+            />
           </div>
+
           <div className="flex flex-col gap-2">
-            <Label htmlFor="email">E-mail</Label>
-            <Input id="email" name="email" type="email" autoComplete="email" defaultValue={valorInicial("email")} required />
+            <Label htmlFor="email" className="text-xs font-medium flex items-center gap-1.5">
+              <Mail className="size-3.5 text-muted-foreground" />
+              E-mail corporativo ou pessoal
+            </Label>
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              autoComplete="email"
+              defaultValue={valorInicial("email")}
+              placeholder="seu.email@exemplo.com"
+              className="h-9"
+              required
+            />
           </div>
+
           <div className="flex flex-col gap-2">
-            <Label htmlFor="senha">Senha (mín. 8 caracteres)</Label>
-            <Input id="senha" name="senha" type="password" minLength={8} autoComplete="new-password" required />
+            <Label htmlFor="senha" className="text-xs font-medium flex items-center gap-1.5">
+              <Lock className="size-3.5 text-muted-foreground" />
+              Senha de acesso
+            </Label>
+            <Input
+              id="senha"
+              name="senha"
+              type="password"
+              minLength={8}
+              autoComplete="new-password"
+              placeholder="Mínimo de 8 caracteres"
+              className="h-9"
+              required
+            />
           </div>
-          {erro && <p className="text-sm text-destructive">{erro}</p>}
+
+          {erro && (
+            <div className="rounded-lg bg-destructive/10 p-2.5 text-xs font-medium text-destructive animate-in fade-in">
+              {erro}
+            </div>
+          )}
         </CardContent>
-        <CardFooter className="mt-6 flex flex-col gap-3">
-          <Button type="submit" className="w-full" disabled={enviando}>
-            {enviando ? "Criando…" : "Criar conta"}
+
+        <CardFooter className="mt-2 flex flex-col gap-3">
+          <Button
+            type="submit"
+            className="w-full h-10 bg-primary text-primary-foreground hover:bg-primary/90 font-medium shadow-xs gap-1.5"
+            disabled={enviando}
+          >
+            {enviando ? "Criando conta…" : "Prosseguir com o Cadastro"}
+            <ArrowRight className="size-4" />
           </Button>
-          <p className="text-sm text-muted-foreground">
-            Já tem conta?{" "}
-            <Link href={destino ? `/entrar?convite=${String(parametros.convite)}` : "/entrar"} className="text-primary underline-offset-4 hover:underline">
-              Entrar
+
+          <p className="text-center text-xs text-muted-foreground">
+            Já tem uma conta?{" "}
+            <Link
+              href={destino ? `/entrar?convite=${String(parametros.convite)}` : "/entrar"}
+              className="font-medium text-primary underline-offset-4 hover:underline"
+            >
+              Fazer login
             </Link>
           </p>
         </CardFooter>
