@@ -30,6 +30,7 @@
 | 21/10/2026 | D | Páginas do paciente: o link da consulta e a agenda online mostram o nome do espaço no topo, texto mais acolhedor ("Sua consulta…", "Não vou poder ir"), "Adicionar à agenda" (.ics com lembrete 2h antes) e "Ver no mapa"; a confirmação do agendamento online também oferece o .ics. A página pública continua sem CPF, telefone ou observações. |
 | 21/10/2026 | D | Landing nova para o dono do espaço: proposta de valor (ocupação, inadimplência e tempo da recepção), telas ilustrativas com dados de exemplo, passos para começar, segurança sem jargão técnico e sem preço ("planos pelo número de salas"). O botão "Agendar demonstração" abre o WhatsApp comercial (`SALUS_WHATSAPP_COMERCIAL`); sem a variável, leva ao cadastro. A LS Code fica só no rodapé. **Fase D concluída. Pendente: definir o número do WhatsApp comercial e o preço.** |
 | 21/10/2026 | C/D | Sobras de código fechadas: C10 (data da série recorrente que o worker não conseguiu reservar vira pendência para a equipe e e-mail para o profissional), C13 (o "hoje" do espaço é a data local mais atrasada entre as unidades; cron em UTC), C15 (telefone normalizado gerado pelo banco e indexado no agendamento online), relatório do fechamento em PDF, remarcar arrastando a consulta na grade, "Meu dia" do profissional no celular e páginas de convite com o nome do espaço. |
+| 21/10/2026 | — | **Decisão de preço:** ficam os planos que já estão no sistema (Básico R$ 199/mês (1 unidade, 5 salas, 15 profissionais) · Pro R$ 499/mês (3 unidades, 20 salas, 60 profissionais) · Enterprise R$ 1.299/mês (50 unidades, 500 salas, 2.000 profissionais)). O preço por sala ativa sai da recomendação. |
 
 ---
 
@@ -77,7 +78,7 @@ Nada disto se resolve só com código. Cada item precisa de uma conta, de uma de
 | P7 | **WhatsApp por QR (Evolution) real** | Testado contra uma Evolution **falsa**; o formato da API (v2) foi conferido na documentação, não numa instância | Subir a Evolution na rede interna do compose, conectar um número **dedicado** do espaço piloto, mandar um lembrete e um aviso de cancelamento de ponta a ponta e acompanhar alguns dias | Execução + espaço piloto |
 | P8 | **Identificação legal no ambiente** | Variáveis exigidas pelo boot, sem valores reais | Definir `SALUS_EMPRESA_NOME`, `SALUS_EMPRESA_CNPJ` e `SALUS_ENCARREGADO_EMAIL` | Fundador |
 
-**Não bloqueiam o piloto, mas precisam de decisão:** o número do WhatsApp comercial da landing (`SALUS_WHATSAPP_COMERCIAL`; sem ele, o botão leva ao cadastro) e o preço por sala.
+**Não bloqueia o piloto, mas precisa de decisão:** o número do WhatsApp comercial da landing (`SALUS_WHATSAPP_COMERCIAL`; sem ele, o botão leva ao cadastro). O preço está decidido: os três planos do sistema (veja as premissas).
 
 ### Riscos que continuam (não impedem o piloto)
 
@@ -144,7 +145,7 @@ Nada disto se resolve só com código. Cada item precisa de uma conta, de uma de
 | WhatsApp | **Evolution API**: QR Code agora e Cloud API oficial depois, atrás da interface de provedor que já existe. |
 | Prontuário | Fica, mas **opcional e desligado por padrão**: feature flag por espaço. |
 | Esconder até o piloto | Plataforma (superadmin) fora da navegação do cliente. NFS‑e e agendamento online atrás de flag. Manual e tour trocados por checklist. |
-| Plano SaaS | Preço **por número de salas**. |
+| Plano SaaS | **Decidido (21/10):** ficam os planos do sistema, com limite de unidades, salas e profissionais: Básico R$ 199/mês (1 unidade, 5 salas, 15 profissionais) · Pro R$ 499/mês (3 unidades, 20 salas, 60 profissionais) · Enterprise R$ 1.299/mês (50 unidades, 500 salas, 2.000 profissionais). O preço por sala ativa, recomendado na revisão, foi descartado. |
 | Marca LS Code | Assinatura discreta só na landing e no rodapé público. **Nunca** dentro do painel do cliente. |
 
 ---
@@ -416,7 +417,7 @@ Prioridade: **P0** = bloqueia produção/segurança · **P1** = bloqueia o pilot
 - WhatsApp pela Cloud API oficial (Evolution ou direto).
 - Religar NFS‑e e agendamento online para quem pedir.
 - Prontuário: modelos de evolução por especialidade, Memed, assinatura ICP‑Brasil.
-- Preço do SaaS por sala no Asaas, com suspensão automática por inadimplência.
+- Suspensão automática do espaço por inadimplência na fatura do SaaS (os planos e a fatura mensal pelo Asaas já existem).
 - Receita Saúde (recibo oficial do profissional pessoa física).
 
 ---
@@ -429,7 +430,7 @@ Prioridade: **P0** = bloqueia produção/segurança · **P1** = bloqueia o pilot
   - Migrar o banco para um serviço gerenciado a partir de cerca de 5 clientes pagantes.
   - Sobre a região: hospedar fora do Brasil é permitido pela LGPD, mas exige cláusulas de transferência internacional. Com prontuário ligado, **preferir região Brasil** (São Paulo).
 - **Monetização:**
-  - **Coworking paga por sala ativa**, com faixa mínima.
+  - ~~Coworking paga por sala ativa, com faixa mínima.~~ **Decidido:** ficam os três planos do sistema (Básico R$ 199/mês (1 unidade, 5 salas, 15 profissionais) · Pro R$ 499/mês (3 unidades, 20 salas, 60 profissionais) · Enterprise R$ 1.299/mês (50 unidades, 500 salas, 2.000 profissionais)). O espaço troca de plano em Assinatura quando passa do limite.
   - Profissional usa de graça no início, porque é ele quem leva os pacientes para dentro.
   - Avaliar extras pagos pelo profissional (prontuário, agenda online, lembretes ilimitados) só depois do piloto.
 - **WhatsApp por QR:**
@@ -442,7 +443,7 @@ Prioridade: **P0** = bloqueia produção/segurança · **P1** = bloqueia o pilot
 
 ## 11. Dúvidas ainda em aberto
 
-1. Preço do SaaS: valor por sala, faixa mínima e período de teste.
+1. ~~Preço do SaaS~~ **Decidido:** Básico R$ 199, Pro R$ 499 e Enterprise R$ 1.299 por mês. Ainda em aberto: o período de teste e as condições do piloto.
 2. Quem arca com o custo do WhatsApp quando migrar para a API oficial: o espaço ou o Salus?
 3. Região de hospedagem (Brasil × exterior), que depende de o prontuário ser ligado no piloto.
 4. ~~O recibo sai no nome de quem?~~ **Decidido:** sempre no nome do profissional. No caixa centralizado, o recibo informa que o espaço recebeu em nome dele.
