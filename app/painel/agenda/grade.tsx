@@ -87,6 +87,11 @@ export function GradeAgenda({ config, colunas, reservas, inicioMin, fimMin, agor
                 className={cn(classe, "hover:bg-primary/10")}
                 style={estilo}
                 aria-label={`Reservar ${c.titulo} às ${hora}`}
+                draggable={false}
+                data-alvo=""
+                data-sala={c.salaId}
+                data-data={c.data}
+                data-inicio-min={m}
               />
             ) : (
               <div key={`${c.chave}-${m}`} className={classe} style={estilo} />
@@ -177,8 +182,28 @@ export function GradeAgenda({ config, colunas, reservas, inicioMin, fimMin, agor
                         : "bg-muted-foreground/25 text-foreground")),
             );
             const estilo = { gridColumn: coluna + 2, gridRow: `${inicio + 2} / ${fim + 2}` };
+            // Arrastar: consulta ainda por acontecer vira origem; trecho vago de reserva ativa vira alvo.
+            const arrastavel =
+              temPaciente && seg.atendimentoId && (seg.statusAtendimento === "agendado" || seg.statusAtendimento === "confirmado") && r.status === "ativa";
+            const atributos = arrastavel
+              ? {
+                  draggable: true,
+                  "data-agendamento": seg.atendimentoId,
+                  "data-duracao": minutosDoDia(seg.horaFim) - minutosDoDia(seg.horaInicio),
+                  title: "Arraste para remarcar",
+                }
+              : !temPaciente && r.status === "ativa" && href
+                ? {
+                    draggable: false,
+                    "data-alvo": "",
+                    "data-sala": r.salaId,
+                    "data-data": r.data,
+                    "data-inicio-min": minutosDoDia(seg.horaInicio),
+                    "data-linhas": fim - inicio,
+                  }
+                : {};
             return href ? (
-              <Link key={seg.chave} href={href} scroll={false} className={cn(classe, "hover:opacity-90")} style={estilo}>
+              <Link key={seg.chave} href={href} scroll={false} className={cn(classe, "hover:opacity-90", arrastavel && "cursor-grab")} style={estilo} {...atributos}>
                 {conteudo}
               </Link>
             ) : (

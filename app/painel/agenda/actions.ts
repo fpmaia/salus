@@ -1,7 +1,11 @@
 "use server";
 
 import { obterContextoTenant } from "@/src/auth/sessao";
+import { unstable_rethrow } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { type EstadoAcao, executarAcao, texto, textoOuUndefined } from "@/src/server/acao";
+import { remarcarAgendamento } from "@/src/server/agendamentos";
+import { mensagemDeErro } from "@/src/server/erros";
 import {
   cancelarReserva,
   criarRecorrencia,
@@ -52,4 +56,23 @@ export async function encerrarRecorrenciaAcao(regraId: string, aPartirDe: string
     const aviso = mantidas > 0 ? `; ${mantidas} com pacientes agendados continuam ativas` : "";
     return `Série encerrada a partir de ${formatarDataBr(aPartirDe)} (${canceladas} ocorrências canceladas${aviso})`;
   });
+}
+
+/** Remarcar arrastando na grade (mesmas regras do "Remarcar": nunca cobra). */
+export async function remarcarArrastandoAcao(
+  agendamentoId: string,
+  destino: { data: string; horaInicio: string; horaFim: string; salaId: string },
+): Promise<{ ok: true; mensagem: string } | { ok: false; erro: string }> {
+  try {
+    const ctx = await obterContextoTenant();
+    const { reservaCriada } = await remarcarAgendamento(ctx, agendamentoId, destino);
+    revalidatePath("/painel", "layout");
+    const base = `Remarcado para ${formatarDataBr(destino.data)}, ${destino.horaInicio}`;
+    return { ok: true, mensagem: reservaCriada ? `${base} (sala reservada automaticamente)` : base };
+  } catch (erro) {
+    unstable_rethrow(erro);
+    const mensagem = mensagemDeErro(erro);
+    if (!mensagem) throw erro;
+    return { ok: false, erro: mensagem };
+  }
 }

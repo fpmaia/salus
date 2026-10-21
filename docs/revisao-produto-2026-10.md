@@ -29,6 +29,7 @@
 | 21/10/2026 | D | Marca: tokens de cor de verdade (teal escuro na ação, esmeralda em sucesso, âmbar em atenção, neutros slate) e 193 cores fixas trocadas por tokens; modo escuro removido (era código morto, sem como ativar); fonte de títulos (Plus Jakarta Sans) com Geist no texto; favicon, ícone do app, apple-icon e imagem de compartilhamento (Open Graph) a partir do símbolo do Salus. |
 | 21/10/2026 | D | Páginas do paciente: o link da consulta e a agenda online mostram o nome do espaço no topo, texto mais acolhedor ("Sua consulta…", "Não vou poder ir"), "Adicionar à agenda" (.ics com lembrete 2h antes) e "Ver no mapa"; a confirmação do agendamento online também oferece o .ics. A página pública continua sem CPF, telefone ou observações. |
 | 21/10/2026 | D | Landing nova para o dono do espaço: proposta de valor (ocupação, inadimplência e tempo da recepção), telas ilustrativas com dados de exemplo, passos para começar, segurança sem jargão técnico e sem preço ("planos pelo número de salas"). O botão "Agendar demonstração" abre o WhatsApp comercial (`SALUS_WHATSAPP_COMERCIAL`); sem a variável, leva ao cadastro. A LS Code fica só no rodapé. **Fase D concluída. Pendente: definir o número do WhatsApp comercial e o preço.** |
+| 21/10/2026 | C/D | Sobras de código fechadas: C10 (data da série recorrente que o worker não conseguiu reservar vira pendência para a equipe e e-mail para o profissional), C13 (o "hoje" do espaço é a data local mais atrasada entre as unidades; cron em UTC), C15 (telefone normalizado gerado pelo banco e indexado no agendamento online), relatório do fechamento em PDF, remarcar arrastando a consulta na grade, "Meu dia" do profissional no celular e páginas de convite com o nome do espaço. |
 
 ---
 
@@ -36,7 +37,7 @@
 
 **Veredito: pronto para um piloto controlado, ainda não para venda aberta.** O código fez o que o plano pedia nas Fases A a D. O que falta não é mais código: é colocar o sistema no ar com os serviços reais, fazer a revisão jurídica e validar as regras com 1 ou 2 espaços de verdade.
 
-Base desta leitura: `main` em `7018d0f`, CI verde em cada fase, **461 testes** (unidade + integração com Postgres real), **16 fluxos E2E** no build de produção, teste de backup e restauração no CI e o compose de produção validado localmente (Caddy com TLS, HSTS, worker saudável).
+Base desta leitura: `main` depois das sobras de código (C10, C13, C15 e itens de UX), CI verde em cada fase, **476 testes** (unidade + integração com Postgres real), **18 fluxos E2E** no build de produção, teste de backup e restauração no CI e o compose de produção validado localmente (Caddy com TLS, HSTS, worker saudável).
 
 ### Pronto para o piloto (feito e testado)
 
@@ -86,9 +87,7 @@ Nada disto se resolve só com código. Cada item precisa de uma conta, de uma de
   - **NFS-e (Focus) e prontuário:** desligados por padrão. A NFS-e nunca foi testada com a prefeitura real; o prontuário não tem assinatura ICP-Brasil (Fase E).
 - **Regras ainda sem validação:**
   - **Regras de negócio são hipóteses.** Cobrança, cancelamento tardio, multa de turno fixo e recorrência foram decididas nesta revisão, sem uso real. O piloto existe para confirmar ou corrigir isso.
-  - **C10 parcial.** Criar uma série recorrente é tudo ou nada em caso de conflito. Mas, quando o worker estende a série e encontra um conflito, a data só fica na auditoria: o profissional e o admin não são avisados.
 - **Dívidas técnicas:**
-  - **C13 (fusos)** e **C15 (busca de paciente por telefone no agendamento público)** continuam abertos (P2). Só pesam com unidades em fusos diferentes ou com muitos pacientes.
   - **Sem teste de carga nem pentest externo.** Vale um pentest antes de abrir para venda; para o piloto, os controles atuais bastam.
   - **Modo escuro** foi retirado de propósito e volta depois do piloto, com contraste revisado.
 
@@ -163,7 +162,7 @@ Escala: 1 = inexistente · 2 = protótipo · 3 = funcional com lacunas · 4 = pr
 | Funcionalidade (cobertura) | 3 | 3 | **4** | Fase C completa. Módulos extras atrás de chave. |
 | UX / usabilidade | 2 | 2 | **4** | Primeiros passos, início por papel, agendar em 1 passo, avisos e linguagem simples. Falta validar com usuários reais. |
 | Identidade visual | 2 | 2 | **4** | Tokens, fonte, ícones e páginas do paciente com a marca do espaço. |
-| Qualidade / testes | **4** | 2 | **4** | 461 testes e 16 E2E no CI. Sem teste de carga. |
+| Qualidade / testes | **4** | 2 | **4** | 476 testes e 18 E2E no CI. Sem teste de carga. |
 | Documentação | 4 | 2 | **4** | Deploy, revisão e progresso atualizados. |
 
 **Leitura honesta (outubro):** o código commitado chegaria ao nível 4 (piloto) com as Fases A e B. O working tree **regredia** o produto até ser triado.

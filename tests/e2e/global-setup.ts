@@ -17,6 +17,7 @@ import { listarMembershipsDoUsuario } from "../../src/server/memberships";
 import { criarTenantComAdmin } from "../../src/server/onboarding";
 import { gerarTokenAgendamento } from "../../src/server/links";
 import { criarPaciente } from "../../src/server/pacientes";
+import { criarProfissional, gerarConvite } from "../../src/server/profissionais";
 import { criarReserva } from "../../src/server/reservas";
 import { criarSala, criarUnidade, definirHorarios } from "../../src/server/unidades";
 import { ARQUIVO_DADOS, type DadosE2E, SENHA, usuario } from "./dados";
@@ -135,7 +136,12 @@ export default async function setup() {
     );
     const linkPaciente = `/c/${gerarTokenAgendamento(admin.tenantId, consultaLink, new Date(Date.now() + 7 * 86_400_000))}`;
 
-    const dados: DadosE2E = { profissionalId, reservaAmanha, amanha, competenciaAnterior: mesAnterior.slice(0, 7), sala1, atendimentoPago, linkPaciente };
+    // Convite pendente de um profissional sem acesso (página pública do convite).
+    const { id: convidado } = await criarProfissional(admin, { nome: "Dr. Convidado", email: "convidado@e2e.salus.dev" }, db);
+    const { token: tokenConvite } = await gerarConvite(admin, convidado, new Date(), db);
+    const linkConvite = `/convite/${tokenConvite}`;
+
+    const dados: DadosE2E = { profissionalId, reservaAmanha, amanha, competenciaAnterior: mesAnterior.slice(0, 7), sala1, atendimentoPago, linkPaciente, linkConvite };
     writeFileSync(path.resolve(ARQUIVO_DADOS), JSON.stringify(dados, null, 2));
   } finally {
     await db.$client.end();

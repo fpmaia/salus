@@ -70,6 +70,12 @@ test("admin fecha o mês anterior e o extrato fica congelado", async ({ page }) 
   await page.goto(`/painel/financeiro?competencia=${competenciaAnterior}`);
   await expect(page.getByRole("row", { name: /Dra\. E2E/ })).toContainText("Fechado");
 
+  // Relatório para imprimir / salvar em PDF.
+  await page.goto(`/painel/financeiro/fechamento?competencia=${competenciaAnterior}`);
+  await expect(page.getByRole("heading", { name: /^Fechamento de / })).toBeVisible();
+  await expect(page.getByRole("row", { name: /Dra\. E2E/ })).toContainText(/Fechado em/);
+  await expect(page.getByRole("button", { name: "Imprimir / Salvar PDF" })).toBeVisible();
+
   // Exportação para a contabilidade (CSV para o Excel em português).
   const csv = await page.request.get(`/api/financeiro/fechamento?competencia=${competenciaAnterior}`);
   expect(csv.headers()["content-type"]).toContain("text/csv");
@@ -206,6 +212,13 @@ test("equipe agenda em 1 passo com cadastro rápido, desfaz o status e remarca",
   await item.getByRole("button", { name: "Remarcar" }).click();
   await expect(page.getByRole("listitem").filter({ hasText: "18:00–19:00" }).filter({ hasText: "Bruno Rápido" })).toBeVisible();
   await expect(page.getByText("17:00–18:00")).toHaveCount(0);
+
+  // Arrastando na grade: a consulta vai para as 20h na mesma sala, com a mesma duração.
+  await page.goto(`/painel/agenda?data=${amanha}`);
+  await page.locator("[data-agendamento]", { hasText: "Bruno Rápido" }).dragTo(page.getByRole("link", { name: "Reservar Sala 1 às 20:00" }));
+  await expect(page.getByRole("status").getByText(/Remarcado para .*20:00/)).toBeVisible();
+  await page.goto(`/painel/atendimentos?data=${amanha}`);
+  await expect(page.getByRole("listitem").filter({ hasText: "20:00–21:00" }).filter({ hasText: "Bruno Rápido" })).toBeVisible();
 });
 
 test("profissional abre o próprio contrato pelo menu", async ({ page }) => {
@@ -275,6 +288,25 @@ test("landing fala com o dono do espaço, sem jargão técnico", async ({ page }
   await expect(page.getByRole("link", { name: "Criar meu espaço" }).first()).toHaveAttribute("href", "/cadastro");
   const texto = await page.locator("main").innerText();
   expect(texto).not.toMatch(/\b(RLS|GIST|tenant|D-1)\b/i);
+});
+
+test("no celular, o profissional vê a lista do dia em vez de só a grade de salas", async ({ page }) => {
+  const { amanha } = dados();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await entrar(page, "profissional");
+  await page.goto(`/painel/agenda?data=${amanha}`);
+  const lista = page.getByRole("region", { name: "Meu dia" });
+  await expect(lista).toBeVisible();
+  await expect(lista.getByText("14:00–16:00")).toBeVisible();
+  await expect(lista.getByText("Ana Paciente")).toBeVisible();
+});
+
+test("convite do profissional mostra o espaço e leva ao cadastro com o e-mail", async ({ page }) => {
+  const { linkConvite } = dados();
+  await page.goto(linkConvite);
+  await expect(page.getByText("Coworking E2E").first()).toBeVisible();
+  await expect(page.getByText("Olá, Convidado!")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Criar conta" })).toHaveAttribute("href", /email=convidado%40e2e\.salus\.dev/);
 });
 
 // Por último: o feriado de amanhã bloquearia as reservas dos outros testes.

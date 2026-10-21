@@ -804,10 +804,11 @@ export async function resumoCompetencia(ctx: ContextoTenant, competencia: string
         .groupBy(lancamentos.profissionalId);
       const porProfissional = new Map(movimentos.map((m) => [m.profissionalId, m]));
       const status = await tx
-        .select({ profissionalId: fechamentos.profissionalId, status: fechamentos.status })
+        .select({ profissionalId: fechamentos.profissionalId, status: fechamentos.status, fechadoEm: fechamentos.fechadoEm })
         .from(fechamentos)
         .where(eq(fechamentos.competencia, c));
       const statusPorProfissional = new Map(status.map((s) => [s.profissionalId, s.status]));
+      const fechadoEmPorProfissional = new Map(status.map((s) => [s.profissionalId, s.fechadoEm]));
       const acordos = await tx.select().from(acordosFinanceiros).orderBy(asc(acordosFinanceiros.vigenteDe));
       const fim = ultimoDiaDaCompetencia(c);
 
@@ -822,6 +823,7 @@ export async function resumoCompetencia(ctx: ContextoTenant, competencia: string
             creditos: Number(m?.creditos ?? 0),
             saldoAcumulado: Number(m?.saldoAcumulado ?? 0),
             fechado: statusPorProfissional.get(p.id) === "fechado",
+            fechadoEm: fechadoEmPorProfissional.get(p.id) ?? null,
           };
         })
         .filter((p) => p.ativo || p.debitos || p.creditos || p.saldoAcumulado);

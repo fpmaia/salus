@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { CabecalhoEspaco } from "@/components/cabecalho-espaco";
 import { FormAcao } from "@/components/form-acao";
+import { RodapeLegal } from "@/components/rodape-legal";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { BotaoSair } from "@/app/painel/botao-sair";
@@ -20,7 +22,8 @@ export default async function ConviteEquipePage({
   ]);
 
   return (
-    <main className="flex min-h-[80vh] flex-1 items-center justify-center bg-muted/40 px-4 py-16">
+    <main className="flex min-h-[80vh] flex-1 flex-col items-center justify-center gap-6 bg-muted/40 px-4 py-16">
+      {convite && <CabecalhoEspaco nome={convite.tenantNome} />}
       <Card className="w-full max-w-md shadow-lg border-border/80">
         {!convite ? (
           <CardHeader>
@@ -32,10 +35,10 @@ export default async function ConviteEquipePage({
         ) : (
           <>
             <CardHeader>
-              <CardTitle>Convite de Equipe · {convite.tenantNome}</CardTitle>
+              <CardTitle>Você foi convidado para a equipe</CardTitle>
               <CardDescription>
-                Você foi convidado(a) para atuar como{" "}
-                <strong className="text-foreground">{ROTULOS_ROLE[convite.role]}</strong> neste espaço no Salus.
+                {convite.tenantNome} convidou você para trabalhar como{" "}
+                <strong className="text-foreground">{ROTULOS_ROLE[convite.role]}</strong> no Salus, o sistema de agenda e salas do espaço.
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-3 text-sm">
@@ -92,6 +95,7 @@ export default async function ConviteEquipePage({
           </>
         )}
       </Card>
+      <RodapeLegal />
     </main>
   );
 }

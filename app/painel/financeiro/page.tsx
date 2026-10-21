@@ -69,6 +69,9 @@ export default async function FinanceiroPage({ searchParams }: PageProps<"/paine
           <Button asChild variant="outline">
             <a href={`/api/financeiro/fechamento?competencia=${competencia.slice(0, 7)}`}>Exportar CSV</a>
           </Button>
+          <Button asChild variant="outline">
+            <Link href={`/painel/financeiro/fechamento?competencia=${competencia.slice(0, 7)}`}>Relatório em PDF</Link>
+          </Button>
         </div>
       </div>
 

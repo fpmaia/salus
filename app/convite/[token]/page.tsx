@@ -1,5 +1,8 @@
 import Link from "next/link";
+import { CabecalhoEspaco } from "@/components/cabecalho-espaco";
 import { FormAcao } from "@/components/form-acao";
+import { RodapeLegal } from "@/components/rodape-legal";
+import { primeiroNome } from "@/src/domain/notificacoes";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { BotaoSair } from "@/app/painel/botao-sair";
@@ -18,7 +21,8 @@ export default async function ConvitePage({ params }: PageProps<"/convite/[token
   const [convite, sessao] = await Promise.all([obterConvite(token), obterSessao()]);
 
   return (
-    <main className="flex flex-1 items-center justify-center bg-muted/40 px-4 py-16">
+    <main className="flex flex-1 flex-col items-center justify-center gap-6 bg-muted/40 px-4 py-16">
+      {convite && <CabecalhoEspaco nome={convite.tenantNome} />}
       <Card className="w-full max-w-md">
         {!convite ? (
           <CardHeader>
@@ -28,9 +32,10 @@ export default async function ConvitePage({ params }: PageProps<"/convite/[token
         ) : (
           <>
             <CardHeader>
-              <CardTitle>Convite de {convite.tenantNome}</CardTitle>
+              <CardTitle>Olá, {primeiroNome(convite.profissionalNome)}!</CardTitle>
               <CardDescription>
-                Olá, {convite.profissionalNome}. Você foi convidado(a) a reservar salas neste espaço pelo Salus.
+                {convite.tenantNome} convidou você para usar o Salus: com ele você vê a sua agenda, reserva salas, acompanha o seu contrato e
+                paga pelo PIX.
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-3 text-sm">
@@ -79,6 +84,7 @@ export default async function ConvitePage({ params }: PageProps<"/convite/[token
           </>
         )}
       </Card>
+      <RodapeLegal />
     </main>
   );
 }
