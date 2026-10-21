@@ -1,33 +1,33 @@
 import Link from "next/link";
 import { AlertCircle } from "lucide-react";
 import { obterContextoTenant } from "@/src/auth/sessao";
-import { pode, ROTULOS_ROLE, type Permissao, type Role } from "@/src/domain/rbac";
+import { pode, type Permissao } from "@/src/domain/rbac";
 import { assinaturaEmAtraso } from "@/src/server/assinatura";
 import { SalusLogo } from "@/components/brand/salus-logo";
 import { LSCodeBadge } from "@/components/brand/ls-code";
-import { PainelNav, type ItemNavegacao } from "@/components/painel-nav";
+import { PainelNav, PainelNavMobile, type ItemNavegacao } from "@/components/painel-nav";
 import { modulosDoEspaco, type Modulo } from "@/src/server/modulos";
 import { BotaoSair } from "./botao-sair";
 import { SeletorClinica } from "@/components/seletor-clinica";
 
-const NAVEGACAO: { href: string; rotulo: string; permissao?: Permissao; modulo?: Modulo }[] = [
-  { href: "/painel", rotulo: "Início" },
-  { href: "/painel/atendimentos", rotulo: "Atendimentos", permissao: "agenda.propria" },
-  { href: "/painel/agenda", rotulo: "Agenda de salas", permissao: "agenda.ver" },
-  { href: "/painel/pacientes", rotulo: "Pacientes", permissao: "pacientes.ver" },
-  { href: "/painel/espera", rotulo: "Lista de espera", permissao: "agenda.gerenciar" },
-  { href: "/painel/prontuario", rotulo: "Prontuário", permissao: "prontuario.menu", modulo: "prontuario" },
-  { href: "/painel/agendamento-online", rotulo: "Agenda online", permissao: "agenda_online.configurar", modulo: "agendaOnline" },
-  { href: "/painel/financeiro", rotulo: "Financeiro", permissao: "financeiro.ver" },
-  { href: "/painel/fiscal", rotulo: "Notas fiscais", permissao: "fiscal.ver", modulo: "fiscal" },
-  { href: "/painel/extrato", rotulo: "Meu extrato", permissao: "extrato.proprio" },
-  { href: "/painel/unidades", rotulo: "Unidades e salas", permissao: "salas.gerenciar" },
-  { href: "/painel/contratos", rotulo: "Contratos", permissao: "contratos.ver" },
-  { href: "/painel/profissionais", rotulo: "Profissionais", permissao: "profissionais.gerenciar" },
-  { href: "/painel/equipe", rotulo: "Equipe", permissao: "membros.gerenciar" },
-  { href: "/painel/notificacoes", rotulo: "Notificações", permissao: "auditoria.ver" },
-  { href: "/painel/assinatura", rotulo: "Assinatura", permissao: "assinatura.ver" },
-  { href: "/painel/perfil", rotulo: "Meu perfil" },
+const NAVEGACAO: (ItemNavegacao & { permissao?: Permissao; modulo?: Modulo })[] = [
+  { href: "/painel", rotulo: "Início", grupo: "operacao" },
+  { href: "/painel/atendimentos", rotulo: "Atendimentos", grupo: "operacao", permissao: "agenda.propria" },
+  { href: "/painel/agenda", rotulo: "Agenda de salas", grupo: "operacao", permissao: "agenda.ver" },
+  { href: "/painel/pacientes", rotulo: "Pacientes", grupo: "operacao", permissao: "pacientes.ver" },
+  { href: "/painel/espera", rotulo: "Lista de espera", grupo: "operacao", permissao: "agenda.gerenciar" },
+  { href: "/painel/prontuario", rotulo: "Prontuário", grupo: "operacao", permissao: "prontuario.menu", modulo: "prontuario" },
+  { href: "/painel/agendamento-online", rotulo: "Agenda online", grupo: "operacao", permissao: "agenda_online.configurar", modulo: "agendaOnline" },
+  { href: "/painel/financeiro", rotulo: "Financeiro", grupo: "financeiro", permissao: "financeiro.ver" },
+  { href: "/painel/extrato", rotulo: "Meu extrato", grupo: "financeiro", permissao: "extrato.proprio" },
+  { href: "/painel/contratos", rotulo: "Contratos", grupo: "financeiro", permissao: "contratos.ver" },
+  { href: "/painel/fiscal", rotulo: "Notas fiscais", grupo: "financeiro", permissao: "fiscal.ver", modulo: "fiscal" },
+  { href: "/painel/unidades", rotulo: "Unidades e salas", grupo: "configuracoes", permissao: "salas.gerenciar" },
+  { href: "/painel/profissionais", rotulo: "Profissionais", grupo: "configuracoes", permissao: "profissionais.gerenciar" },
+  { href: "/painel/equipe", rotulo: "Equipe", grupo: "configuracoes", permissao: "membros.gerenciar" },
+  { href: "/painel/notificacoes", rotulo: "Notificações", grupo: "configuracoes", permissao: "auditoria.ver" },
+  { href: "/painel/assinatura", rotulo: "Assinatura", grupo: "configuracoes", permissao: "assinatura.ver" },
+  { href: "/painel/perfil", rotulo: "Meu perfil", grupo: "configuracoes" },
 ];
 
 export default async function PainelLayout({ children }: LayoutProps<"/painel">) {
@@ -36,10 +36,12 @@ export default async function PainelLayout({ children }: LayoutProps<"/painel">)
   const modulos = await modulosDoEspaco(ctx);
   const itens: ItemNavegacao[] = NAVEGACAO.filter(
     (item) => (!item.permissao || pode(ctx.role, item.permissao)) && (!item.modulo || modulos[item.modulo])
-  ).map((item) =>
+  ).map(({ href, rotulo, grupo }) => ({
+    href,
+    grupo,
     // O profissional só vê o próprio contrato.
-    item.href === "/painel/contratos" && ctx.role === "profissional" ? { ...item, rotulo: "Meu contrato" } : item,
-  );
+    rotulo: href === "/painel/contratos" && ctx.role === "profissional" ? "Meu contrato" : rotulo,
+  }));
 
 
   const atraso = pode(ctx.role, "assinatura.ver") && (await assinaturaEmAtraso(ctx));
@@ -52,7 +54,25 @@ export default async function PainelLayout({ children }: LayoutProps<"/painel">)
         <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-2.5 sm:px-6">
           {/* Logo e Contexto do Espaço com Seletor Multi-clínicas */}
           <div className="flex items-center gap-3 sm:gap-4">
-            <SalusLogo href="/painel" size="sm" priority />
+            <PainelNavMobile
+              itens={itens}
+              rodape={
+                <div className="flex items-center justify-between gap-2 px-3">
+                  <span className="min-w-0 text-xs">
+                    <span className="block truncate font-medium">{ctx.usuario.nome}</span>
+                    <span className="block truncate text-muted-foreground">{ctx.usuario.email}</span>
+                  </span>
+                  <BotaoSair />
+                </div>
+              }
+            />
+            {/* No celular, só o símbolo: o seletor de clínica ocupa o resto da linha. */}
+            <span className="hidden sm:block">
+              <SalusLogo href="/painel" size="sm" priority />
+            </span>
+            <span className="sm:hidden">
+              <SalusLogo href="/painel" variant="symbol" size="sm" priority />
+            </span>
 
             <div className="hidden h-6 w-px bg-border/60 sm:block" />
 
@@ -64,8 +84,8 @@ export default async function PainelLayout({ children }: LayoutProps<"/painel">)
             />
           </div>
 
-          {/* Ações do Topo */}
-          <div className="flex items-center gap-2">
+          {/* Ações do Topo (no celular, ficam no rodapé do menu) */}
+          <div className="hidden items-center gap-2 md:flex">
             <div className="hidden flex-col items-end sm:flex mr-1">
               <span className="text-xs font-medium text-foreground">{ctx.usuario.nome}</span>
               <span className="text-[10px] text-muted-foreground">{ctx.usuario.email}</span>
@@ -75,7 +95,7 @@ export default async function PainelLayout({ children }: LayoutProps<"/painel">)
         </div>
 
         {/* Barra de Navegação Horizontal com Ícones */}
-        <div className="border-t border-border/40 bg-muted/20">
+        <div className="hidden border-t border-border/40 bg-muted/20 md:block">
           <PainelNav itens={itens} />
         </div>
       </header>
