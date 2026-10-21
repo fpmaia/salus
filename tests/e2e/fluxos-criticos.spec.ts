@@ -14,6 +14,8 @@ test("profissional reserva uma sala; reservar o mesmo horário de novo é recusa
     await page.locator("#data-reserva").fill(amanha);
     await page.locator("#horaInicio").fill("10:00");
     await page.locator("#horaFim").fill("12:00");
+    // Antes de reservar, o profissional vê o custo pelo contrato (R$ 45/h × 2h).
+    await expect(formulario.getByText(/Valor estimado: R\$\s90,00/)).toBeVisible();
     await formulario.getByRole("button", { name: "Reservar" }).click();
   };
 
@@ -197,4 +199,13 @@ test("equipe agenda em 1 passo com cadastro rápido, desfaz o status e remarca",
   await item.getByRole("button", { name: "Remarcar" }).click();
   await expect(page.getByRole("listitem").filter({ hasText: "18:00–19:00" }).filter({ hasText: "Bruno Rápido" })).toBeVisible();
   await expect(page.getByText("17:00–18:00")).toHaveCount(0);
+});
+
+test("profissional abre o próprio contrato pelo menu", async ({ page }) => {
+  await entrar(page, "profissional");
+  await page.getByRole("link", { name: "Meu contrato" }).click();
+  await expect(page).toHaveURL(/\/painel\/contratos\/[0-9a-f-]{36}$/);
+  await expect(page.getByRole("heading", { name: /CTR-.* · Dra\. E2E/ })).toBeVisible();
+  await expect(page.getByText(/por hora reservada/).first()).toBeVisible();
+  await expect(page.getByRole("link", { name: "Reajustar (nova versão)" })).toHaveCount(0);
 });

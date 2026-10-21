@@ -42,6 +42,8 @@ export interface GatewayCobranca {
   consultarCobranca(id: string): Promise<CobrancaGateway | null>;
   buscarPorReferencia(referencia: string): Promise<CobrancaGateway | null>;
   cancelarCobranca(id: string): Promise<void>;
+  /** PIX "copia e cola" da cobrança (null quando não há PIX para ela). */
+  obterPix(id: string): Promise<{ copiaECola: string } | null>;
 }
 
 /** Sem estado externo: devolve ids determinísticos; o pagamento é simulado pela tela. */
@@ -68,6 +70,10 @@ export class GatewaySimulado implements GatewayCobranca {
     return null;
   }
   async cancelarCobranca() {}
+  // Sem PIX de verdade no simulado: o pagamento é simulado pela equipe.
+  async obterPix() {
+    return null;
+  }
 }
 
 type PagamentoAsaas = {
@@ -166,6 +172,11 @@ export class GatewayAsaas implements GatewayCobranca {
 
   async cancelarCobranca(id: string) {
     await this.requisitar("DELETE", `/payments/${encodeURIComponent(id)}`);
+  }
+
+  async obterPix(id: string) {
+    const { http, json } = await this.requisitar<{ payload?: string }>("GET", `/payments/${encodeURIComponent(id)}/pixQrCode`);
+    return http === 404 || !json.payload ? null : { copiaECola: json.payload };
   }
 }
 

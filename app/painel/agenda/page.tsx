@@ -28,6 +28,8 @@ import {
 } from "@/src/server/reservas";
 import { listarUnidades } from "@/src/server/unidades";
 import { atendimentosDaReserva } from "@/src/server/agendamentos";
+import { minhaRegraDePreco } from "@/src/server/financeiro";
+import { PrecoEstimado } from "@/components/preco-estimado";
 import { cancelarReservaAcao, criarReservaAcao, encerrarRecorrenciaAcao } from "./actions";
 import { GradeAgenda, type ColunaGrade } from "./grade";
 import { FormAgendamento, ListaAtendimentos } from "../atendimentos/componentes";
@@ -130,11 +132,15 @@ export default async function AgendaPage({ searchParams }: PageProps<"/painel/ag
   };
   const passo = semana ? 7 : 1;
 
-  const [profissionais, reservaAberta, panorama] = await Promise.all([
+  const [profissionais, reservaAberta, panorama, meuPreco] = await Promise.all([
     listarProfissionaisParaReserva(ctx),
     parametros.reserva ? obterReserva(ctx, parametros.reserva) : Promise.resolve(null),
     gerencia ? obterPanoramaSalas(ctx, unidade.id, agoraInstante) : Promise.resolve(null),
+    // O profissional vê quanto a reserva vai custar pelo próprio contrato.
+    !gerencia && pode(ctx.role, "extrato.proprio") ? minhaRegraDePreco(ctx, agoraInstante) : Promise.resolve(undefined),
   ]);
+  const precoEstimado =
+    meuPreco === undefined ? null : <PrecoEstimado regra={meuPreco?.regra ?? null} contratoCodigo={meuPreco?.contrato.codigo} />;
   const atendimentosReserva = reservaAberta ? await atendimentosDaReserva(ctx, reservaAberta.id) : [];
 
   // Pré-preenchimento ao clicar num horário livre.
@@ -550,6 +556,7 @@ export default async function AgendaPage({ searchParams }: PageProps<"/painel/ag
                   horaInicio={novaInicio}
                   horaFim={novaFim}
                   slotMinutos={config.slotMinutos}
+                  extra={precoEstimado}
                 />
               </CardContent>
             </Card>
@@ -603,6 +610,7 @@ export default async function AgendaPage({ searchParams }: PageProps<"/painel/ag
                       <Input id="horaFim" name="horaFim" type="time" step={config.slotMinutos * 60} defaultValue={novaFim} required />
                     </div>
                   </div>
+                  {precoEstimado}
                   <label className="flex items-center gap-2 text-sm">
                     <input type="checkbox" name="repetir" /> Repetir toda semana
                   </label>

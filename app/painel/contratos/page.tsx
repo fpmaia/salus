@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { exigirPermissaoNaPagina } from "@/src/auth/permissao";
@@ -14,6 +15,9 @@ export default async function ContratosPage() {
   const contratos = await listarContratos(ctx);
   const gerencia = pode(ctx.role, "contratos.gerenciar");
   const proprio = ctx.role === "profissional";
+  // "Meu contrato": o profissional vai direto ao contrato vigente (o histórico está nele).
+  const vigente = proprio ? contratos.find((c) => c.situacao === "vigente") : undefined;
+  if (vigente) redirect(`/painel/contratos/${vigente.id}`);
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-8 sm:px-6">

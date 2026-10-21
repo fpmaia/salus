@@ -36,9 +36,15 @@ export default async function ContratoPage({ params, searchParams }: PageProps<"
     <main className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-8 sm:px-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <Link href="/painel/contratos" className="text-sm text-muted-foreground hover:underline">
-            ← Contratos
-          </Link>
+          {ctx.role === "profissional" ? (
+            <Link href="/painel/extrato" className="text-sm text-muted-foreground hover:underline">
+              ← Meu extrato
+            </Link>
+          ) : (
+            <Link href="/painel/contratos" className="text-sm text-muted-foreground hover:underline">
+              ← Contratos
+            </Link>
+          )}
           <h1 className="text-2xl font-semibold tracking-tight">
             <span className="font-mono">{contrato.codigo}</span> · {profissional.nome}
           </h1>

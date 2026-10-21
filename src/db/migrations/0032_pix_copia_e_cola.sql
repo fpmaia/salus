@@ -1,0 +1,1 @@
+ALTER TABLE "cobrancas_profissional" ADD COLUMN "pix_copia_e_cola" text;

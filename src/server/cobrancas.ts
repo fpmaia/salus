@@ -1,9 +1,9 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
-import { and, desc, eq, inArray, isNotNull, ne } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 import { registrarAuditoria } from "../db/audit";
 import { getDb, type Database, type Transaction } from "../db/client";
-import { cobrancasProfissional, configuracoesCobranca, eventosWebhook, profissionais, tenantSettings } from "../db/schema";
+import { cobrancasProfissional, configuracoesCobranca, eventosWebhook, lancamentos, profissionais, tenantSettings } from "../db/schema";
 import { type ContextoTenant, withSistema, withTenant } from "../db/tenant";
 import { formaDaBaixa, mapearStatusAsaas, vencimentoPadrao, type StatusCobranca } from "../domain/cobranca";
 import { formatarMoeda } from "../domain/dinheiro";
@@ -151,6 +151,15 @@ async function enviarAoGateway(tenantId: string, cobrancaId: string, fabrica: Fa
     if (!(e instanceof ErroGateway)) throw e;
     erro = e.message;
   }
+  // O "copia e cola" é um extra: sem ele, o link de pagamento continua valendo.
+  let pix: string | null = null;
+  if (remota && cobranca.forma === "PIX") {
+    try {
+      pix = (await gateway.obterPix(remota.id))?.copiaECola ?? null;
+    } catch (e) {
+      if (!(e instanceof ErroGateway)) throw e;
+    }
+  }
 
   return withSistema(
     tenantId,
@@ -166,6 +175,7 @@ async function enviarAoGateway(tenantId: string, cobrancaId: string, fabrica: Fa
                 asaasPaymentId: remota.id,
                 invoiceUrl: remota.invoiceUrl,
                 bankSlipUrl: remota.bankSlipUrl,
+                pixCopiaECola: pix,
                 status: mapearStatusAsaas(remota.status, remota.removida),
                 ultimoErro: null,
               }
@@ -179,47 +189,95 @@ async function enviarAoGateway(tenantId: string, cobrancaId: string, fabrica: Fa
   );
 }
 
+/** Grava a cobrança (ainda sem enviar ao gateway), validando a configuração e o profissional. */
+async function registrarCobranca(tx: Transaction, d: z.output<typeof novaCobrancaSchema>, agora: Date): Promise<{ id: string }> {
+  const [config] = await tx.select().from(configuracoesCobranca);
+  if (!config?.ativo) throw new ErroNegocio("A cobrança via Asaas não está ativada (Financeiro → Cobrança automática)");
+  const [p] = await tx.select().from(profissionais).where(eq(profissionais.id, d.profissionalId));
+  if (!p) throw new ErroNegocio("Profissional não encontrado");
+  if (!p.documento) throw new ErroNegocio(`Cadastre o CPF ou CNPJ de ${p.nome} para emitir a cobrança`);
+  const [settings] = await tx.select({ timezone: tenantSettings.timezone }).from(tenantSettings);
+  const hoje = hojeNoFuso(settings?.timezone ?? "America/Sao_Paulo", agora);
+  const vencimento = d.vencimento ?? vencimentoPadrao(hoje, config.diasVencimento);
+  if (vencimento < hoje) throw new ErroNegocio("O vencimento não pode estar no passado");
+  const [c] = await tx
+    .insert(cobrancasProfissional)
+    .values({
+      profissionalId: p.id,
+      competencia: d.competencia ?? null,
+      descricao: d.descricao || `Locação de salas${d.competencia ? ` — ${d.competencia.slice(5, 7)}/${d.competencia.slice(0, 4)}` : ""}`,
+      valorCentavos: d.valorCentavos,
+      vencimento,
+      forma: d.forma,
+      ambiente: config.ambiente,
+    })
+    .returning({ id: cobrancasProfissional.id });
+  await registrarAuditoria(tx, {
+    acao: "cobranca.criada",
+    entidade: "cobrancas_profissional",
+    entidadeId: c.id,
+    dados: { profissionalId: p.id, valor: d.valorCentavos, vencimento, forma: d.forma },
+  });
+  return c;
+}
+
 /** Cobra o profissional via PIX/boleto. O pagamento confirmado vira baixa automática no ledger. */
 export async function criarCobrancaProfissional(ctx: ContextoTenant, dados: z.input<typeof novaCobrancaSchema>, opcoes: Opcoes = {}) {
   exigirPermissao(ctx.role, "cobrancas.gerenciar");
   const d = novaCobrancaSchema.parse(dados);
   const database = opcoes.database ?? getDb();
   const agora = opcoes.agora ?? new Date();
-  const { id } = await withTenant(
+  const { id } = await withTenant(ctx, (tx) => registrarCobranca(tx, d, agora), database);
+  return enviarAoGateway(ctx.tenantId, id, opcoes.fabrica ?? gatewayDoTenant, database);
+}
+
+/** Saldo devedor do profissional hoje (todas as competências): positivo = deve ao espaço. */
+async function saldoAtual(tx: Transaction, profissionalId: string): Promise<number> {
+  const [{ saldo }] = await tx
+    .select({
+      saldo: sql<string>`coalesce(sum(case when ${lancamentos.natureza} = 'debito' then ${lancamentos.valorCentavos} else -${lancamentos.valorCentavos} end), 0)`,
+    })
+    .from(lancamentos)
+    .where(eq(lancamentos.profissionalId, profissionalId));
+  return Number(saldo);
+}
+
+/**
+ * Autoatendimento: o profissional gera o PIX do que deve hoje. Se já houver uma cobrança em
+ * aberto, devolve essa (não duplica); a equipe cancela e gera outra se o valor mudou.
+ */
+export async function pagarMeuSaldoComPix(ctx: ContextoTenant, opcoes: Opcoes = {}): Promise<{ cobranca: LinhaCobranca; nova: boolean }> {
+  exigirPermissao(ctx.role, "extrato.proprio");
+  const database = opcoes.database ?? getDb();
+  const agora = opcoes.agora ?? new Date();
+  const preparo = await withTenant(
     ctx,
     async (tx) => {
-      const [config] = await tx.select().from(configuracoesCobranca);
-      if (!config?.ativo) throw new ErroNegocio("A cobrança via Asaas não está ativada (Financeiro → Cobrança automática)");
-      const [p] = await tx.select().from(profissionais).where(eq(profissionais.id, d.profissionalId));
-      if (!p) throw new ErroNegocio("Profissional não encontrado");
-      if (!p.documento) throw new ErroNegocio(`Cadastre o CPF ou CNPJ de ${p.nome} para emitir a cobrança`);
-      const [settings] = await tx.select({ timezone: tenantSettings.timezone }).from(tenantSettings);
-      const hoje = hojeNoFuso(settings?.timezone ?? "America/Sao_Paulo", agora);
-      const vencimento = d.vencimento ?? vencimentoPadrao(hoje, config.diasVencimento);
-      if (vencimento < hoje) throw new ErroNegocio("O vencimento não pode estar no passado");
-      const [c] = await tx
-        .insert(cobrancasProfissional)
-        .values({
-          profissionalId: p.id,
-          competencia: d.competencia ?? null,
-          descricao: d.descricao || `Locação de salas${d.competencia ? ` — ${d.competencia.slice(5, 7)}/${d.competencia.slice(0, 4)}` : ""}`,
-          valorCentavos: d.valorCentavos,
-          vencimento,
-          forma: d.forma,
-          ambiente: config.ambiente,
-        })
-        .returning({ id: cobrancasProfissional.id });
-      await registrarAuditoria(tx, {
-        acao: "cobranca.criada",
-        entidade: "cobrancas_profissional",
-        entidadeId: c.id,
-        dados: { profissionalId: p.id, valor: d.valorCentavos, vencimento, forma: d.forma },
-      });
-      return c;
+      const proprio = await profissionalDoUsuario(tx, ctx.userId);
+      if (!proprio) throw new ErroNegocio("Seu usuário não está vinculado a um cadastro de profissional");
+      const [aberta] = await tx
+        .select()
+        .from(cobrancasProfissional)
+        .where(and(eq(cobrancasProfissional.profissionalId, proprio.id), inArray(cobrancasProfissional.status, ["pendente", "vencida"])))
+        .orderBy(desc(cobrancasProfissional.criadoEm))
+        .limit(1);
+      if (aberta) return { aberta, id: null };
+      const [config] = await tx.select({ ativo: configuracoesCobranca.ativo }).from(configuracoesCobranca);
+      if (!config?.ativo) throw new ErroNegocio("O espaço ainda não ativou o pagamento online. Fale com a recepção.");
+      const [p] = await tx.select({ documento: profissionais.documento }).from(profissionais).where(eq(profissionais.id, proprio.id));
+      if (!p.documento) throw new ErroNegocio("Para gerar o PIX, peça à recepção para cadastrar seu CPF ou CNPJ");
+      const saldo = await saldoAtual(tx, proprio.id);
+      if (saldo <= 0) throw new ErroNegocio("Você não tem valores a pagar");
+      const dados = novaCobrancaSchema.parse({ profissionalId: proprio.id, valorCentavos: saldo, forma: "PIX", descricao: "Locação de salas: saldo em aberto" });
+      const { id } = await registrarCobranca(tx, dados, agora);
+      await registrarAuditoria(tx, { acao: "cobranca.autoatendimento", entidade: "cobrancas_profissional", entidadeId: id });
+      return { aberta: null, id };
     },
     database,
   );
-  return enviarAoGateway(ctx.tenantId, id, opcoes.fabrica ?? gatewayDoTenant, database);
+  if (preparo.aberta) return { cobranca: preparo.aberta, nova: false };
+  const cobranca = await enviarAoGateway(ctx.tenantId, preparo.id, opcoes.fabrica ?? gatewayDoTenant, database);
+  return { cobranca, nova: true };
 }
 
 /** Reenvia uma cobrança com erro (consulta a referência antes; não duplica). */
@@ -446,3 +504,12 @@ export async function listarCobrancas(ctx: ContextoTenant, profissionalId?: stri
   );
 }
 
+
+/** O espaço aceita pagamento online (Asaas ativo)? Sem expor a configuração. */
+export async function pagamentoOnlineAtivo(ctx: ContextoTenant, database?: Database): Promise<boolean> {
+  return withTenant(
+    ctx,
+    async (tx) => Boolean((await tx.select({ ativo: configuracoesCobranca.ativo }).from(configuracoesCobranca))[0]?.ativo),
+    database,
+  );
+}

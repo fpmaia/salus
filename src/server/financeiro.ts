@@ -36,6 +36,7 @@ import { exigirPermissao, pode } from "../domain/rbac";
 import { intervalosDoDia } from "../domain/reservas";
 import { dataValida, hojeNoFuso, instanteLocal, partesLocais, somarDias, type DataLocal } from "../domain/tempo";
 import { ErroNegocio } from "./erros";
+import type { RegraDePreco } from "../domain/contratos";
 import { profissionalDoUsuario } from "./profissionais";
 import { carregarConfigUnidade } from "./unidades";
 
@@ -910,3 +911,39 @@ export async function listarPagamentos(ctx: ContextoTenant, profissionalId: stri
   );
 }
 
+
+/**
+ * Regra de preço do contrato vigente hoje para o próprio profissional (estimativa antes de
+ * reservar), com o consumo do pacote no mês. null = sem contrato vigente.
+ */
+export async function minhaRegraDePreco(
+  ctx: ContextoTenant,
+  agora = new Date(),
+  database?: Database,
+): Promise<{ regra: RegraDePreco; contrato: { id: string; codigo: string | null } } | null> {
+  exigirPermissao(ctx.role, "extrato.proprio");
+  return withTenant(
+    ctx,
+    async (tx) => {
+      const proprio = await profissionalDoUsuario(tx, ctx.userId);
+      if (!proprio) return null;
+      const hoje = hojeNoFuso(await timezoneDoTenant(tx), agora);
+      const acordo = acordoVigente(await carregarAcordos(tx, proprio.id), hoje);
+      if (!acordo) return null;
+      const uso = await usoDoMes(tx, proprio.id, competenciaDe(hoje), acordo.id);
+      return {
+        regra: {
+          modelo: acordo.modelo,
+          valorHoraCentavos: acordo.valorHoraCentavos,
+          valorConsultaCentavos: acordo.valorConsultaCentavos,
+          percentualBp: acordo.percentualBp,
+          mensalidadeCentavos: acordo.mensalidadeCentavos,
+          horasIncluidas: acordo.horasIncluidas,
+          minutosUsadosNoMes: uso.total,
+        },
+        contrato: { id: acordo.id, codigo: acordo.codigo },
+      };
+    },
+    database,
+  );
+}

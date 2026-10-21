@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { formatarMoeda } from "./dinheiro";
 import {
   descreverCondicoes,
+  estimarReserva,
   formatarGradeHorariosTexto,
   gerarMinutaContratoPadrao,
   gradeHorariosSchema,
@@ -109,5 +110,38 @@ describe("domínio: contratos", () => {
     expect(linhas).toContain(`${formatarMoeda(4500)} por hora reservada`);
     expect(linhas).toContain("Cancelamento sem custo até 48h antes");
     expect(linhas.join(" ")).toMatch(/Turno fixo cancelado depois do prazo: 50/);
+  });
+});
+
+describe("estimarReserva", () => {
+  const base = { valorHoraCentavos: null, valorConsultaCentavos: null, percentualBp: null, mensalidadeCentavos: null, horasIncluidas: null, minutosUsadosNoMes: 0 };
+
+  it("por hora: valor proporcional ao tempo", () => {
+    expect(estimarReserva({ ...base, modelo: "hora", valorHoraCentavos: 4500 }, 90)).toEqual({
+      valorCentavos: 6750,
+      texto: expect.stringContaining("1,5h"),
+    });
+  });
+
+  it("por consulta ou percentual: a reserva não tem preço por hora", () => {
+    expect(estimarReserva({ ...base, modelo: "consulta", valorConsultaCentavos: 3000 }, 60).valorCentavos).toBeNull();
+    expect(estimarReserva({ ...base, modelo: "percentual", percentualBp: 2000 }, 60).texto).toContain("20");
+  });
+
+  it("pacote de horas: coberta enquanto há saldo, depois cobra o excedente", () => {
+    const pacote = { ...base, modelo: "mensalidade" as const, mensalidadeCentavos: 100000, horasIncluidas: 10, valorHoraCentavos: 5000 };
+    expect(estimarReserva({ ...pacote, minutosUsadosNoMes: 8 * 60 }, 120)).toMatchObject({ valorCentavos: 0 });
+    expect(estimarReserva({ ...pacote, minutosUsadosNoMes: 9 * 60 }, 120)).toMatchObject({ valorCentavos: 5000 });
+  });
+
+  it("turno fixo: avulsa paga a hora do contrato, se houver", () => {
+    const fixo = { ...base, modelo: "mensalidade" as const, mensalidadeCentavos: 200000 };
+    expect(estimarReserva(fixo, 60)).toMatchObject({ valorCentavos: 0 });
+    expect(estimarReserva({ ...fixo, valorHoraCentavos: 4000 }, 60)).toMatchObject({ valorCentavos: 4000 });
+  });
+
+  it("sem contrato ou sem horário", () => {
+    expect(estimarReserva(null, 60).valorCentavos).toBeNull();
+    expect(estimarReserva({ ...base, modelo: "hora", valorHoraCentavos: 4500 }, 0).valorCentavos).toBeNull();
   });
 });

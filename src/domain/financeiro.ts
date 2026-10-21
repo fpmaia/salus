@@ -91,7 +91,7 @@ export function ultimoDiaDaCompetencia(competencia: DataLocal): DataLocal {
   return somarDias(proximaCompetencia(competencia), -1);
 }
 
-const horasTexto = (minutos: number) => `${(minutos / 60).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}h`;
+export const horasTexto = (minutos: number) => `${(minutos / 60).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}h`;
 
 /** Reserva concluída: só o modelo por hora cobra a reserva em si. */
 export function lancamentosDaReserva(acordo: Acordo | null, minutos: number): LancamentoDesejado[] {

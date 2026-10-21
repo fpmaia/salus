@@ -1046,6 +1046,8 @@ export const cobrancasProfissional = pgTable(
     asaasPaymentId: text("asaas_payment_id"),
     invoiceUrl: text("invoice_url"),
     bankSlipUrl: text("bank_slip_url"),
+    // PIX "copia e cola" (o QR Code é gerado a partir dele na tela).
+    pixCopiaECola: text("pix_copia_e_cola"),
     pagoEm: timestamp("pago_em", { withTimezone: true }),
     // Pagamento (baixa) gerado quando o Asaas confirmou o recebimento.
     pagamentoId: uuid("pagamento_id"),

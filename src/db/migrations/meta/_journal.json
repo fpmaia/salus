@@ -225,6 +225,13 @@
       "when": 1792588185644,
       "tag": "0031_recepcao",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1792604092554,
+      "tag": "0032_pix_copia_e_cola",
+      "breakpoints": true
     }
   ]
 }

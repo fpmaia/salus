@@ -8,6 +8,9 @@ export class GatewayFalso implements GatewayCobranca {
   /** Próximas N criações de cobrança "perdem a resposta" (o Asaas processou, a rede caiu). */
   perderResposta = 0;
 
+  /** Prefixo dos ids: o id do pagamento é único no banco inteiro (entre arquivos de teste). */
+  constructor(private readonly prefixo = "") {}
+
   async criarCliente(c: { cpfCnpj: string }) {
     const id = `cus_${this.clientes.length + 1}`;
     this.clientes.push({ id, cpfCnpj: c.cpfCnpj });
@@ -15,7 +18,7 @@ export class GatewayFalso implements GatewayCobranca {
   }
 
   async criarCobranca(c: NovaCobranca) {
-    const id = `pay_${this.cobrancas.size + 1}`;
+    const id = `pay_${this.prefixo}${this.cobrancas.size + 1}`;
     const cobranca = {
       id,
       status: "PENDING",
@@ -46,6 +49,11 @@ export class GatewayFalso implements GatewayCobranca {
   async cancelarCobranca(id: string) {
     const c = this.cobrancas.get(id);
     if (c) c.removida = true;
+  }
+
+  async obterPix(id: string) {
+    const c = this.cobrancas.get(id);
+    return c && c.billingType === "PIX" ? { copiaECola: `00020126PIX-FALSO-${id}` } : null;
   }
 
   /** Muda o status "no Asaas" (o teste simula o pagamento/estorno). */

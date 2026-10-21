@@ -38,6 +38,9 @@ export default async function PainelLayout({ children }: LayoutProps<"/painel">)
 
   const itens: ItemNavegacao[] = NAVEGACAO.filter(
     (item) => !item.permissao || pode(ctx.role, item.permissao)
+  ).map((item) =>
+    // O profissional só vê o próprio contrato.
+    item.href === "/painel/contratos" && ctx.role === "profissional" ? { ...item, rotulo: "Meu contrato" } : item,
   );
 
   if (ehDono) {

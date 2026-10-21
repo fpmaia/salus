@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { formatarMoeda, formatarPercentual } from "./dinheiro";
-import { turnoFixo, type Acordo } from "./financeiro";
+import { horasTexto, turnoFixo, type Acordo } from "./financeiro";
 
 // Contrato do profissional = acordo financeiro versionado + grade fixa opcional + termos.
 // Aqui: a grade semanal, a descrição das condições (telas e minuta) e a minuta padrão.
@@ -197,4 +197,55 @@ _____________________________________________
 *${registroProfissional}*
 *(Profissional)*
 `;
+}
+
+/** O que o profissional precisa saber do contrato para estimar o custo de uma reserva avulsa. */
+export type RegraDePreco = Pick<
+  Acordo,
+  "modelo" | "valorHoraCentavos" | "valorConsultaCentavos" | "percentualBp" | "mensalidadeCentavos" | "horasIncluidas"
+> & {
+  /** Minutos de reservas concluídas no mês (consumo do pacote). */
+  minutosUsadosNoMes: number;
+};
+
+/**
+ * Custo estimado de uma reserva avulsa de `minutos`, pelo contrato vigente. `valorCentavos`
+ * null = a reserva em si não tem preço por hora (cobra por atendimento) ou não há contrato.
+ */
+export function estimarReserva(regra: RegraDePreco | null, minutos: number): { valorCentavos: number | null; texto: string } {
+  if (!regra) return { valorCentavos: null, texto: "Sem contrato vigente: o valor é combinado com o espaço." };
+  const pelaHora = (m: number) => (regra.valorHoraCentavos ? Math.round((m * regra.valorHoraCentavos) / 60) : 0);
+  if (minutos <= 0) return { valorCentavos: null, texto: "Informe o horário para ver o valor." };
+
+  if (regra.modelo === "hora" && regra.valorHoraCentavos) {
+    return {
+      valorCentavos: pelaHora(minutos),
+      texto: `${formatarMoeda(pelaHora(minutos))} (${horasTexto(minutos)} × ${formatarMoeda(regra.valorHoraCentavos)}/h)`,
+    };
+  }
+  if (regra.modelo === "consulta" && regra.valorConsultaCentavos) {
+    return { valorCentavos: null, texto: `Sem custo por hora: ${formatarMoeda(regra.valorConsultaCentavos)} por consulta realizada.` };
+  }
+  if (regra.modelo === "percentual" && regra.percentualBp) {
+    return { valorCentavos: null, texto: `Sem custo por hora: ${formatarPercentual(regra.percentualBp)} de cada atendimento.` };
+  }
+  if (turnoFixo(regra)) {
+    const valor = pelaHora(minutos);
+    return valor > 0
+      ? { valorCentavos: valor, texto: `${formatarMoeda(valor)}: fora do turno fixo, ${formatarMoeda(regra.valorHoraCentavos!)}/h` }
+      : { valorCentavos: 0, texto: "Sem custo extra além da mensalidade." };
+  }
+  if (regra.modelo === "mensalidade" && regra.horasIncluidas !== null) {
+    const restante = Math.max(regra.horasIncluidas * 60 - regra.minutosUsadosNoMes, 0);
+    const excedente = Math.max(minutos - restante, 0);
+    if (excedente === 0) {
+      return { valorCentavos: 0, texto: `Coberta pelo pacote: restam ${horasTexto(restante)} de ${regra.horasIncluidas}h este mês.` };
+    }
+    const valor = pelaHora(excedente);
+    return {
+      valorCentavos: valor,
+      texto: `${horasTexto(excedente)} além do pacote${valor > 0 ? `: ${formatarMoeda(valor)}` : ""} (restam ${horasTexto(restante)} de ${regra.horasIncluidas}h).`,
+    };
+  }
+  return { valorCentavos: null, texto: "O valor é combinado com o espaço." };
 }

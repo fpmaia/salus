@@ -229,6 +229,7 @@ export function FormAgendamento({
   horaFim,
   slotMinutos,
   salaId,
+  extra,
 }: {
   /** Vazio para o profissional (agenda para si). */
   profissionais: Opcao[];
@@ -241,6 +242,8 @@ export function FormAgendamento({
   slotMinutos: number;
   /** Sala pré-escolhida (agendar direto num horário vago da grade). */
   salaId?: string;
+  /** Conteúdo extra no fim do formulário (ex.: valor estimado da reserva). */
+  extra?: React.ReactNode;
 }) {
   const id = (campo: string) => `ag-${reservaId ?? "novo"}-${campo}`;
   return (
@@ -293,6 +296,7 @@ export function FormAgendamento({
         <Label htmlFor={id("obs")}>Observação (administrativa)</Label>
         <Input id={id("obs")} name="observacao" maxLength={300} placeholder="Ex.: primeira consulta" />
       </div>
+      {extra}
     </FormAcao>
   );
 }
