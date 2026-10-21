@@ -21,6 +21,8 @@ describe("notificações", () => {
 
   it("monta o texto do lembrete com o link", () => {
     expect(primeiroNome("  Maria  Souza ")).toBe("Maria");
+    expect(primeiroNome("Dra. Ana Lima")).toBe("Ana");
+    expect(primeiroNome("Dr Beto")).toBe("Beto");
     const texto = textoDaMensagem("lembrete_agendamento", {
       paciente: "Maria",
       profissional: "Dra. Ana",

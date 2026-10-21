@@ -25,8 +25,10 @@ export function normalizarTelefoneBr(telefone: string | null | undefined): strin
   return `+55${digitos}`;
 }
 
+/** Primeiro nome para a saudação, pulando títulos ("Dra. Ana Lima" → "Ana"). */
 export function primeiroNome(nome: string): string {
-  return nome.trim().split(/\s+/)[0] ?? nome;
+  const partes = nome.trim().split(/\s+/);
+  return partes.find((p) => !/^(dr|dra|prof|profa|sr|sra)\.?$/i.test(p)) ?? partes[0] ?? nome;
 }
 
 export type ParametrosLembreteAgendamento = {
