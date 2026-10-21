@@ -30,8 +30,16 @@ const COR_STATUS: Record<StatusAgendamento, string> = {
 
 export function SeloStatus({ status, tardio }: { status: StatusAgendamento; tardio?: boolean }) {
   return (
-    <span className={cn("rounded-md px-2 py-0.5 text-xs font-medium", COR_STATUS[status])}>
-      {ROTULOS_STATUS[status]}
+    <span
+      className={cn(
+        "rounded-md px-2 py-0.5 text-xs font-medium inline-flex items-center gap-1.5",
+        status === "presente"
+          ? "bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/40 font-semibold"
+          : COR_STATUS[status]
+      )}
+    >
+      {status === "presente" && <span className="size-1.5 rounded-full bg-amber-500 animate-pulse" />}
+      {status === "presente" ? "Na Recepção" : ROTULOS_STATUS[status]}
       {tardio && " · tardio"}
     </span>
   );
@@ -50,64 +58,74 @@ export function ListaAtendimentos({
 }) {
   if (atendimentos.length === 0) return <p className="text-sm text-muted-foreground">Nenhum atendimento.</p>;
   return (
-    <ul className="divide-y">
+    <ul className="divide-y divide-border/60">
       {atendimentos.map((a) => (
-        <li key={a.id} className="flex flex-col gap-2 py-3 text-sm">
+        <li key={a.id} className="flex flex-col gap-2.5 py-3.5 text-sm">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span>
-              <span className="font-medium tabular-nums">
+              <span className="font-semibold tabular-nums text-foreground">
                 {a.horaInicio}–{a.horaFim}
               </span>{" "}
-              <Link href={`/painel/pacientes/${a.pacienteId}`} className="text-primary underline-offset-4 hover:underline">
+              <Link href={`/painel/pacientes/${a.pacienteId}`} className="font-medium text-primary underline-offset-4 hover:underline">
                 {a.pacienteNome}
               </Link>
-              <span className="block text-xs text-muted-foreground">
+              <span className="block text-xs text-muted-foreground mt-0.5">
                 {[mostrarProfissional && a.profissionalNome, a.salaNome, a.pacienteTelefone].filter(Boolean).join(" · ")}
               </span>
-              {a.observacao && <span className="block text-xs text-muted-foreground">Obs.: {a.observacao}</span>}
+              {a.observacao && <span className="block text-xs text-muted-foreground italic">Obs.: {a.observacao}</span>}
               {linkProntuario && (
-                <Link href={`/painel/prontuario/${a.pacienteId}`} className="text-xs text-primary underline-offset-4 hover:underline">
-                  Prontuário
+                <Link href={`/painel/prontuario/${a.pacienteId}`} className="text-xs text-primary font-medium underline-offset-4 hover:underline inline-block mt-1">
+                  Ver Prontuário →
                 </Link>
               )}
             </span>
             <span className="flex items-center gap-2">
-              {a.origem === "online" && <span className="rounded-md bg-primary/10 px-2 py-0.5 text-xs text-primary">online</span>}
+              {a.origem === "online" && <span className="rounded-md bg-primary/10 px-2 py-0.5 text-xs text-primary font-medium">online</span>}
               <SeloStatus status={a.status} tardio={a.cancelamentoTardio} />
             </span>
           </div>
-          <div className="flex flex-wrap gap-2">
+
+          <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-border/30">
+            {/* Registro de Pagamento da Consulta */}
             {a.status !== "cancelado" && (
               <FormAcao
                 acao={definirValorAcao.bind(null, a.id)}
-                textoBotao={a.valorCentavos === null ? "Salvar valor" : "Alterar valor"}
-                textoPendente="…"
-                variante="outline"
-                className="flex flex-wrap items-center gap-2"
+                textoBotao={a.valorCentavos === null ? "Registrar Pagamento" : "Alterar Valor"}
+                textoPendente="Salvando…"
+                variante={a.valorCentavos === null ? "secondary" : "outline"}
+                className="flex flex-wrap items-center gap-1.5"
               >
-                <Input
-                  name="valor"
-                  inputMode="decimal"
-                  placeholder="Valor R$"
-                  aria-label="Valor cobrado do paciente"
-                  defaultValue={a.valorCentavos === null ? "" : (a.valorCentavos / 100).toFixed(2).replace(".", ",")}
-                  title={a.valorCentavos === null ? undefined : formatarMoeda(a.valorCentavos)}
-                  className="h-7 w-28"
-                />
+                <div className="flex items-center gap-1">
+                  <span className="text-xs text-muted-foreground">R$</span>
+                  <Input
+                    name="valor"
+                    inputMode="decimal"
+                    placeholder="0,00"
+                    aria-label="Valor cobrado do paciente"
+                    defaultValue={a.valorCentavos === null ? "" : (a.valorCentavos / 100).toFixed(2).replace(".", ",")}
+                    title={a.valorCentavos === null ? "Informe o valor pago" : `Registrado: ${formatarMoeda(a.valorCentavos)}`}
+                    className="h-8 w-24 text-xs font-medium tabular-nums"
+                  />
+                </div>
               </FormAcao>
             )}
+
+            {/* Ações de Transição de Status (Check-in, Confirmar, Realizado, Falta) */}
             {transicoesPossiveis(a.status)
               .filter((s) => s !== "cancelado")
               .map((s) => (
                 <FormAcao
                   key={s}
                   acao={alterarStatusAcao.bind(null, a.id, s)}
-                  textoBotao={ROTULO_ACAO[s]}
+                  textoBotao={s === "presente" ? "✓ Check-in" : ROTULO_ACAO[s]}
                   textoPendente="…"
-                  variante={s === "falta" ? "outline" : "secondary"}
-                  className="flex items-center gap-2"
+                  variante={s === "presente" ? "default" : s === "falta" ? "outline" : "secondary"}
+                  className={`flex items-center gap-2 ${
+                    s === "presente" ? "bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-xs" : ""
+                  }`}
                 />
               ))}
+
             {transicoesPossiveis(a.status).includes("cancelado") && (
               <FormAcao
                 acao={alterarStatusAcao.bind(null, a.id, "cancelado")}
@@ -115,9 +133,9 @@ export function ListaAtendimentos({
                 textoPendente="…"
                 variante="destructive"
                 confirmar="Cancelar este agendamento?"
-                className="flex flex-wrap items-center gap-2"
+                className="flex flex-wrap items-center gap-2 ml-auto"
               >
-                <Input name="motivo" placeholder="Motivo (opcional)" aria-label="Motivo do cancelamento" className="h-7 w-40" />
+                <Input name="motivo" placeholder="Motivo (opcional)" aria-label="Motivo do cancelamento" className="h-8 w-36 text-xs" />
               </FormAcao>
             )}
           </div>
@@ -167,7 +185,7 @@ export function FormAgendamento({
     );
   }
   return (
-    <FormAcao key={`${reservaId}-${data}-${horaInicio}`} acao={criarAgendamentoAcao} textoBotao="Agendar" textoPendente="Agendando…">
+    <FormAcao key={`${reservaId}-${data}-${horaInicio}-${horaFim}`} acao={criarAgendamentoAcao} textoBotao="Agendar" textoPendente="Agendando…">
       {reservaId && <input type="hidden" name="reservaId" value={reservaId} />}
       <div className="flex flex-col gap-2">
         <Label htmlFor={id("paciente")}>Paciente</Label>

@@ -36,10 +36,10 @@ test("recepção agenda um paciente dentro da reserva do profissional", async ({
   await formulario.getByLabel("Fim").fill("15:00");
   await formulario.getByLabel("Observação (administrativa)").fill("Primeira consulta");
   await formulario.getByRole("button", { name: "Agendar" }).click();
-  await expect(formulario.getByText(/Agendado para .*14:00/)).toBeVisible();
 
-  // Aparece na lista da reserva e nos atendimentos do dia.
-  await expect(page.getByRole("link", { name: "Ana Paciente" })).toBeVisible();
+  // O painel da reserva remonta depois de agendar (a mensagem some): vale a lista de pacientes.
+  await expect(page.getByRole("link", { name: "Ana Paciente" }).first()).toBeVisible();
+  await expect(page.getByText("Obs.: Primeira consulta")).toBeVisible();
   await page.goto(`/painel/atendimentos?data=${amanha}`);
   await expect(page.getByText("14:00–15:00")).toBeVisible();
   await expect(page.getByRole("link", { name: "Ana Paciente" })).toBeVisible();

@@ -1,4 +1,5 @@
 import { revalidatePath } from "next/cache";
+import { unstable_rethrow } from "next/navigation";
 import { mensagemDeErro } from "./erros";
 
 /** Estado devolvido pelas Server Actions de formulário (useActionState). */
@@ -8,7 +9,7 @@ export const ESTADO_INICIAL: EstadoAcao = { erro: null, sucesso: null };
 
 /**
  * Executa a mutação, converte erros esperados em mensagem e revalida o painel.
- * Erros inesperados sobem (error boundary do Next.js).
+ * Erros inesperados viram uma mensagem genérica com código (detalhe só no log do servidor).
  */
 export async function executarAcao(
   fn: () => Promise<string | EstadoAcao | void>,
@@ -19,9 +20,18 @@ export async function executarAcao(
     if (resultado && typeof resultado === "object") return resultado;
     return { erro: null, sucesso: resultado ?? "Salvo" };
   } catch (erro) {
+    // redirect()/notFound() dentro da ação são controle de fluxo do Next, não erro.
+    unstable_rethrow(erro);
     const mensagem = mensagemDeErro(erro);
     if (mensagem) return { erro: mensagem, sucesso: null };
-    throw erro;
+
+    // Erro inesperado: gera correlation ID, loga detalhadamente no servidor e oculta SQL do browser
+    const erroId = `ERR-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+    console.error(`[Servidor - Erro Inesperado ${erroId}]:`, erro);
+    return {
+      erro: `Ocorreu um erro interno ao processar a operação (${erroId}). Tente novamente ou informe o suporte.`,
+      sucesso: null,
+    };
   }
 }
 

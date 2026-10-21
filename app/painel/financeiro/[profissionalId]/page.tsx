@@ -14,6 +14,7 @@ import { hojeNoFuso } from "@/src/domain/tempo";
 import { competenciaAtual, competenciaSchema, extrato, listarAcordos, listarPagamentos } from "@/src/server/financeiro";
 import { listarCobrancas, obterConfigCobranca } from "@/src/server/cobrancas";
 import { listarNotas } from "@/src/server/fiscal";
+import { listarTodasSalasAtivas } from "@/src/server/unidades";
 import { formatarDataBr } from "@/src/server/reservas";
 import { criarAcordoAcao, fecharCompetenciaAcao, lancarAjusteAcao, registrarPagamentoAcao } from "../actions";
 import { FormCobranca, ListaCobrancas } from "../cobrancas-ui";
@@ -21,8 +22,15 @@ import { NavCompetencia, rotuloCompetencia, Saldo, TabelaExtrato } from "../comp
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-function descreverAcordo(a: Acordo): string {
+function descreverAcordo(a: Acordo, salasDisponiveis: { id: string; nome: string }[] = []): string {
   const partes: string[] = [ROTULOS_MODELO[a.modelo]];
+  if (a.modelo === "sala_fixa") {
+    const nomeSala = salasDisponiveis.find((s) => s.id === a.salaId)?.nome;
+    if (nomeSala) partes.push(`Sala: ${nomeSala}`);
+    if (a.mensalidadeCentavos) partes.push(`${formatarMoeda(a.mensalidadeCentavos)}/mês fixo`);
+    if (a.valorConsultaCentavos) partes.push(`+ ${formatarMoeda(a.valorConsultaCentavos)} por consulta`);
+    if (a.percentualBp) partes.push(`+ ${formatarPercentual(a.percentualBp)} por consulta`);
+  }
   if (a.modelo === "hora" && a.valorHoraCentavos) partes.push(`${formatarMoeda(a.valorHoraCentavos)}/h`);
   if (a.modelo === "consulta" && a.valorConsultaCentavos) partes.push(`${formatarMoeda(a.valorConsultaCentavos)} por consulta`);
   if (a.modelo === "percentual" && a.percentualBp) partes.push(formatarPercentual(a.percentualBp));
@@ -54,10 +62,11 @@ export default async function FinanceiroProfissionalPage({ params, searchParams 
 
   const dados = await extrato(ctx, { profissionalId, competencia }).catch(() => null);
   if (!dados) notFound();
-  const [acordos, pagamentosRecentes, todasNotas] = await Promise.all([
+  const [acordos, pagamentosRecentes, todasNotas, salasDisponiveis] = await Promise.all([
     admin ? listarAcordos(ctx, profissionalId) : Promise.resolve([]),
     listarPagamentos(ctx, profissionalId),
     pode(ctx.role, "fiscal.ver") ? listarNotas(ctx, competencia) : Promise.resolve([]),
+    admin ? listarTodasSalasAtivas(ctx) : Promise.resolve([]),
   ]);
   const notas = todasNotas.filter((n) => n.nota.profissionalId === profissionalId);
   const gerenciaCobranca = pode(ctx.role, "cobrancas.gerenciar");
@@ -76,7 +85,7 @@ export default async function FinanceiroProfissionalPage({ params, searchParams 
             ← Financeiro
           </Link>
           <h1 className="text-2xl font-semibold tracking-tight">{dados.profissional.nome}</h1>
-          <p className="text-sm text-muted-foreground">{dados.acordo ? descreverAcordo(dados.acordo) : "Sem acordo vigente nesta competência"}</p>
+          <p className="text-sm text-muted-foreground">{dados.acordo ? descreverAcordo(dados.acordo, salasDisponiveis) : "Sem acordo vigente nesta competência"}</p>
         </div>
         <NavCompetencia competencia={competencia} href={(x) => `/painel/financeiro/${profissionalId}?competencia=${x}`} />
       </div>
@@ -251,7 +260,7 @@ export default async function FinanceiroProfissionalPage({ params, searchParams 
               <ul className="divide-y text-sm">
                 {acordos.map((a) => (
                   <li key={a.id} className="flex flex-col py-2">
-                    <span>{descreverAcordo(a)}</span>
+                    <span>{descreverAcordo(a, salasDisponiveis)}</span>
                     <span className="text-xs text-muted-foreground">
                       {formatarDataBr(a.vigenteDe)} → {a.vigenteAte ? formatarDataBr(a.vigenteAte) : "sem data de término"}
                     </span>
@@ -272,6 +281,18 @@ export default async function FinanceiroProfissionalPage({ params, searchParams 
                   </NativeSelect>
                 </div>
                 <div className="flex flex-col gap-2">
+                  <Label htmlFor="ac-sala">Sala alugada (para Sala Fixa)</Label>
+                  <NativeSelect id="ac-sala" name="salaId" defaultValue={dados.acordo?.salaId ?? ""}>
+                    <option value="">— Nenhuma / Uso rotativo —</option>
+                    {salasDisponiveis.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.nome} ({s.unidadeNome})
+                        {s.valorMensalCentavos ? ` · Ref: ${formatarMoeda(s.valorMensalCentavos)}/mês` : ""}
+                      </option>
+                    ))}
+                  </NativeSelect>
+                </div>
+                <div className="flex flex-col gap-2">
                   <Label htmlFor="ac-fluxo">Recebimento do paciente</Label>
                   <NativeSelect id="ac-fluxo" name="fluxoRecebimento" defaultValue={dados.acordo?.fluxoRecebimento ?? "direto"}>
                     <option value="direto">Paciente paga direto ao profissional</option>
@@ -283,23 +304,27 @@ export default async function FinanceiroProfissionalPage({ params, searchParams 
                   <Input id="ac-vigencia" name="vigenteDe" type="date" defaultValue={`${atual.slice(0, 7)}-01`} required />
                 </div>
                 <div className="flex flex-col gap-2">
+                  <Label htmlFor="ac-vigencia-ate">Válido até (opcional)</Label>
+                  <Input id="ac-vigencia-ate" name="vigenteAte" type="date" />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="ac-mensal">Mensalidade da sala (R$)</Label>
+                  <Input id="ac-mensal" name="mensalidade" inputMode="decimal" placeholder="mensalidade / sala fixa" />
+                </div>
+                <div className="flex flex-col gap-2">
                   <Label htmlFor="ac-hora">Valor da hora (R$)</Label>
                   <Input id="ac-hora" name="valorHora" inputMode="decimal" placeholder="hora / excedente" />
                 </div>
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="ac-consulta">Valor por consulta (R$)</Label>
-                  <Input id="ac-consulta" name="valorConsulta" inputMode="decimal" />
+                  <Input id="ac-consulta" name="valorConsulta" inputMode="decimal" placeholder="cobrança por consulta" />
                 </div>
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="ac-pct">Percentual do atendimento (%)</Label>
-                  <Input id="ac-pct" name="percentual" inputMode="decimal" placeholder="30" />
+                  <Input id="ac-pct" name="percentual" inputMode="decimal" placeholder="ex: 20%" />
                 </div>
                 <div className="flex flex-col gap-2">
-                  <Label htmlFor="ac-mensal">Mensalidade (R$)</Label>
-                  <Input id="ac-mensal" name="mensalidade" inputMode="decimal" />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="ac-horas">Horas incluídas no pacote</Label>
+                  <Label htmlFor="ac-horas">Horas incluídas (pacote)</Label>
                   <Input id="ac-horas" name="horasIncluidas" type="number" min={0} />
                 </div>
                 <div className="flex flex-col gap-2">
@@ -314,10 +339,48 @@ export default async function FinanceiroProfissionalPage({ params, searchParams 
                   <Label htmlFor="ac-falta-pct">% cobrado na falta</Label>
                   <Input id="ac-falta-pct" name="faltaPercentual" inputMode="decimal" placeholder="50" />
                 </div>
+
+                {/* Bloco de Horários Fixos na Agenda */}
+                <div className="col-span-full rounded-lg border border-border/70 bg-muted/20 p-3 mt-1">
+                  <p className="text-xs font-semibold text-foreground mb-1">
+                    Horários de Uso da Sala Fixa (Reserva Automática na Agenda)
+                  </p>
+                  <p className="text-[11px] text-muted-foreground mb-2">
+                    Para contratos de Sala Fixa, selecione os dias da semana e horários em que a sala fica reservada para o profissional.
+                    Os horários não agendados aparecerão na agenda como <strong>horários vagos</strong> para consultas.
+                  </p>
+                  <div className="grid gap-3 sm:grid-cols-3 items-end">
+                    <div className="flex flex-col gap-1 sm:col-span-3">
+                      <Label className="text-xs">Dias da semana:</Label>
+                      <div className="flex flex-wrap gap-3 text-xs mt-1">
+                        {[
+                          { dia: 1, rotulo: "Seg" },
+                          { dia: 2, rotulo: "Ter" },
+                          { dia: 3, rotulo: "Qua" },
+                          { dia: 4, rotulo: "Qui" },
+                          { dia: 5, rotulo: "Sex" },
+                          { dia: 6, rotulo: "Sáb" },
+                        ].map(({ dia, rotulo }) => (
+                          <label key={dia} className="flex items-center gap-1.5 cursor-pointer">
+                            <input type="checkbox" name="diasSemana" value={dia} defaultChecked={dia >= 1 && dia <= 5} />
+                            <span>{rotulo}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <Label htmlFor="ac-hora-ini">Horário Início</Label>
+                      <Input id="ac-hora-ini" name="horaInicio" type="time" defaultValue="08:00" />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <Label htmlFor="ac-hora-fim">Horário Fim</Label>
+                      <Input id="ac-hora-fim" name="horaFim" type="time" defaultValue="18:00" />
+                    </div>
+                  </div>
+                </div>
               </div>
               <p className="text-xs text-muted-foreground">
-                Preencha só os campos do modelo escolhido. No modelo percentual com pagamento direto, o valor do atendimento é
-                declarado pelo profissional/recepção e fica registrado na auditoria.
+                Preencha os campos conforme o modelo escolhido. Para Sala Fixa, informe o valor mensal e, opcionalmente, o valor ou percentual cobrado por consulta.
               </p>
             </FormAcao>
           </CardContent>

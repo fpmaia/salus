@@ -1,3 +1,4 @@
+import { Building2, Sparkles, CheckCircle2 } from "lucide-react";
 import { FormAcao } from "@/components/form-acao";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { exigirPermissaoNaPagina } from "@/src/auth/permissao";
@@ -18,7 +19,14 @@ const STATUS: Record<string, string> = {
   erro: "Erro no envio (nova tentativa automática)",
 };
 
-export default async function AssinaturaPage() {
+export default async function AssinaturaPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ upgrade?: string }>;
+}) {
+  const params = await searchParams;
+  const upgradeMultiClinica = params?.upgrade === "multi-clinica";
+
   const ctx = await obterContextoTenant();
   exigirPermissaoNaPagina(ctx.role, "assinatura.ver");
   const { plano, uso, planos, faturas, emAtraso } = await obterAssinatura(ctx);
@@ -31,6 +39,42 @@ export default async function AssinaturaPage() {
           Plano {plano?.nome ?? "—"} · {plano ? `${formatarMoeda(plano.precoMensalCentavos)}/mês` : ""}
         </p>
       </div>
+
+      {upgradeMultiClinica && (
+        <div className="relative overflow-hidden rounded-2xl border-2 border-primary/30 bg-gradient-to-r from-primary/10 via-primary/5 to-background p-6 shadow-lg animate-in fade-in slide-in-from-top-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-start gap-4">
+              <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-md shadow-primary/25">
+                <Building2 className="size-6" />
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg font-bold text-foreground">
+                    Desbloqueie o Módulo Multi-Clínicas
+                  </h2>
+                  <span className="flex items-center gap-1 rounded-full bg-amber-500/10 px-2.5 py-0.5 text-xs font-semibold text-amber-600 dark:text-amber-400">
+                    <Sparkles className="size-3 fill-amber-500" /> Upgrade
+                  </span>
+                </div>
+                <p className="text-sm text-muted-foreground max-w-2xl">
+                  Gerencie mais de uma clínica ou consultório com uma única conta. Alterne facilmente entre espaços, unifique sua visão financeira e compartilhe profissionais com total isolamento de dados.
+                </p>
+                <div className="pt-2 flex flex-wrap gap-4 text-xs font-medium text-foreground/80">
+                  <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                    <CheckCircle2 className="size-3.5" /> Até múltiplas unidades e CNPJs
+                  </span>
+                  <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                    <CheckCircle2 className="size-3.5" /> Alternância instantânea de contexto
+                  </span>
+                  <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                    <CheckCircle2 className="size-3.5" /> Relatórios consolidados
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {emAtraso && (
         <Card className="border-destructive/50">
