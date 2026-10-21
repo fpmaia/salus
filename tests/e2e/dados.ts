@@ -17,8 +17,6 @@ export function dados(): DadosE2E {
 }
 
 export async function entrar(page: Page, papel: Papel) {
-  // O tour de primeiro acesso (modal) cobre o painel; nos fluxos, ele já foi visto.
-  await page.addInitScript(() => localStorage.setItem("salus_tutorial_completed_v1", "true"));
   await page.goto("/entrar");
   // O formulário de login é client-side: espera hidratar antes de enviar.
   await page.waitForLoadState("networkidle");

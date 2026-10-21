@@ -24,6 +24,8 @@ import { obterContextoTenant } from "@/src/auth/sessao";
 import { auditLog, memberships, profissionais, reservasSala, salas, unidades, users } from "@/src/db/schema";
 import { withTenant } from "@/src/db/tenant";
 import { pode, ROTULOS_ROLE, type Role } from "@/src/domain/rbac";
+import { PrimeirosPassos } from "@/components/primeiros-passos";
+import { primeirosPassos } from "@/src/server/primeiros-passos";
 import { formatarDataBr, minhasProximasReservas } from "@/src/server/reservas";
 
 function ObterIniciais(nome: string) {
@@ -68,6 +70,7 @@ export default async function PainelPage() {
   }));
 
   const proximas = ehProfissional ? await minhasProximasReservas(ctx) : [];
+  const etapas = pode(ctx.role, "tenant.configurar") ? await primeirosPassos(ctx) : [];
 
   const dadosAdmin = ctx.role === "admin"
     ? await withTenant(ctx, async (tx) => {
@@ -138,6 +141,8 @@ export default async function PainelPage() {
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6">
+      {etapas.length > 0 && <PrimeirosPassos etapas={etapas} />}
+
       {/* Banner de Boas-Vindas & Ações Rápidas */}
       <div className="flex flex-col justify-between gap-4 rounded-2xl border border-border/70 bg-gradient-to-r from-card via-card to-primary/5 p-6 shadow-xs sm:flex-row sm:items-center">
         <div>

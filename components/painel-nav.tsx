@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Bell,
-  BookOpen,
   Building2,
   CalendarCheck,
   CalendarDays,
@@ -47,7 +46,6 @@ const ICONES: Record<string, React.ComponentType<{ className?: string }>> = {
   "/painel/notificacoes": Bell,
   "/painel/assinatura": CreditCard,
   "/painel/perfil": User,
-  "/painel/manual": BookOpen,
   "/plataforma": Shield,
 };
 

@@ -22,8 +22,9 @@ import { CamposUnidade } from "../campos-unidade";
 const DIAS = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export default async function UnidadePage({ params }: PageProps<"/painel/unidades/[id]">) {
+export default async function UnidadePage({ params, searchParams }: PageProps<"/painel/unidades/[id]">) {
   const { id } = await params;
+  const recemCriada = (await searchParams).nova === "1";
   const ctx = await obterContextoTenant();
   exigirPermissaoNaPagina(ctx.role, "salas.gerenciar");
   if (!UUID.test(id)) notFound();
@@ -47,6 +48,11 @@ export default async function UnidadePage({ params }: PageProps<"/painel/unidade
           Ver agenda da unidade →
         </Link>
       </div>
+      {recemCriada && (
+        <p className="rounded-md border border-emerald-600/30 bg-emerald-600/10 p-3 text-sm">
+          Unidade criada com o horário padrão (seg–sex, 08h–18h). Agora confira o horário abaixo e adicione as salas em &quot;Nova sala&quot;.
+        </p>
+      )}
 
       <Card>
         <CardHeader>

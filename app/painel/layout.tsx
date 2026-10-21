@@ -7,7 +7,6 @@ import { SalusLogo } from "@/components/brand/salus-logo";
 import { LSCodeBadge } from "@/components/brand/ls-code";
 import { PainelNav, type ItemNavegacao } from "@/components/painel-nav";
 import { modulosDoEspaco, type Modulo } from "@/src/server/modulos";
-import { BotaoAjudaTutorial, TutorialPrimeiroAcesso } from "@/components/tutorial-primeiro-acesso";
 import { BotaoSair } from "./botao-sair";
 import { SeletorClinica } from "@/components/seletor-clinica";
 
@@ -29,7 +28,6 @@ const NAVEGACAO: { href: string; rotulo: string; permissao?: Permissao; modulo?:
   { href: "/painel/notificacoes", rotulo: "Notificações", permissao: "auditoria.ver" },
   { href: "/painel/assinatura", rotulo: "Assinatura", permissao: "assinatura.ver" },
   { href: "/painel/perfil", rotulo: "Meu perfil" },
-  { href: "/painel/manual", rotulo: "Manual" },
 ];
 
 export default async function PainelLayout({ children }: LayoutProps<"/painel">) {
@@ -48,8 +46,6 @@ export default async function PainelLayout({ children }: LayoutProps<"/painel">)
 
   return (
     <div className="flex min-h-screen flex-1 flex-col bg-background selection:bg-primary/20 selection:text-primary">
-      {/* Componente do Tour Guiado */}
-      <TutorialPrimeiroAcesso />
 
       {/* Header Principal do Painel */}
       <header className="sticky top-0 z-30 border-b border-border/60 bg-background/90 backdrop-blur-md print:hidden">
@@ -74,7 +70,6 @@ export default async function PainelLayout({ children }: LayoutProps<"/painel">)
               <span className="text-xs font-medium text-foreground">{ctx.usuario.nome}</span>
               <span className="text-[10px] text-muted-foreground">{ctx.usuario.email}</span>
             </div>
-            <BotaoAjudaTutorial />
             <BotaoSair />
           </div>
         </div>

@@ -1,4 +1,5 @@
 "use server";
+import { redirect } from "next/navigation";
 import { definirModulos } from "@/src/server/modulos";
 
 import { obterContextoTenant } from "@/src/auth/sessao";
@@ -33,8 +34,9 @@ function recursosDe(formData: FormData): string[] {
 export async function criarUnidadeAcao(_estado: EstadoAcao, formData: FormData) {
   return executarAcao(async () => {
     const ctx = await obterContextoTenant();
-    await criarUnidade(ctx, dadosUnidade(formData));
-    return "Unidade criada com horário padrão (seg–sex, 08h–18h)";
+    const { id } = await criarUnidade(ctx, dadosUnidade(formData));
+    // Próximo passo natural: as salas da unidade nova.
+    redirect(`/painel/unidades/${id}?nova=1`);
   });
 }
 
