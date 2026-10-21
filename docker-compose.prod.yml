@@ -1,0 +1,183 @@
+# Produção numa VPS: docker compose -f docker-compose.prod.yml --env-file .env.producao up -d --build
+# Passo a passo, variáveis e restauração: docs/deploy.md. Variáveis com ":?" são obrigatórias.
+name: salus-producao
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+x-app-env: &app-env
+  NODE_ENV: production
+  SALUS_VERSAO: ${SALUS_VERSAO:-desconhecida}
+  DATABASE_URL: postgres://salus_app:${SALUS_APP_PASSWORD:?defina SALUS_APP_PASSWORD}@db:5432/salus
+  DATABASE_MIGRATOR_URL: postgres://salus_owner:${SALUS_OWNER_PASSWORD:?defina SALUS_OWNER_PASSWORD}@db:5432/salus
+  APP_URL: https://${DOMINIO:?defina DOMINIO}
+  BETTER_AUTH_URL: https://${DOMINIO}
+  BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?defina BETTER_AUTH_SECRET}
+  LINKS_SECRET: ${LINKS_SECRET:?defina LINKS_SECRET}
+  SECRETS_KEY: ${SECRETS_KEY:?defina SECRETS_KEY}
+  EMAIL_PROVIDER: resend
+  RESEND_API_KEY: ${RESEND_API_KEY:?defina RESEND_API_KEY}
+  EMAIL_FROM: ${EMAIL_FROM:?defina EMAIL_FROM}
+  TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY:?defina TURNSTILE_SITE_KEY}
+  TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:?defina TURNSTILE_SECRET_KEY}
+  # O Caddy sobrescreve X-Real-IP com o IP de quem conectou (docker/caddy/Caddyfile).
+  IP_HEADER: x-real-ip
+  # Anexos do prontuário: S3 gerenciado (R2/S3) com versionamento.
+  S3_ENDPOINT: ${S3_ENDPOINT:-}
+  S3_BUCKET: ${S3_BUCKET:?defina S3_BUCKET}
+  S3_ACCESS_KEY: ${S3_ACCESS_KEY:?defina S3_ACCESS_KEY}
+  S3_SECRET_KEY: ${S3_SECRET_KEY:?defina S3_SECRET_KEY}
+  S3_REGIAO: ${S3_REGIAO:-auto}
+  S3_PATH_STYLE: ${S3_PATH_STYLE:-false}
+  WHATSAPP_PROVIDER: ${WHATSAPP_PROVIDER:-console}
+  WHATSAPP_TOKEN: ${WHATSAPP_TOKEN:-}
+  WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID:-}
+  ASAAS_AMBIENTE: ${ASAAS_AMBIENTE:-simulado}
+  ASAAS_API_KEY: ${ASAAS_API_KEY:-}
+  ASAAS_WEBHOOK_TOKEN: ${ASAAS_WEBHOOK_TOKEN:-}
+
+services:
+  caddy:
+    image: caddy:2.8.4-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMINIO: ${DOMINIO}
+      ACME_EMAIL: ${ACME_EMAIL:?defina ACME_EMAIL}
+    volumes:
+      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      app:
+        condition: service_healthy
+    logging: *logging
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    # Sem porta publicada: só a rede interna do compose alcança o banco.
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD}
+      SALUS_OWNER_PASSWORD: ${SALUS_OWNER_PASSWORD}
+      SALUS_APP_PASSWORD: ${SALUS_APP_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    shm_size: 256mb
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d salus"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    logging: *logging
+
+  migrate:
+    build:
+      context: .
+      target: tools
+    user: node
+    command: ["npm", "run", "db:migrate"]
+    environment:
+      <<: *app-env
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+    logging: *logging
+
+  app:
+    build:
+      context: .
+      target: runner
+    restart: unless-stopped
+    environment:
+      <<: *app-env
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/api/health > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+    mem_limit: 1g
+    logging: *logging
+
+  worker:
+    build:
+      context: .
+      target: tools
+    user: node
+    command: ["npm", "run", "worker"]
+    restart: unless-stopped
+    environment:
+      <<: *app-env
+      WORKER_HEARTBEAT: /tmp/salus-worker-vivo
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      # O worker toca o arquivo a cada 30 s enquanto o banco responde.
+      test: ["CMD-SHELL", "test $$(( $$(date +%s) - $$(stat -c %Y /tmp/salus-worker-vivo) )) -lt 120"]
+      interval: 60s
+      timeout: 5s
+      start_period: 60s
+      retries: 3
+    mem_limit: 512m
+    logging: *logging
+
+  backup:
+    build: ./docker/backup
+    restart: unless-stopped
+    command: ["agendar"]
+    environment:
+      PGHOST: db
+      PGDATABASE: salus
+      # Dono das tabelas (BYPASSRLS): o dump precisa ver os dados de todos os espaços.
+      PGUSER: salus_owner
+      PGPASSWORD: ${SALUS_OWNER_PASSWORD}
+      # Chave pública age: o servidor só cifra; a chave privada fica fora dele.
+      AGE_RECIPIENT: ${BACKUP_AGE_RECIPIENT:?defina BACKUP_AGE_RECIPIENT}
+      # Remote rclone de destino (outro provedor/conta que não o do app), ex.: destino:salus-backups
+      BACKUP_DESTINO: ${BACKUP_DESTINO:?defina BACKUP_DESTINO}
+      BACKUP_RETENCAO_DIARIO: ${BACKUP_RETENCAO_DIARIO:-35d}
+      BACKUP_INTERVALO_SEGUNDOS: ${BACKUP_INTERVALO_SEGUNDOS:-86400}
+      RCLONE_CONFIG_DESTINO_TYPE: s3
+      RCLONE_CONFIG_DESTINO_PROVIDER: ${BACKUP_S3_PROVIDER:-Other}
+      RCLONE_CONFIG_DESTINO_ENDPOINT: ${BACKUP_S3_ENDPOINT:-}
+      RCLONE_CONFIG_DESTINO_REGION: ${BACKUP_S3_REGIAO:-auto}
+      RCLONE_CONFIG_DESTINO_ACCESS_KEY_ID: ${BACKUP_S3_ACCESS_KEY:?defina BACKUP_S3_ACCESS_KEY}
+      RCLONE_CONFIG_DESTINO_SECRET_ACCESS_KEY: ${BACKUP_S3_SECRET_KEY:?defina BACKUP_S3_SECRET_KEY}
+      # Origem dos anexos do prontuário (o bucket do app), copiados sem nunca apagar no destino.
+      S3_BUCKET: ${S3_BUCKET}
+      RCLONE_CONFIG_ORIGEM_TYPE: s3
+      RCLONE_CONFIG_ORIGEM_PROVIDER: ${S3_PROVIDER:-Other}
+      RCLONE_CONFIG_ORIGEM_ENDPOINT: ${S3_ENDPOINT:-}
+      RCLONE_CONFIG_ORIGEM_REGION: ${S3_REGIAO:-auto}
+      RCLONE_CONFIG_ORIGEM_ACCESS_KEY_ID: ${S3_ACCESS_KEY}
+      RCLONE_CONFIG_ORIGEM_SECRET_ACCESS_KEY: ${S3_SECRET_KEY}
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      # Último backup bem-sucedido há menos de 26 h.
+      test: ["CMD-SHELL", "test -f /var/lib/salus-backup/ultimo-ok && test $$(( $$(date +%s) - $$(stat -c %Y /var/lib/salus-backup/ultimo-ok) )) -lt 93600"]
+      interval: 10m
+      timeout: 5s
+      start_period: 30m
+      retries: 1
+    logging: *logging
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:

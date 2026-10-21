@@ -1,3 +1,6 @@
+import { writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import PgBoss from "pg-boss";
 import { validarAmbiente } from "../env";
 import type { Transaction } from "../db/client";
@@ -20,6 +23,9 @@ try {
 }
 
 validarAmbiente("worker");
+
+// Lido pelo healthcheck do docker-compose.prod.yml.
+const ARQUIVO_HEARTBEAT = process.env.WORKER_HEARTBEAT ?? path.join(tmpdir(), "salus-worker-vivo");
 
 type Job = {
   fila: string;
@@ -93,7 +99,19 @@ async function main() {
   await boss.unschedule("manutencao.heartbeat").catch(() => undefined);
   console.log(`[worker] pronto (whatsapp: ${provider.nome}): ${JOBS.map((j) => j.fila).join(", ")}`);
 
+  // Heartbeat para o healthcheck do container: o arquivo é tocado enquanto o banco responde.
+  const batimento = setInterval(async () => {
+    try {
+      await boss.getQueues();
+      await writeFile(ARQUIVO_HEARTBEAT, new Date().toISOString());
+    } catch (erro) {
+      console.error("[worker] heartbeat falhou", erro);
+    }
+  }, 30_000);
+  await writeFile(ARQUIVO_HEARTBEAT, new Date().toISOString());
+
   const encerrar = async () => {
+    clearInterval(batimento);
     await boss.stop({ graceful: true });
     process.exit(0);
   };

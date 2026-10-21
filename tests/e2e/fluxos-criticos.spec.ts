@@ -103,3 +103,10 @@ test("páginas saem com CSP de nonce e proteção contra iframe, sem violações
   await expect(page.getByRole("button", { name: "Entrar" })).toBeEnabled();
   expect(violacoes).toEqual([]);
 });
+
+test("health check responde com o banco no ar e sem cache", async ({ request }) => {
+  const resposta = await request.get("/api/health");
+  expect(resposta.status()).toBe(200);
+  expect(resposta.headers()["cache-control"]).toBe("no-store");
+  expect(await resposta.json()).toMatchObject({ status: "ok", banco: true });
+});

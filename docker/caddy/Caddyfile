@@ -1,0 +1,24 @@
+# Reverse proxy de produção: TLS automático (Let's Encrypt), compressão e o IP real do cliente.
+# DOMINIO e ACME_EMAIL vêm do .env de produção (ver docs/deploy.md).
+{
+	email {$ACME_EMAIL}
+}
+
+{$DOMINIO} {
+	encode zstd gzip
+
+	reverse_proxy app:3000 {
+		# Única fonte de IP que o app aceita (IP_HEADER, src/seguranca/ip.ts). Sobrescrito aqui,
+		# então o cliente não consegue forjá-lo.
+		header_up X-Real-IP {remote_host}
+
+		health_uri /api/health
+		health_interval 30s
+		health_timeout 5s
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}

@@ -100,7 +100,8 @@ Usuários do seed: `admin|recepcao|profissional@alfa.salus.dev` e `...@beta.salu
 | `npm run test:e2e` | Playwright: reservar sala, agendar paciente e fechar o mês, no navegador contra o app real (porta 3100, recria o `salus_test`; não rode junto com o `npm test`). Na primeira vez: `npx playwright install chromium` |
 | `npm run db:generate` | Gera migration SQL a partir de `src/db/schema.ts` (use `-- --custom` para SQL manual: RLS, grants) |
 | `npm run worker` | Worker pg-boss |
-| `docker compose up --build` | Stack completa: db, migrate, app e worker |
+| `docker compose up --build` | Stack completa de dev: db, migrate, app e worker |
+| `npm run backup:testar` | Backup cifrado + restauração num banco temporário, conferindo o manifesto (requer `npm run db:up`) |
 
 **Multi-tenant na prática**
 - O app conecta como `salus_app` (sem `BYPASSRLS`, não dono das tabelas); migrations rodam como `salus_owner`.
@@ -123,5 +124,7 @@ Usuários do seed: `admin|recepcao|profissional@alfa.salus.dev` e `...@beta.salu
 | Pós-MVP | Prontuário eletrônico (sigilo por profissional, cifrado, imutável com adendo) | ✅ |
 
 Detalhes e decisões de cada fase: [docs/plano-desenvolvimento.md](docs/plano-desenvolvimento.md).
+
+Deploy de produção (VPS com Docker, Caddy, backups e restauração): [docs/deploy.md](docs/deploy.md).
 
 Revisão de produto, maturidade para produção e plano de evolução (out/2026): [docs/revisao-produto-2026-10.md](docs/revisao-produto-2026-10.md).

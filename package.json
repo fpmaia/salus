@@ -18,7 +18,8 @@
     "db:seed": "tsx src/db/scripts/seed.ts",
     "db:studio": "drizzle-kit studio",
     "worker": "tsx src/worker/index.ts",
-    "plataforma:promover": "tsx src/db/scripts/promover-superadmin.ts"
+    "plataforma:promover": "tsx src/db/scripts/promover-superadmin.ts",
+    "backup:testar": "sh scripts/testar-backup.sh"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1152.0",

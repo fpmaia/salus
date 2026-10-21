@@ -6,3 +6,8 @@ node_modules
 !.env.example
 coverage
 *.tsbuildinfo
+.next-e2e
+test-results
+playwright-report
+tests/e2e/.dados.json
+imagem
