@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { cifrar, decifrar } from "./cripto";
 
 beforeAll(() => {
@@ -20,5 +20,16 @@ describe("cripto", () => {
     const [v, iv, tag, dado] = cifrar("segredo").split(".");
     const adulterado = [v, iv, tag, Buffer.from("outro").toString("base64url") + dado.slice(7)].join(".");
     expect(() => decifrar(adulterado)).toThrow();
+  });
+
+  it("em produção não deriva a chave do BETTER_AUTH_SECRET", () => {
+    vi.stubEnv("SECRETS_KEY", "");
+    vi.stubEnv("BETTER_AUTH_SECRET", "x".repeat(40));
+    vi.stubEnv("NODE_ENV", "production");
+    try {
+      expect(() => cifrar("x")).toThrow("Defina SECRETS_KEY");
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 });

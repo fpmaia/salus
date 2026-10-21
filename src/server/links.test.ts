@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { gerarTokenAgendamento, lerTokenAgendamento } from "./links";
 
 const TENANT = "11111111-1111-4111-8111-111111111111";
@@ -36,5 +36,16 @@ describe("links assinados", () => {
     process.env.LINKS_SECRET = "outro-segredo-diferente-com-32-chars!";
     expect(lerTokenAgendamento(token, antes)).toBeNull();
     process.env.LINKS_SECRET = "segredo-de-teste-com-32-caracteres!!";
+  });
+
+  it("em produção não usa o BETTER_AUTH_SECRET como segredo dos links", () => {
+    vi.stubEnv("LINKS_SECRET", "");
+    vi.stubEnv("BETTER_AUTH_SECRET", "x".repeat(40));
+    vi.stubEnv("NODE_ENV", "production");
+    try {
+      expect(() => gerarTokenAgendamento(TENANT, AGENDAMENTO, expira)).toThrow("Defina LINKS_SECRET");
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 });

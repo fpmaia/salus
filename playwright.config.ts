@@ -12,6 +12,9 @@ const PORTA = 3100;
 const URL = `http://localhost:${PORTA}`;
 const DATABASE_URL = process.env.TEST_DATABASE_URL ?? "postgres://salus_app:salus_app_dev@localhost:5433/salus_test";
 process.env.BETTER_AUTH_SECRET ??= "segredo-e2e-apenas-para-testes-locais-0123456789";
+// CI roda `next start` (NODE_ENV=production): o boot exige segredos próprios (src/env.ts).
+const LINKS_SECRET = process.env.LINKS_SECRET || "links-e2e-apenas-para-testes-locais-0123456789";
+const SECRETS_KEY = process.env.SECRETS_KEY || Buffer.alloc(32, 7).toString("base64");
 
 export default defineConfig({
   testDir: "tests/e2e",
@@ -44,6 +47,8 @@ export default defineConfig({
       BETTER_AUTH_URL: URL,
       APP_URL: URL,
       BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET,
+      LINKS_SECRET,
+      SECRETS_KEY,
       WHATSAPP_PROVIDER: "console",
       ASAAS_AMBIENTE: "simulado",
       ...(process.env.CI ? {} : { NEXT_DIST_DIR: ".next-e2e" }),

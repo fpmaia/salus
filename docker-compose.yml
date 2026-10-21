@@ -4,6 +4,8 @@ x-db-env: &db-env
   DATABASE_URL: postgres://salus_app:${SALUS_APP_PASSWORD:-salus_app_dev}@db:5432/salus
   DATABASE_MIGRATOR_URL: postgres://salus_owner:${SALUS_OWNER_PASSWORD:-salus_owner_dev}@db:5432/salus
   APP_URL: ${APP_URL:-http://localhost:3000}
+  # Segredos obrigatórios e distintos em produção (o app e o worker recusam subir sem eles; ver src/env.ts).
+  BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-}
   LINKS_SECRET: ${LINKS_SECRET:-}
   SECRETS_KEY: ${SECRETS_KEY:-}
   ASAAS_AMBIENTE: ${ASAAS_AMBIENTE:-simulado}
@@ -66,8 +68,6 @@ services:
       target: runner
     environment:
       <<: *db-env
-      # Obrigatório em produção (o Better Auth recusa o segredo padrão).
-      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-}
       BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3000}
     ports:
       - "${APP_PORT:-3000}:3000"
@@ -82,6 +82,7 @@ services:
     command: ["npm", "run", "worker"]
     environment:
       <<: *db-env
+      NODE_ENV: production
     depends_on:
       migrate:
         condition: service_completed_successfully

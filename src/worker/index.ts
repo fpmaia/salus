@@ -1,4 +1,5 @@
 import PgBoss from "pg-boss";
+import { validarAmbiente } from "../env";
 import type { Transaction } from "../db/client";
 import { listarTenantsAtivos, withSistema } from "../db/tenant";
 import { gerarFaturaDoMes, sincronizarFaturas } from "../server/assinatura";
@@ -16,6 +17,8 @@ try {
 } catch {
   // sem .env: usa as variáveis do ambiente
 }
+
+validarAmbiente("worker");
 
 type Job = {
   fila: string;

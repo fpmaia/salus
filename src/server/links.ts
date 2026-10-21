@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
+import { emProducao, variavel } from "../env";
 
 // Links públicos do paciente (confirmar/cancelar) assinados com HMAC-SHA256.
 // Sem estado no banco: o token carrega tenant, agendamento e validade.
@@ -13,8 +14,9 @@ const payloadSchema = z.object({
 export type PayloadLink = { tenantId: string; agendamentoId: string; expiraEm: Date };
 
 function segredo(): string {
-  const valor = process.env.LINKS_SECRET ?? process.env.BETTER_AUTH_SECRET;
-  if (!valor || valor.length < 16) throw new Error("Defina LINKS_SECRET (ou BETTER_AUTH_SECRET) com ao menos 16 caracteres");
+  // Só fora de produção cai no BETTER_AUTH_SECRET (ver src/env.ts).
+  const valor = variavel("LINKS_SECRET") ?? (emProducao() ? undefined : variavel("BETTER_AUTH_SECRET"));
+  if (!valor || valor.length < 16) throw new Error("Defina LINKS_SECRET com ao menos 32 caracteres");
   return valor;
 }
 

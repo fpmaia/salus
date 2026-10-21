@@ -1,17 +1,20 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
+import { emProducao, variavel } from "../env";
 
 // Segredos de integrações guardados no banco (ex.: token da Focus NFe), cifrados com
-// AES-256-GCM. Chave: SECRETS_KEY (32 bytes em base64) ou, em dev, derivada do BETTER_AUTH_SECRET.
+// AES-256-GCM. Chave: SECRETS_KEY (32 bytes em base64). Só fora de produção ela pode ser
+// derivada do BETTER_AUTH_SECRET (ver src/env.ts).
 
 function chave(): Buffer {
-  const explicita = process.env.SECRETS_KEY;
+  const explicita = variavel("SECRETS_KEY");
   if (explicita) {
     const bytes = Buffer.from(explicita, "base64");
     if (bytes.length !== 32) throw new Error("SECRETS_KEY deve ter 32 bytes em base64 (openssl rand -base64 32)");
     return bytes;
   }
-  const base = process.env.BETTER_AUTH_SECRET;
-  if (!base) throw new Error("Defina SECRETS_KEY (ou BETTER_AUTH_SECRET) para cifrar segredos");
+  if (emProducao()) throw new Error("Defina SECRETS_KEY (32 bytes em base64) para cifrar segredos");
+  const base = variavel("BETTER_AUTH_SECRET");
+  if (!base) throw new Error("Defina SECRETS_KEY (ou BETTER_AUTH_SECRET em dev) para cifrar segredos");
   return createHash("sha256").update(`salus:segredos:${base}`).digest();
 }
 
