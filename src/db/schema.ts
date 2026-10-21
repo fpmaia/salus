@@ -520,6 +520,32 @@ export const regrasRecorrencia = pgTable(
   ],
 );
 
+// Datas de uma série recorrente que o worker não conseguiu reservar (sala ou profissional já
+// ocupado). O profissional recebe um e-mail e o admin vê nas pendências até resolver (C10).
+export const datasNaoReservadas = pgTable(
+  "datas_nao_reservadas",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: tenantIdDoContexto(),
+    regraId: uuid("regra_id").notNull(),
+    profissionalId: uuid("profissional_id").notNull(),
+    salaId: uuid("sala_id").notNull(),
+    data: date("data", { mode: "string" }).notNull(),
+    horaInicio: time("hora_inicio").notNull(),
+    horaFim: time("hora_fim").notNull(),
+    avisadoEm: timestamp("avisado_em", { withTimezone: true }),
+    resolvidaEm: timestamp("resolvida_em", { withTimezone: true }),
+    criadoEm: criadoEm(),
+  },
+  (t) => [
+    uniqueIndex("datas_nao_reservadas_regra_data_key").on(t.regraId, t.data),
+    foreignKey({ columns: [t.tenantId, t.regraId], foreignColumns: [regrasRecorrencia.tenantId, regrasRecorrencia.id] }),
+    foreignKey({ columns: [t.tenantId, t.profissionalId], foreignColumns: [profissionais.tenantId, profissionais.id] }),
+    foreignKey({ columns: [t.tenantId, t.salaId], foreignColumns: [salas.tenantId, salas.id] }),
+    index("datas_nao_reservadas_pendentes_idx").on(t.tenantId, t.resolvidaEm, t.data),
+  ],
+);
+
 // Conflitos (mesma sala ou mesmo profissional no mesmo período) são barrados por
 // EXCLUDE USING gist na migration custom de RLS da Fase 1.
 export const reservasSala = pgTable(

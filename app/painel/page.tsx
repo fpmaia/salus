@@ -9,7 +9,10 @@ import { formatarMoeda } from "@/src/domain/dinheiro";
 import { primeiroNome } from "@/src/domain/notificacoes";
 import { pode } from "@/src/domain/rbac";
 import { minhaSemana, painelHoje, resumoDoMes } from "@/src/server/painel";
+import { listarDatasNaoReservadas, type DataNaoReservada } from "@/src/server/datas-nao-reservadas";
 import { primeirosPassos } from "@/src/server/primeiros-passos";
+import { FormAcao } from "@/components/form-acao";
+import { resolverDataNaoReservadaAcao } from "./actions";
 import { formatarDataBr } from "@/src/server/reservas";
 import { rotuloCompetencia } from "./financeiro/componentes";
 
@@ -38,6 +41,46 @@ function Indicador({ titulo, valor, detalhe, alerta, href, icone }: { titulo: st
 }
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
+
+/** Datas de séries recorrentes que ficaram sem sala (C10). A equipe marca como resolvida. */
+function DatasNaoReservadas({ datas, equipe }: { datas: DataNaoReservada[]; equipe: boolean }) {
+  if (datas.length === 0) return null;
+  return (
+    <Card className="border-warning/50">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <AlertTriangle className="size-4 text-warning" />
+          {equipe ? "Datas de reservas recorrentes sem sala" : "Datas da sua série que não foram reservadas"} ({datas.length})
+        </CardTitle>
+        <CardDescription>
+          {equipe
+            ? "A sala ou o profissional já estava ocupado quando a série foi estendida. O profissional foi avisado por e-mail."
+            : "A sala ou o seu horário já estava ocupado. Fale com a recepção para escolher outra sala ou outro horário."}
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <ul className="divide-y text-sm">
+          {datas.slice(0, 8).map((d) => (
+            <li key={d.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+              <span>
+                <Link href={`/painel/agenda?data=${d.data}`} className="font-semibold tabular-nums text-primary underline-offset-4 hover:underline">
+                  {formatarDataBr(d.data)} {d.horaInicio}–{d.horaFim}
+                </Link>
+                <span className="block text-xs text-muted-foreground">
+                  {equipe ? `${d.profissionalNome} · ` : ""}
+                  {d.salaNome}
+                </span>
+              </span>
+              {equipe && (
+                <FormAcao acao={resolverDataNaoReservadaAcao.bind(null, d.id)} textoBotao="Resolvido" textoPendente="…" variante="outline" className="flex items-center gap-2" />
+              )}
+            </li>
+          ))}
+        </ul>
+      </CardContent>
+    </Card>
+  );
+}
 
 async function SecaoHoje({ ctx }: { ctx: Awaited<ReturnType<typeof obterContextoTenant>> }) {
   const hoje = await painelHoje(ctx);
@@ -266,6 +309,7 @@ export default async function PainelPage() {
   const ehAdmin = pode(ctx.role, "financeiro.fechar");
   const ehEquipe = pode(ctx.role, "agenda.gerenciar");
   const ehProfissional = pode(ctx.role, "extrato.proprio");
+  const datasSemSala = await listarDatasNaoReservadas(ctx);
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-8 sm:px-6">
@@ -274,6 +318,7 @@ export default async function PainelPage() {
         <p className="text-sm text-muted-foreground">{ctx.tenantNome}</p>
       </div>
       {etapas.length > 0 && <PrimeirosPassos etapas={etapas} />}
+      <DatasNaoReservadas datas={datasSemSala} equipe={ehEquipe} />
       {ehAdmin && <SecaoMes ctx={ctx} />}
       {ehEquipe && <SecaoHoje ctx={ctx} />}
       {ehProfissional && <SecaoSemana ctx={ctx} />}

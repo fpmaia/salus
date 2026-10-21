@@ -4,7 +4,7 @@ import { z } from "zod";
 import { registrarAuditoria } from "../db/audit";
 import type { Database, Transaction } from "../db/client";
 import { erroPostgres, PG } from "../db/erros";
-import { agendamentos, acordosFinanceiros, pacientes, profissionais, regrasRecorrencia, reservasSala, salas, unidades } from "../db/schema";
+import { agendamentos, acordosFinanceiros, datasNaoReservadas, pacientes, profissionais, regrasRecorrencia, reservasSala, salas, unidades } from "../db/schema";
 import { type ContextoTenant, withTenant } from "../db/tenant";
 import { exigirPermissao, pode } from "../domain/rbac";
 import { datasDaRecorrencia, FREQUENCIAS, limiteDaJanela, semanaDoMesDe } from "../domain/recorrencia";
@@ -497,6 +497,11 @@ export async function materializarRecorrencias(
           entidadeId: regra.id,
           dados: { data },
         });
+        // O profissional é avisado por e-mail e o admin vê nas pendências (C10).
+        await tx
+          .insert(datasNaoReservadas)
+          .values({ regraId: regra.id, profissionalId: regra.profissionalId, salaId: regra.salaId, data, horaInicio: regra.horaInicio, horaFim: regra.horaFim })
+          .onConflictDoNothing();
       }
     }
     await tx.update(regrasRecorrencia).set({ materializadaAte: limite }).where(eq(regrasRecorrencia.id, regra.id));

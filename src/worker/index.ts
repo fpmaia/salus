@@ -16,6 +16,7 @@ import { evolutionDoAmbiente } from "../server/evolution";
 import { providerDoAmbiente } from "../server/provider";
 import { providerDoTenant } from "../server/whatsapp";
 import { limparLimitesAntigos } from "../server/limite-taxa";
+import { avisarDatasNaoReservadas } from "../server/datas-nao-reservadas";
 import { concluirReservasPassadas, materializarRecorrencias } from "../server/reservas";
 
 // Worker separado (pg-boss). Cada job percorre os tenants ativos e processa um por vez,
@@ -57,6 +58,8 @@ async function enviarFila(tenantId: string, agora: Date) {
 const JOBS: Job[] = [
   // Diário, de madrugada: estende as recorrências até o fim da janela de 8 semanas.
   { fila: "agenda.materializar-recorrencias", cron: "0 3 * * *", executar: materializarRecorrencias },
+  // Datas da série que ficaram sem sala: e-mail ao profissional (fora da transação da materialização).
+  { fila: "agenda.avisar-datas-nao-reservadas", cron: "30 3 * * *", porTenant: (tenantId, agora) => avisarDatasNaoReservadas(tenantId, { agora }) },
   // Reservas que terminaram passam a "concluida" (base para o financeiro da Fase 3).
   { fila: "agenda.concluir-reservas", cron: "*/15 * * * *", executar: concluirReservasPassadas },
   // Lembretes D-1 (janela de 2h a 24h antes) e envio da outbox com retentativas.

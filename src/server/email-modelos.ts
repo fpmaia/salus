@@ -109,3 +109,21 @@ export function emailAlerta(para: string, dados: { chave: string; mensagem: stri
   };
 }
 
+
+export function emailDatasNaoReservadas(
+  para: string,
+  dados: { nome: string; espaco: string; datas: string[]; url: string },
+): MensagemEmail {
+  return montar({
+    para,
+    assunto: `Datas da sua reserva recorrente que não foram garantidas — ${dados.espaco}`,
+    saudacao: `Olá, ${dados.nome}!`,
+    paragrafos: [
+      `Ao estender a sua reserva recorrente em ${dados.espaco}, estas datas não puderam ser reservadas porque a sala ou o seu horário já estava ocupado:`,
+      ...dados.datas,
+      "Fale com a recepção para escolher outra sala ou outro horário nessas datas.",
+    ],
+    botao: { texto: "Ver a agenda", url: dados.url },
+    rodape: "Você recebeu este e-mail porque tem uma reserva recorrente neste espaço.",
+  });
+}

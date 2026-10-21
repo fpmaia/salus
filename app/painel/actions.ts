@@ -2,7 +2,9 @@
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { exigirUsuario } from "@/src/auth/sessao";
+import { exigirUsuario, obterContextoTenant } from "@/src/auth/sessao";
+import { executarAcao } from "@/src/server/acao";
+import { resolverDataNaoReservada } from "@/src/server/datas-nao-reservadas";
 import { listarMembershipsDoUsuario } from "@/src/server/memberships";
 
 export async function alternarClinicaAcao(novoTenantId: string) {
@@ -23,4 +25,12 @@ export async function alternarClinicaAcao(novoTenantId: string) {
   });
 
   redirect("/painel");
+}
+
+export async function resolverDataNaoReservadaAcao(id: string) {
+  return executarAcao(async () => {
+    const ctx = await obterContextoTenant();
+    await resolverDataNaoReservada(ctx, id);
+    return "Pendência resolvida";
+  });
 }
