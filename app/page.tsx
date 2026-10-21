@@ -25,7 +25,7 @@ export default function Home() {
       {/* Background Decorativo */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden -z-10">
         <div className="absolute -top-40 left-1/2 -translate-x-1/2 size-[650px] rounded-full bg-primary/10 blur-[130px]" />
-        <div className="absolute top-[600px] -left-20 size-[450px] rounded-full bg-emerald-500/8 blur-[120px]" />
+        <div className="absolute top-[600px] -left-20 size-[450px] rounded-full bg-success/8 blur-[120px]" />
         <div className="absolute top-[800px] -right-20 size-[500px] rounded-full bg-teal-500/8 blur-[120px]" />
       </div>
 
@@ -70,7 +70,7 @@ export default function Home() {
             {/* Headline */}
             <h1 className="font-heading text-4xl font-extrabold tracking-tight text-foreground sm:text-6xl sm:leading-[1.15]">
               A gestão moderna e sem conflitos para o seu{" "}
-              <span className="bg-gradient-to-r from-teal-600 to-emerald-500 bg-clip-text text-transparent dark:from-teal-400 dark:to-emerald-300">
+              <span className="bg-gradient-to-r from-teal-600 to-success bg-clip-text text-transparent">
                 espaço de saúde
               </span>
             </h1>
@@ -96,15 +96,15 @@ export default function Home() {
             {/* Mini Trust Badges */}
             <div className="mt-8 flex flex-wrap items-center justify-center gap-6 text-xs text-muted-foreground">
               <div className="flex items-center gap-1.5">
-                <CheckCircle2 className="size-4 text-emerald-500" />
+                <CheckCircle2 className="size-4 text-success" />
                 <span>Zero conflitos de agenda</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <CheckCircle2 className="size-4 text-emerald-500" />
+                <CheckCircle2 className="size-4 text-success" />
                 <span>Pensado para a LGPD</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <CheckCircle2 className="size-4 text-emerald-500" />
+                <CheckCircle2 className="size-4 text-success" />
                 <span>Fechamento financeiro automatizado</span>
               </div>
             </div>
@@ -117,14 +117,14 @@ export default function Home() {
               <div className="flex items-center justify-between border-b border-border/40 pb-3 mb-4">
                 <div className="flex items-center gap-2">
                   <div className="size-3 rounded-full bg-rose-500/80" />
-                  <div className="size-3 rounded-full bg-amber-500/80" />
-                  <div className="size-3 rounded-full bg-emerald-500/80" />
+                  <div className="size-3 rounded-full bg-warning/80" />
+                  <div className="size-3 rounded-full bg-success/80" />
                   <span className="ml-2 text-xs font-mono text-muted-foreground hidden sm:inline">
                     salus.app/painel
                   </span>
                 </div>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="size-2 rounded-full bg-success animate-pulse" />
                   <span>Dados isolados por espaço</span>
                 </div>
               </div>
@@ -135,7 +135,7 @@ export default function Home() {
                 <div className="rounded-xl border border-border/50 bg-background/60 p-4 shadow-xs">
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
                     <span>Sala 01 • Maca & Pia</span>
-                    <span className="rounded bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                    <span className="rounded bg-success/10 px-2 py-0.5 text-xs font-medium text-success">
                       Ocupada
                     </span>
                   </div>
@@ -155,7 +155,7 @@ export default function Home() {
                 <div className="rounded-xl border border-border/50 bg-background/60 p-4 shadow-xs">
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
                     <span>Fechamento do Mês</span>
-                    <TrendingUp className="size-4 text-emerald-500" />
+                    <TrendingUp className="size-4 text-success" />
                   </div>
                   <p className="mt-2 text-2xl font-bold tracking-tight text-foreground">
                     R$ 4.250,00
@@ -165,7 +165,7 @@ export default function Home() {
                   </p>
                   <div className="mt-3 flex items-center justify-between border-t border-border/40 pt-2 text-xs">
                     <span className="text-muted-foreground">Repasses calculados:</span>
-                    <span className="font-medium text-emerald-600 dark:text-emerald-400">100% Conciliado</span>
+                    <span className="font-medium text-success">100% Conciliado</span>
                   </div>
                 </div>
 
@@ -183,7 +183,7 @@ export default function Home() {
                   </p>
                   <div className="mt-3 flex items-center justify-between border-t border-border/40 pt-2 text-xs">
                     <span className="text-muted-foreground">Conflito de horário:</span>
-                    <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Bloqueado</span>
+                    <span className="text-success font-semibold">Bloqueado</span>
                   </div>
                 </div>
               </div>
@@ -219,7 +219,7 @@ export default function Home() {
 
               {/* Item 2 */}
               <div className="rounded-2xl border border-border/60 bg-card p-6 shadow-xs hover:border-primary/40 transition-all glow-card">
-                <div className="flex size-11 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 mb-4">
+                <div className="flex size-11 items-center justify-center rounded-xl bg-success/10 text-success mb-4">
                   <CalendarCheck className="size-5" />
                 </div>
                 <h3 className="font-heading text-lg font-semibold text-foreground">
@@ -232,7 +232,7 @@ export default function Home() {
 
               {/* Item 3 */}
               <div className="rounded-2xl border border-border/60 bg-card p-6 shadow-xs hover:border-primary/40 transition-all glow-card">
-                <div className="flex size-11 items-center justify-center rounded-xl bg-teal-500/10 text-teal-600 dark:text-teal-400 mb-4">
+                <div className="flex size-11 items-center justify-center rounded-xl bg-teal-500/10 text-teal-600 mb-4">
                   <FileCheck2 className="size-5" />
                 </div>
                 <h3 className="font-heading text-lg font-semibold text-foreground">
@@ -245,7 +245,7 @@ export default function Home() {
 
               {/* Item 4 */}
               <div className="rounded-2xl border border-border/60 bg-card p-6 shadow-xs hover:border-primary/40 transition-all glow-card">
-                <div className="flex size-11 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 mb-4">
+                <div className="flex size-11 items-center justify-center rounded-xl bg-warning/10 text-warning mb-4">
                   <Receipt className="size-5" />
                 </div>
                 <h3 className="font-heading text-lg font-semibold text-foreground">
@@ -309,7 +309,7 @@ export default function Home() {
         <section id="seguranca" className="border-t border-border/40 bg-muted/30 px-4 py-16 sm:px-6">
           <div className="mx-auto max-w-4xl rounded-2xl border border-border bg-card p-6 sm:p-10 shadow-sm">
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
-              <div className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+              <div className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-success/10 text-success">
                 <ShieldCheck className="size-8" />
               </div>
               <div>

@@ -24,8 +24,8 @@ const ROTULO_ACAO: Record<StatusAgendamento, string> = {
 const COR_STATUS: Record<StatusAgendamento, string> = {
   agendado: "bg-muted text-foreground",
   confirmado: "bg-primary/15 text-primary",
-  presente: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
-  realizado: "bg-emerald-600/15 text-emerald-700 dark:text-emerald-400",
+  presente: "bg-warning/15 text-warning",
+  realizado: "bg-success/15 text-success",
   falta: "bg-destructive/15 text-destructive",
   cancelado: "bg-muted text-muted-foreground line-through",
 };
@@ -36,11 +36,11 @@ export function SeloStatus({ status, tardio }: { status: StatusAgendamento; tard
       className={cn(
         "rounded-md px-2 py-0.5 text-xs font-medium inline-flex items-center gap-1.5",
         status === "presente"
-          ? "bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/40 font-semibold"
+          ? "bg-warning/20 text-warning border border-warning/40 font-semibold"
           : COR_STATUS[status]
       )}
     >
-      {status === "presente" && <span className="size-1.5 rounded-full bg-amber-500 animate-pulse" />}
+      {status === "presente" && <span className="size-1.5 rounded-full bg-warning animate-pulse" />}
       {ROTULOS_STATUS[status]}
       {tardio && " · tardio"}
     </span>
@@ -140,7 +140,7 @@ export function ListaAtendimentos({
                   textoPendente="…"
                   variante={s === "presente" ? "default" : s === "falta" ? "outline" : "secondary"}
                   className={`flex items-center gap-2 ${
-                    s === "presente" ? "bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-xs" : ""
+                    s === "presente" ? "bg-success hover:bg-success text-white font-medium shadow-xs" : ""
                   }`}
                 />
               ))}

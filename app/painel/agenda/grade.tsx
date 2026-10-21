@@ -118,11 +118,11 @@ export function GradeAgenda({ config, colunas, reservas, inicioMin, fimMin, agor
                       🩺 {r.profissionalNome ?? (temPaciente ? "Ocupado" : "Reservado")}
                     </span>
                     {temPaciente ? (
-                      <span className="block truncate text-[11px] font-medium text-emerald-800 dark:text-emerald-300">
+                      <span className="block truncate text-[11px] font-medium text-success">
                         👤 Paciente: {seg.pacienteNome ?? "Agendado"}
                       </span>
                     ) : (
-                      <span className="block truncate text-[10px] font-medium text-amber-700 dark:text-amber-400">
+                      <span className="block truncate text-[10px] font-medium text-warning">
                         ⏳ Sem paciente (Horário vago)
                       </span>
                     )}
@@ -130,16 +130,16 @@ export function GradeAgenda({ config, colunas, reservas, inicioMin, fimMin, agor
 
                   <div className="flex flex-col items-end gap-0.5 shrink-0">
                     {r.ehSalaFixa && (
-                      <span className="inline-flex shrink-0 items-center rounded bg-amber-500/20 px-1 py-0.2 text-[8px] font-bold uppercase tracking-tight text-amber-800 dark:text-amber-300 border border-amber-500/30">
+                      <span className="inline-flex shrink-0 items-center rounded bg-warning/20 px-1 py-0.2 text-[8px] font-bold uppercase tracking-tight text-warning border border-warning/30">
                         {r.contratoCodigo ? `Fixa ${r.contratoCodigo}` : "Fixa"}
                       </span>
                     )}
                     {temPaciente ? (
-                      <span className="inline-flex shrink-0 items-center rounded bg-emerald-500/20 px-1 py-0.2 text-[8px] font-bold uppercase tracking-tight text-emerald-800 dark:text-emerald-300 border border-emerald-500/30">
+                      <span className="inline-flex shrink-0 items-center rounded bg-success/20 px-1 py-0.2 text-[8px] font-bold uppercase tracking-tight text-success border border-success/30">
                         Ocupada
                       </span>
                     ) : (
-                      <span className="inline-flex shrink-0 items-center rounded bg-amber-500/20 px-1 py-0.2 text-[8px] font-bold uppercase tracking-tight text-amber-800 dark:text-amber-400 border border-amber-500/30">
+                      <span className="inline-flex shrink-0 items-center rounded bg-warning/20 px-1 py-0.2 text-[8px] font-bold uppercase tracking-tight text-warning border border-warning/30">
                         Sem paciente
                       </span>
                     )}
@@ -149,11 +149,11 @@ export function GradeAgenda({ config, colunas, reservas, inicioMin, fimMin, agor
                 <div className="flex items-center justify-between text-[10px] text-muted-foreground border-t border-border/40 pt-0.5 mt-auto">
                   <span>{seg.horaInicio}–{seg.horaFim}</span>
                   {temPaciente ? (
-                    <span className="font-medium text-emerald-700 dark:text-emerald-400 capitalize">
+                    <span className="font-medium text-success capitalize">
                       {seg.statusAtendimento ? (seg.statusAtendimento === "presente" ? "Na recepção" : seg.statusAtendimento) : "Consulta"}
                     </span>
                   ) : (
-                    <span className="font-medium text-amber-600 dark:text-amber-400">
+                    <span className="font-medium text-warning">
                       Disponível
                     </span>
                   )}
@@ -166,12 +166,12 @@ export function GradeAgenda({ config, colunas, reservas, inicioMin, fimMin, agor
               r.status === "concluida" && "opacity-60",
               temPaciente
                 ? (r.ehSalaFixa
-                    ? "border border-emerald-500/50 bg-emerald-500/15 text-emerald-950 dark:text-emerald-100 dark:bg-emerald-950/40 shadow-xs"
+                    ? "border border-success/50 bg-success/15 text-success shadow-xs"
                     : (r.propria || r.profissionalNome
-                        ? "border border-emerald-500/40 bg-emerald-500/10 text-foreground dark:bg-emerald-950/30 shadow-xs"
+                        ? "border border-success/40 bg-success/10 text-foreground shadow-xs"
                         : "bg-muted-foreground/25 text-foreground"))
                 : (r.ehSalaFixa
-                    ? "border-2 border-dashed border-amber-500/60 bg-amber-500/10 text-amber-950 dark:text-amber-100 dark:bg-amber-950/25 hover:bg-amber-500/20 shadow-xs"
+                    ? "border-2 border-dashed border-warning/60 bg-warning/10 text-warning hover:bg-warning/20 shadow-xs"
                     : (r.propria || r.profissionalNome
                         ? "border border-dashed border-primary/50 bg-primary/10 text-foreground hover:bg-primary/15"
                         : "bg-muted-foreground/25 text-foreground")),

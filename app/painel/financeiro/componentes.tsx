@@ -36,7 +36,7 @@ export function NavCompetencia({ competencia, href }: { competencia: string; hre
 export function Saldo({ centavos, className }: { centavos: number; className?: string }) {
   if (centavos === 0) return <span className={cn("tabular-nums text-muted-foreground", className)}>{formatarMoeda(0)}</span>;
   return (
-    <span className={cn("tabular-nums", centavos > 0 ? "text-foreground" : "text-emerald-700 dark:text-emerald-400", className)}>
+    <span className={cn("tabular-nums", centavos > 0 ? "text-foreground" : "text-success", className)}>
       {formatarMoeda(Math.abs(centavos))}
       <span className="ml-1 text-xs text-muted-foreground">{centavos > 0 ? "a receber do profissional" : "a pagar ao profissional"}</span>
     </span>

@@ -53,7 +53,7 @@ export function FormularioRecuperarSenha({ chaveTurnstile }: { chaveTurnstile: s
 
       {sucesso ? (
         <CardContent className="space-y-4">
-          <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-emerald-700 dark:text-emerald-400 text-sm space-y-2">
+          <div className="rounded-xl border border-success/20 bg-success/10 p-4 text-success text-sm space-y-2">
             <div className="flex items-center gap-2 font-semibold">
               <CheckCircle2 className="size-5 shrink-0" />
               <span>Verifique seu e-mail</span>
@@ -61,7 +61,7 @@ export function FormularioRecuperarSenha({ chaveTurnstile }: { chaveTurnstile: s
             <p className="text-xs">
               Se houver uma conta associada a <strong>{email}</strong>, enviamos um link para redefinir sua senha.
             </p>
-            <p className="text-[11px] text-muted-foreground pt-1 border-t border-emerald-500/20">
+            <p className="text-[11px] text-muted-foreground pt-1 border-t border-success/20">
               O link vale por 1 hora. Não chegou? Confira a caixa de spam.
             </p>
           </div>

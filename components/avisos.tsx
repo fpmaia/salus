@@ -36,9 +36,9 @@ export function ProvedorAvisos({ children }: { children: React.ReactNode }) {
         {avisos.map((a) => (
           <div
             key={a.id}
-            className="pointer-events-auto flex max-w-sm items-start gap-2 rounded-xl border border-emerald-600/30 bg-background px-4 py-3 text-sm shadow-lg"
+            className="pointer-events-auto flex max-w-sm items-start gap-2 rounded-xl border border-success/30 bg-background px-4 py-3 text-sm shadow-lg"
           >
-            <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" aria-hidden />
+            <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-success" aria-hidden />
             <span className="flex-1">{a.texto}</span>
             <button type="button" onClick={() => fechar(a.id)} aria-label="Fechar aviso" className="rounded p-0.5 text-muted-foreground hover:bg-muted">
               <X className="size-3.5" />

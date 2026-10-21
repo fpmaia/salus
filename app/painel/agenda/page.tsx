@@ -165,8 +165,8 @@ export default async function AgendaPage({ searchParams }: PageProps<"/painel/ag
             <div>
               <h2 className="text-sm font-semibold tracking-tight text-foreground flex items-center gap-2">
                 <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-success"></span>
                 </span>
                 Panorama das Salas em Tempo Real
               </h2>
@@ -178,10 +178,10 @@ export default async function AgendaPage({ searchParams }: PageProps<"/painel/ag
               <span className="rounded-lg border bg-background/80 px-2.5 py-1 font-medium shadow-2xs">
                 📅 <strong>{panorama.resumoDia.totalConsultas}</strong> consultas hoje
               </span>
-              <span className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 font-medium text-amber-700 dark:text-amber-400">
+              <span className="rounded-lg border border-warning/30 bg-warning/10 px-2.5 py-1 font-medium text-warning">
                 ⏳ <strong>{panorama.resumoDia.pacientesAguardando}</strong> na recepção
               </span>
-              <span className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 font-medium text-emerald-700 dark:text-emerald-400">
+              <span className="rounded-lg border border-success/30 bg-success/10 px-2.5 py-1 font-medium text-success">
                 ✓ <strong>{panorama.resumoDia.consultasRealizadas}</strong> concluídas
               </span>
             </div>
@@ -196,9 +196,9 @@ export default async function AgendaPage({ searchParams }: PageProps<"/painel/ag
                   key={s.id}
                   className={`flex flex-col justify-between rounded-xl border p-3.5 text-xs transition-all ${
                     emAtendimento
-                      ? "border-emerald-500/40 bg-emerald-500/10 dark:bg-emerald-950/20"
+                      ? "border-success/40 bg-success/10"
                       : reservada
-                        ? "border-amber-500/40 bg-amber-500/10 dark:bg-amber-950/20"
+                        ? "border-warning/40 bg-warning/10"
                         : "border-border/60 bg-muted/20"
                   }`}
                 >
@@ -207,9 +207,9 @@ export default async function AgendaPage({ searchParams }: PageProps<"/painel/ag
                     <span
                       className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                         emAtendimento
-                          ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300"
+                          ? "bg-success/20 text-success"
                           : reservada
-                            ? "bg-amber-500/20 text-amber-700 dark:text-amber-300"
+                            ? "bg-warning/20 text-warning"
                             : "bg-muted text-muted-foreground"
                       }`}
                     >
@@ -228,7 +228,7 @@ export default async function AgendaPage({ searchParams }: PageProps<"/painel/ag
                       <div className="flex items-center justify-between pt-1.5 border-t border-border/40 text-[11px]">
                         <span>{s.atendimentoAtual.horaInicio}–{s.atendimentoAtual.horaFim}</span>
                         {s.atendimentoAtual.status === "presente" ? (
-                          <span className="font-semibold text-amber-600 dark:text-amber-400">Na recepção</span>
+                          <span className="font-semibold text-warning">Na recepção</span>
                         ) : (
                           <span className="text-muted-foreground">{ROTULOS_STATUS[s.atendimentoAtual.status]}</span>
                         )}
@@ -246,7 +246,7 @@ export default async function AgendaPage({ searchParams }: PageProps<"/painel/ag
                       </p>
                       <div className="flex items-center justify-between pt-1.5 border-t border-border/40 text-[11px] text-muted-foreground">
                         <span>{s.reserva.horaInicio}–{s.reserva.horaFim}</span>
-                        <span className="text-amber-600 dark:text-amber-400 font-medium">Horário vago</span>
+                        <span className="text-warning font-medium">Horário vago</span>
                       </div>
                     </div>
                   )}
@@ -368,16 +368,16 @@ export default async function AgendaPage({ searchParams }: PageProps<"/painel/ag
                   </div>
                   <div className="flex flex-col items-end gap-1">
                     {reservaAberta.ehSalaFixa && (
-                      <span className="inline-flex items-center rounded-md bg-amber-500/15 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:text-amber-400">
+                      <span className="inline-flex items-center rounded-md bg-warning/15 px-2 py-0.5 text-xs font-semibold text-warning">
                         {reservaAberta.contratoCodigo ? `Fixa ${reservaAberta.contratoCodigo}` : "Sala Fixa"}
                       </span>
                     )}
                     {atendimentosReserva.length > 0 ? (
-                      <span className="inline-flex items-center rounded-md bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
+                      <span className="inline-flex items-center rounded-md bg-success/15 px-2 py-0.5 text-[11px] font-semibold text-success">
                         🟢 Ocupada ({atendimentosReserva.length})
                       </span>
                     ) : (
-                      <span className="inline-flex items-center rounded-md bg-amber-500/15 px-2 py-0.5 text-[11px] font-semibold text-amber-700 dark:text-amber-400">
+                      <span className="inline-flex items-center rounded-md bg-warning/15 px-2 py-0.5 text-[11px] font-semibold text-warning">
                         🟡 Sem paciente
                       </span>
                     )}
@@ -385,7 +385,7 @@ export default async function AgendaPage({ searchParams }: PageProps<"/painel/ag
                 </div>
 
                 {atendimentosReserva.length === 0 ? (
-                  <div className="rounded-xl border border-dashed border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-900 dark:text-amber-200 space-y-1">
+                  <div className="rounded-xl border border-dashed border-warning/40 bg-warning/10 p-3 text-xs text-warning space-y-1">
                     <p className="font-semibold flex items-center gap-1.5">
                       <span>⏳</span> Sala reservada para o profissional, ainda sem paciente.
                     </p>
@@ -394,7 +394,7 @@ export default async function AgendaPage({ searchParams }: PageProps<"/painel/ag
                     </p>
                   </div>
                 ) : (
-                  <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3 text-xs text-emerald-950 dark:text-emerald-100 space-y-1.5">
+                  <div className="rounded-xl border border-success/40 bg-success/10 p-3 text-xs text-success space-y-1.5">
                     <p className="font-semibold flex items-center gap-1.5">
                       <span>👤</span> Ocupada com atendimento(s):
                     </p>
@@ -412,9 +412,9 @@ export default async function AgendaPage({ searchParams }: PageProps<"/painel/ag
                 )}
 
                 {reservaAberta.ehSalaFixa && (
-                  <div className="flex items-center justify-between rounded-lg border border-amber-500/30 bg-amber-500/10 p-2 text-xs">
+                  <div className="flex items-center justify-between rounded-lg border border-warning/30 bg-warning/10 p-2 text-xs">
                     <div className="space-y-0.5">
-                      <span className="font-semibold text-amber-800 dark:text-amber-300 block">
+                      <span className="font-semibold text-warning block">
                         {reservaAberta.contratoCodigo ? `Contrato ${reservaAberta.contratoCodigo}` : "Locação de Sala Fixa"}
                       </span>
                       <span className="text-[11px] text-muted-foreground">
@@ -424,7 +424,7 @@ export default async function AgendaPage({ searchParams }: PageProps<"/painel/ag
                     {reservaAberta.contratoId && (
                       <Link
                         href={`/painel/contratos/${reservaAberta.contratoId}`}
-                        className="rounded-md bg-amber-500/20 px-2 py-1 text-[11px] font-semibold text-amber-800 dark:text-amber-300 hover:bg-amber-500/30 transition-colors shrink-0"
+                        className="rounded-md bg-warning/20 px-2 py-1 text-[11px] font-semibold text-warning hover:bg-warning/30 transition-colors shrink-0"
                       >
                         Ver contrato →
                       </Link>

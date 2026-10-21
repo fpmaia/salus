@@ -66,7 +66,7 @@ export default async function ProntuarioPacientePage({ params }: PageProps<"/pai
       </Card>
 
       {rascunhosDeAdendo.map((r) => (
-        <Card key={r.id} className="border-amber-500/40">
+        <Card key={r.id} className="border-warning/40">
           <CardHeader>
             <CardTitle className="text-base">Adendo em rascunho</CardTitle>
           </CardHeader>
@@ -79,7 +79,7 @@ export default async function ProntuarioPacientePage({ params }: PageProps<"/pai
       <div className="flex flex-col gap-4">
         {evolucoes.length === 0 && <p className="text-sm text-muted-foreground">Nenhum registro ainda.</p>}
         {evolucoes.map((r) => (
-          <Card key={r.id} className={r.status === "rascunho" ? "border-amber-500/40" : undefined}>
+          <Card key={r.id} className={r.status === "rascunho" ? "border-warning/40" : undefined}>
             <CardContent className="flex flex-col gap-4">
               {r.status === "rascunho" ? (
                 <AcoesRascunho registro={r} pacienteId={pacienteId} atendimentos={atendimentos} />

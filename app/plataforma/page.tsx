@@ -44,8 +44,8 @@ export default async function PlataformaVisaoGeralPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-            <span className="size-2 rounded-full bg-emerald-500 animate-pulse" /> Banco de Dados Saudável
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-success/10 border border-success/20 px-3 py-1 text-xs font-semibold text-success">
+            <span className="size-2 rounded-full bg-success animate-pulse" /> Banco de Dados Saudável
           </span>
         </div>
       </div>
@@ -78,7 +78,7 @@ export default async function PlataformaVisaoGeralPage() {
             <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Espaços & Clínicas
             </span>
-            <div className="flex size-8 items-center justify-center rounded-xl bg-blue-500/15 text-blue-600 dark:text-blue-400">
+            <div className="flex size-8 items-center justify-center rounded-xl bg-blue-500/15 text-blue-600">
               <Building2 className="size-4" />
             </div>
           </div>
@@ -86,7 +86,7 @@ export default async function PlataformaVisaoGeralPage() {
             <span className="text-2xl font-extrabold text-foreground">
               {metricas.totalClinicas}
             </span>
-            <span className="text-xs text-emerald-600 font-semibold">
+            <span className="text-xs text-success font-semibold">
               {metricas.clinicasAtivas} ativas
             </span>
             {metricas.clinicasSuspensas > 0 && (
@@ -103,7 +103,7 @@ export default async function PlataformaVisaoGeralPage() {
             <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Usuários Totais
             </span>
-            <div className="flex size-8 items-center justify-center rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400">
+            <div className="flex size-8 items-center justify-center rounded-xl bg-warning/15 text-warning">
               <Users className="size-4" />
             </div>
           </div>
@@ -123,7 +123,7 @@ export default async function PlataformaVisaoGeralPage() {
             <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Profissionais de Saúde
             </span>
-            <div className="flex size-8 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+            <div className="flex size-8 items-center justify-center rounded-xl bg-success/15 text-success">
               <UserCheck className="size-4" />
             </div>
           </div>
@@ -166,7 +166,7 @@ export default async function PlataformaVisaoGeralPage() {
                     <span
                       className={`inline-flex items-center gap-0.5 px-2 py-0.2 rounded-full text-[10px] font-semibold ${
                         clinica.status === "ativo"
-                          ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20"
+                          ? "bg-success/10 text-success border border-success/20"
                           : "bg-destructive/10 text-destructive border border-destructive/20"
                       }`}
                     >

@@ -103,7 +103,7 @@ export function ConfigurarDoisFatores({ ativo, obrigatorio }: { ativo: boolean; 
   if (ativo) {
     return (
       <div className="flex flex-col gap-5 text-sm">
-        <p className="font-medium text-emerald-700 dark:text-emerald-400">A verificação em duas etapas está ativa.</p>
+        <p className="font-medium text-success">A verificação em duas etapas está ativa.</p>
         <form action={novosCodigos} className="flex flex-col gap-2">
           <Label htmlFor="senha-codigos">Gerar novos códigos de recuperação (os antigos deixam de valer)</Label>
           <Input id="senha-codigos" name="senha" type="password" required placeholder="Sua senha" autoComplete="current-password" />

@@ -8,7 +8,7 @@ function tamanho(bytes: number) {
 export function SeloIntegridade({ registro }: { registro: RegistroLido }) {
   if (registro.status === "rascunho") return <span className="rounded-md bg-muted px-2 py-0.5 text-xs">Rascunho</span>;
   return registro.integro ? (
-    <span className="rounded-md bg-emerald-600/15 px-2 py-0.5 text-xs text-emerald-700 dark:text-emerald-400" title={`SHA-256 ${registro.hash}`}>
+    <span className="rounded-md bg-success/15 px-2 py-0.5 text-xs text-success" title={`SHA-256 ${registro.hash}`}>
       Finalizado · íntegro
     </span>
   ) : (

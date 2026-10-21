@@ -30,7 +30,7 @@ export function PrimeirosPassos({ etapas }: { etapas: Etapa[] }) {
                   className={`flex items-start gap-3 rounded-md px-2 py-2 text-sm ${destaque ? "bg-primary/10" : "hover:bg-muted"}`}
                 >
                   {e.feita ? (
-                    <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" aria-label="Feito" />
+                    <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-success" aria-label="Feito" />
                   ) : (
                     <Circle className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-label="A fazer" />
                   )}

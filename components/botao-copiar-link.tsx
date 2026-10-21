@@ -24,7 +24,7 @@ export function BotaoCopiarLink({ link }: { link: string }) {
         variant={copiado ? "default" : "outline"}
         size="sm"
         onClick={copiar}
-        className={copiado ? "bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5" : "gap-1.5"}
+        className={copiado ? "bg-success hover:bg-success text-white gap-1.5" : "gap-1.5"}
       >
         {copiado ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
         <span>{copiado ? "Link Copiado!" : "Copiar Link"}</span>

@@ -63,12 +63,12 @@ export function TabelaClinicasPlataforma({ clinicas, planos }: Props) {
 
       {/* Alertas */}
       {estadoSuspender?.sucesso && (
-        <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-3.5 text-xs text-amber-700 dark:text-amber-400">
+        <div className="rounded-xl border border-warning/20 bg-warning/10 p-3.5 text-xs text-warning">
           {estadoSuspender.sucesso}
         </div>
       )}
       {estadoReativar?.sucesso && (
-        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3.5 text-xs text-emerald-700 dark:text-emerald-400">
+        <div className="rounded-xl border border-success/20 bg-success/10 p-3.5 text-xs text-success">
           {estadoReativar.sucesso}
         </div>
       )}
@@ -127,7 +127,7 @@ export function TabelaClinicasPlataforma({ clinicas, planos }: Props) {
                     <span
                       className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold ${
                         c.status === "ativo"
-                          ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20"
+                          ? "bg-success/10 text-success border border-success/20"
                           : "bg-destructive/10 text-destructive border border-destructive/20"
                       }`}
                     >
@@ -171,7 +171,7 @@ export function TabelaClinicasPlataforma({ clinicas, planos }: Props) {
                       <button
                         type="submit"
                         disabled={pendenteReativar}
-                        className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 px-3 py-1.5 text-xs font-semibold transition-colors"
+                        className="inline-flex items-center gap-1 rounded-lg bg-success text-white hover:bg-success px-3 py-1.5 text-xs font-semibold transition-colors"
                       >
                         <PlayCircle className="size-3.5" /> Reativar
                       </button>

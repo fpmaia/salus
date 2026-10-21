@@ -9,7 +9,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       {/* Background Decorativo */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden -z-10">
         <div className="absolute -top-32 left-1/2 -translate-x-1/2 size-96 rounded-full bg-primary/10 blur-[120px]" />
-        <div className="absolute bottom-0 right-1/4 size-80 rounded-full bg-emerald-500/8 blur-[100px]" />
+        <div className="absolute bottom-0 right-1/4 size-80 rounded-full bg-success/8 blur-[100px]" />
       </div>
 
       {/* Container Principal */}

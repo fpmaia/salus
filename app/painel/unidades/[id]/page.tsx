@@ -49,7 +49,7 @@ export default async function UnidadePage({ params, searchParams }: PageProps<"/
         </Link>
       </div>
       {recemCriada && (
-        <p className="rounded-md border border-emerald-600/30 bg-emerald-600/10 p-3 text-sm">
+        <p className="rounded-md border border-success/30 bg-success/10 p-3 text-sm">
           Unidade criada com o horário padrão (seg–sex, 08h–18h). Agora confira o horário abaixo e adicione as salas em &quot;Nova sala&quot;.
         </p>
       )}

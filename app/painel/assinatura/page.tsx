@@ -52,21 +52,21 @@ export default async function AssinaturaPage({
                   <h2 className="text-lg font-bold text-foreground">
                     Desbloqueie o Módulo Multi-Clínicas
                   </h2>
-                  <span className="flex items-center gap-1 rounded-full bg-amber-500/10 px-2.5 py-0.5 text-xs font-semibold text-amber-600 dark:text-amber-400">
-                    <Sparkles className="size-3 fill-amber-500" /> Upgrade
+                  <span className="flex items-center gap-1 rounded-full bg-warning/10 px-2.5 py-0.5 text-xs font-semibold text-warning">
+                    <Sparkles className="size-3 fill-warning" /> Upgrade
                   </span>
                 </div>
                 <p className="text-sm text-muted-foreground max-w-2xl">
                   Gerencie mais de uma clínica ou consultório com uma única conta. Alterne facilmente entre espaços, unifique sua visão financeira e compartilhe profissionais com total isolamento de dados.
                 </p>
                 <div className="pt-2 flex flex-wrap gap-4 text-xs font-medium text-foreground/80">
-                  <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                  <span className="flex items-center gap-1 text-success">
                     <CheckCircle2 className="size-3.5" /> Até múltiplas unidades e CNPJs
                   </span>
-                  <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                  <span className="flex items-center gap-1 text-success">
                     <CheckCircle2 className="size-3.5" /> Alternância instantânea de contexto
                   </span>
-                  <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                  <span className="flex items-center gap-1 text-success">
                     <CheckCircle2 className="size-3.5" /> Relatórios consolidados
                   </span>
                 </div>

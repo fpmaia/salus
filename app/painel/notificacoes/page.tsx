@@ -49,7 +49,7 @@ export default async function NotificacoesPage({ searchParams }: PageProps<"/pai
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6">
       {whatsapp.disponivel && (
-        <Card className={conexao?.status === "conectado" ? undefined : "border-amber-500/50"}>
+        <Card className={conexao?.status === "conectado" ? undefined : "border-warning/50"}>
           <CardHeader>
             <CardTitle>WhatsApp do espaço</CardTitle>
             <CardDescription>

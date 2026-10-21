@@ -57,7 +57,7 @@ export function LSCodeBadge({ variant = "badge", className }: LSCodeBadgeProps) 
         className
       )}
     >
-      <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+      <span className="size-1.5 rounded-full bg-success animate-pulse" />
       <span>Desenvolvido por</span>
       <div className="flex items-center gap-1 font-semibold text-foreground">
         <Image

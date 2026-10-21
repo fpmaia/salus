@@ -58,7 +58,7 @@ export function TabelaUsuariosPlataforma({ usuarios, meuUsuarioId }: Props) {
         </div>
       )}
       {estadoDesbanir?.sucesso && (
-        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3.5 text-xs text-emerald-700 dark:text-emerald-400">
+        <div className="rounded-xl border border-success/20 bg-success/10 p-3.5 text-xs text-success">
           {estadoDesbanir.sucesso}
         </div>
       )}
@@ -158,7 +158,7 @@ export function TabelaUsuariosPlataforma({ usuarios, meuUsuarioId }: Props) {
                             <button
                               type="submit"
                               disabled={pendenteDesbanir}
-                              className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 px-3 py-1.5 text-xs font-semibold transition-colors"
+                              className="inline-flex items-center gap-1 rounded-lg bg-success text-white hover:bg-success px-3 py-1.5 text-xs font-semibold transition-colors"
                             >
                               <UserCheck className="size-3.5" /> Desbanir
                             </button>

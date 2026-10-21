@@ -34,13 +34,13 @@ export function SessoesAtivasLista({ sessoes }: Props) {
   return (
     <div className="space-y-4">
       {estadoRevogar?.mensagem && (
-        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-xs text-emerald-700 dark:text-emerald-400">
+        <div className="rounded-xl border border-success/20 bg-success/10 p-3 text-xs text-success">
           {estadoRevogar.mensagem}
         </div>
       )}
 
       {estadoOutras?.mensagem && (
-        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-xs text-emerald-700 dark:text-emerald-400">
+        <div className="rounded-xl border border-success/20 bg-success/10 p-3 text-xs text-success">
           {estadoOutras.mensagem}
         </div>
       )}
@@ -80,7 +80,7 @@ export function SessoesAtivasLista({ sessoes }: Props) {
                     {parseUserAgent(s.userAgent)}
                   </span>
                   {s.ehAtual && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.2 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-success/10 border border-success/20 px-2 py-0.2 text-[10px] font-semibold text-success">
                       <ShieldCheck className="size-2.5" /> Sessão Atual
                     </span>
                   )}

@@ -67,10 +67,10 @@ export default async function ContratoPage({ params, searchParams }: PageProps<"
       </div>
 
       {q.criado && (
-        <p className="rounded-md border border-emerald-600/30 bg-emerald-600/10 p-3 text-sm">
+        <p className="rounded-md border border-success/30 bg-success/10 p-3 text-sm">
           Contrato criado{q.reservas ? `: ${q.reservas} data(s) da grade fixa reservada(s)` : ""}.
           {conflitos.length > 0 && (
-            <span className="mt-1 block text-amber-700">
+            <span className="mt-1 block text-warning">
               Atenção: a sala já estava ocupada em {conflitos.length} data(s) da grade ({conflitos.slice(0, 5).join("; ")}
               {conflitos.length > 5 ? "…" : ""}). Essas datas não foram reservadas; resolva na agenda.
             </span>

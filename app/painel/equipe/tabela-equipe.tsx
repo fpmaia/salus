@@ -55,19 +55,19 @@ export function TabelaEquipe({ membros, convites, usuarioAtualId }: Props) {
     switch (role) {
       case "admin":
         return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2.5 py-0.5 text-xs font-semibold text-amber-600 dark:text-amber-400 border border-amber-500/20">
+          <span className="inline-flex items-center gap-1 rounded-full bg-warning/10 px-2.5 py-0.5 text-xs font-semibold text-warning border border-warning/20">
             <ShieldCheck className="size-3" /> Admin
           </span>
         );
       case "recepcao":
         return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2.5 py-0.5 text-xs font-semibold text-blue-600 dark:text-blue-400 border border-blue-500/20">
+          <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2.5 py-0.5 text-xs font-semibold text-blue-600 border border-blue-500/20">
             <Users className="size-3" /> Recepção
           </span>
         );
       case "profissional":
         return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+          <span className="inline-flex items-center gap-1 rounded-full bg-success/10 px-2.5 py-0.5 text-xs font-semibold text-success border border-success/20">
             <UserCheck className="size-3" /> Profissional
           </span>
         );
@@ -94,16 +94,16 @@ export function TabelaEquipe({ membros, convites, usuarioAtualId }: Props) {
 
       {/* Alertas de Ação */}
       {estadoConvite?.sucesso && (
-        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-700 dark:text-emerald-400">
+        <div className="rounded-xl border border-success/20 bg-success/10 p-4 text-sm text-success">
           <p className="font-semibold">{estadoConvite.sucesso}</p>
           {estadoConvite.dados?.link && (
             <div className="mt-2 flex items-center gap-2">
-              <span className="text-xs bg-background/80 px-2.5 py-1 rounded-md font-mono border border-emerald-500/30">
+              <span className="text-xs bg-background/80 px-2.5 py-1 rounded-md font-mono border border-success/30">
                 {window.location.origin}{estadoConvite.dados.link}
               </span>
               <button
                 onClick={() => copiarLink(estadoConvite.dados!.link, "novo")}
-                className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded bg-emerald-600 text-white hover:bg-emerald-700"
+                className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded bg-success text-white hover:bg-success"
               >
                 {linkCopiadoId === "novo" ? <Check className="size-3" /> : <Copy className="size-3" />}
                 {linkCopiadoId === "novo" ? "Copiado!" : "Copiar"}
@@ -201,7 +201,7 @@ export function TabelaEquipe({ membros, convites, usuarioAtualId }: Props) {
                           type="submit"
                           disabled={pendenteReativar}
                           title="Reativar membro"
-                          className="rounded-lg border border-border p-1.5 text-muted-foreground hover:text-emerald-600 hover:border-emerald-500/30 transition-colors"
+                          className="rounded-lg border border-border p-1.5 text-muted-foreground hover:text-success hover:border-success/30 transition-colors"
                         >
                           <UserCheck className="size-3.5" />
                         </button>

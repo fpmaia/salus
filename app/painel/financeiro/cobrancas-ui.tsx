@@ -13,8 +13,8 @@ type Cobranca = typeof cobrancasProfissional.$inferSelect;
 const STATUS: Record<Cobranca["status"], { rotulo: string; classe: string }> = {
   pendente: { rotulo: "Em aberto", classe: "bg-muted" },
   vencida: { rotulo: "Vencida", classe: "bg-destructive/15 text-destructive" },
-  paga: { rotulo: "Paga", classe: "bg-emerald-600/15 text-emerald-700 dark:text-emerald-400" },
-  estornada: { rotulo: "Estornada", classe: "bg-amber-500/15 text-amber-700 dark:text-amber-400" },
+  paga: { rotulo: "Paga", classe: "bg-success/15 text-success" },
+  estornada: { rotulo: "Estornada", classe: "bg-warning/15 text-warning" },
   cancelada: { rotulo: "Cancelada", classe: "bg-muted text-muted-foreground line-through" },
   erro: { rotulo: "Erro no envio", classe: "bg-destructive/15 text-destructive" },
 };

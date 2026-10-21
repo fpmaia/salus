@@ -18,9 +18,9 @@ function CorBadgePapel(role: Role) {
     case "admin":
       return "bg-primary/10 text-primary border-primary/20";
     case "profissional":
-      return "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20";
+      return "bg-success/10 text-success border-success/20";
     case "recepcao":
-      return "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20";
+      return "bg-blue-500/10 text-blue-600 border-blue-500/20";
     default:
       return "bg-muted text-muted-foreground border-border";
   }
@@ -170,7 +170,7 @@ export function SeletorClinica({
             <div className="flex flex-col">
               <span className="flex items-center gap-1 font-semibold">
                 Cadastrar nova clínica
-                <Sparkles className="size-3 text-amber-500 fill-amber-500" />
+                <Sparkles className="size-3 text-warning fill-warning" />
               </span>
               <span className="text-[10px] text-muted-foreground">
                 Requer plano Multi-Clínicas

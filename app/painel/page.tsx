@@ -17,7 +17,7 @@ import { rotuloCompetencia } from "./financeiro/componentes";
 
 function Indicador({ titulo, valor, detalhe, alerta, href, icone }: { titulo: string; valor: string; detalhe?: string; alerta?: boolean; href?: string; icone: ReactNode }) {
   const conteudo = (
-    <Card className={alerta ? "border-amber-500/50" : undefined}>
+    <Card className={alerta ? "border-warning/50" : undefined}>
       <CardHeader className="gap-1">
         <CardDescription className="flex items-center gap-1.5">
           {icone}
@@ -42,7 +42,7 @@ const pct = (x: number) => `${Math.round(x * 100)}%`;
 async function SecaoHoje({ ctx }: { ctx: Awaited<ReturnType<typeof obterContextoTenant>> }) {
   const hoje = await painelHoje(ctx);
   const lista = (titulo: string, itens: typeof hoje.proximos, vazio: string, destaque?: boolean) => (
-    <Card className={destaque && itens.length ? "border-amber-500/50" : undefined}>
+    <Card className={destaque && itens.length ? "border-warning/50" : undefined}>
       <CardHeader>
         <CardTitle className="text-base">
           {titulo} ({itens.length})
@@ -83,7 +83,7 @@ async function SecaoHoje({ ctx }: { ctx: Awaited<ReturnType<typeof obterContexto
       </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Indicador titulo="Consultas hoje" valor={String(hoje.total)} detalhe={`${hoje.realizadas} realizada(s)`} icone={<CalendarDays className="size-4" />} />
-        <Indicador titulo="Na recepção" valor={String(hoje.naRecepcao.length)} detalhe="Chegaram e aguardam" icone={<UserCheck className="size-4" />} />
+        <Indicador titulo="Chegaram" valor={String(hoje.naRecepcao.length)} detalhe="Aguardam ser chamados" icone={<UserCheck className="size-4" />} />
         <Indicador
           titulo="Atrasados"
           valor={String(hoje.atrasados.length)}
@@ -233,10 +233,10 @@ async function SecaoMes({ ctx }: { ctx: Awaited<ReturnType<typeof obterContextoT
           icone={<Wallet className="size-4" />}
         />
       </div>
-      <Card className={pendencias.length ? "border-amber-500/50" : undefined}>
+      <Card className={pendencias.length ? "border-warning/50" : undefined}>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            {pendencias.length ? <AlertTriangle className="size-4 text-amber-600" /> : <CheckCircle2 className="size-4 text-emerald-600" />}
+            {pendencias.length ? <AlertTriangle className="size-4 text-warning" /> : <CheckCircle2 className="size-4 text-success" />}
             Pendências
           </CardTitle>
         </CardHeader>

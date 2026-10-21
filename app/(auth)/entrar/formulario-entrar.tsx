@@ -199,7 +199,7 @@ export function FormularioEntrar({
                 disabled={enviando || demoCarregando !== null || isPending}
                 className="group flex items-center justify-center sm:justify-start gap-2.5 rounded-xl border border-border/70 bg-background/95 px-3 py-2.5 min-h-[46px] text-left transition-all active:scale-95 touch-manipulation hover:border-blue-500/50 hover:bg-muted/60 disabled:opacity-50"
               >
-                <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-blue-500/15 text-blue-600 dark:text-blue-400">
+                <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-blue-500/15 text-blue-600">
                   {demoCarregando === "Recepção" ? (
                     <Loader2 className="size-4 animate-spin text-blue-600" />
                   ) : (
@@ -221,11 +221,11 @@ export function FormularioEntrar({
                 type="button"
                 onClick={() => entrarDiretoDemo("profissional@alfa.salus.dev", "Profissional")}
                 disabled={enviando || demoCarregando !== null || isPending}
-                className="group flex items-center justify-center sm:justify-start gap-2.5 rounded-xl border border-border/70 bg-background/95 px-3 py-2.5 min-h-[46px] text-left transition-all active:scale-95 touch-manipulation hover:border-emerald-500/50 hover:bg-muted/60 disabled:opacity-50"
+                className="group flex items-center justify-center sm:justify-start gap-2.5 rounded-xl border border-border/70 bg-background/95 px-3 py-2.5 min-h-[46px] text-left transition-all active:scale-95 touch-manipulation hover:border-success/50 hover:bg-muted/60 disabled:opacity-50"
               >
-                <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+                <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-success/15 text-success">
                   {demoCarregando === "Profissional" ? (
-                    <Loader2 className="size-4 animate-spin text-emerald-600" />
+                    <Loader2 className="size-4 animate-spin text-success" />
                   ) : (
                     <Stethoscope className="size-4" />
                   )}

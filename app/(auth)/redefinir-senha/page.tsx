@@ -78,7 +78,7 @@ export default function RedefinirSenhaPage({
 
       {sucesso ? (
         <CardContent className="space-y-4">
-          <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-emerald-700 dark:text-emerald-400 text-sm space-y-2">
+          <div className="rounded-xl border border-success/20 bg-success/10 p-4 text-success text-sm space-y-2">
             <div className="flex items-center gap-2 font-semibold">
               <CheckCircle2 className="size-5 shrink-0" />
               <span>Senha alterada com sucesso!</span>

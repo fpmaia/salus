@@ -14,8 +14,8 @@ import { cancelarNotaAcao, emitirNotaAcao, emitirNotasDoMesAcao, salvarConfigura
 
 const STATUS: Record<string, { rotulo: string; classe: string }> = {
   pendente: { rotulo: "Aguardando envio", classe: "bg-muted" },
-  processando: { rotulo: "Processando", classe: "bg-amber-500/15 text-amber-700 dark:text-amber-400" },
-  autorizada: { rotulo: "Autorizada", classe: "bg-emerald-600/15 text-emerald-700 dark:text-emerald-400" },
+  processando: { rotulo: "Processando", classe: "bg-warning/15 text-warning" },
+  autorizada: { rotulo: "Autorizada", classe: "bg-success/15 text-success" },
   erro: { rotulo: "Recusada", classe: "bg-destructive/15 text-destructive" },
   cancelada: { rotulo: "Cancelada", classe: "bg-muted text-muted-foreground line-through" },
 };
@@ -55,7 +55,7 @@ export default async function FiscalPage({ searchParams }: PageProps<"/painel/fi
       </div>
 
       {pendencias.length > 0 && (
-        <Card className="border-amber-500/40">
+        <Card className="border-warning/40">
           <CardHeader>
             <CardTitle className="text-base">Antes de emitir</CardTitle>
             <CardContent className="px-0">
