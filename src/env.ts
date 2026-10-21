@@ -34,6 +34,16 @@ export function errosDoAmbiente(processo: "app" | "worker"): string[] {
     erros.push("EMAIL_PROVIDER=console não envia e-mails: use resend (ou SALUS_DEMO=true num ambiente de demonstração)");
   }
 
+  // WhatsApp: console (log), meta (Cloud API oficial) ou evolution (QR Code por espaço).
+  const whatsapp = variavel("WHATSAPP_PROVIDER") ?? "console";
+  if (!["console", "meta", "evolution"].includes(whatsapp)) erros.push(`WHATSAPP_PROVIDER inválido: ${whatsapp} (use console, meta ou evolution)`);
+  if (whatsapp === "meta") {
+    for (const nome of ["WHATSAPP_TOKEN", "WHATSAPP_PHONE_NUMBER_ID"]) if (!variavel(nome)) erros.push(`${nome} não definida (WHATSAPP_PROVIDER=meta)`);
+  }
+  if (whatsapp === "evolution") {
+    for (const nome of ["EVOLUTION_API_URL", "EVOLUTION_API_KEY"]) if (!variavel(nome)) erros.push(`${nome} não definida (WHATSAPP_PROVIDER=evolution)`);
+  }
+
   // Captcha nas páginas públicas (cadastro, senha, agendamento online).
   const demo = ["true", "1"].includes(process.env.SALUS_DEMO ?? "");
   // Sem Sentry, erro de produção fica só no log, sem alerta para ninguém.

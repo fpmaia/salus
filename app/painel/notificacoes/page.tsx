@@ -4,7 +4,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { exigirPermissaoNaPagina } from "@/src/auth/permissao";
 import { obterContextoTenant } from "@/src/auth/sessao";
 import { listarNotificacoes } from "@/src/server/notificacoes";
-import { reenviarNotificacaoAcao } from "./actions";
+import { conexaoWhatsapp } from "@/src/server/whatsapp";
+import { desconectarWhatsappAcao, reenviarNotificacaoAcao } from "./actions";
+import { ConectarWhatsapp } from "./conexao-whatsapp";
 
 const FILTROS = [
   ["", "Todas"],
@@ -35,10 +37,42 @@ export default async function NotificacoesPage({ searchParams }: PageProps<"/pai
   const { status } = await searchParams;
   const filtro = typeof status === "string" ? status : "";
   const notificacoes = await listarNotificacoes(ctx, { status: filtro || undefined });
-  const provider = process.env.WHATSAPP_PROVIDER === "meta" ? "WhatsApp Cloud API" : "console (desenvolvimento: nada é enviado de verdade)";
+  const provider =
+    process.env.WHATSAPP_PROVIDER === "meta"
+      ? "WhatsApp Cloud API"
+      : process.env.WHATSAPP_PROVIDER === "evolution"
+        ? "o WhatsApp do espaço (QR Code)"
+        : "console (desenvolvimento: nada é enviado de verdade)";
+  const whatsapp = await conexaoWhatsapp(ctx);
+  const conexao = whatsapp.conexao;
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6">
+      {whatsapp.disponivel && (
+        <Card className={conexao?.status === "conectado" ? undefined : "border-amber-500/50"}>
+          <CardHeader>
+            <CardTitle>WhatsApp do espaço</CardTitle>
+            <CardDescription>
+              {conexao?.status === "conectado"
+                ? `Conectado${conexao.numero ? ` (+${conexao.numero})` : ""}: os lembretes saem por este número.`
+                : `Desconectado: ${whatsapp.pendentes ? `${whatsapp.pendentes} mensagem(ns) esperando na fila` : "nenhum lembrete é enviado"} até conectar.`}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {conexao?.status === "conectado" ? (
+              <FormAcao
+                acao={desconectarWhatsappAcao}
+                textoBotao="Desconectar"
+                textoPendente="Desconectando…"
+                variante="outline"
+                confirmar="Desconectar o WhatsApp? Os lembretes ficam na fila até conectar de novo."
+              />
+            ) : (
+              <ConectarWhatsapp jaAceitou={Boolean(conexao?.riscoAceitoEm)} />
+            )}
+          </CardContent>
+        </Card>
+      )}
       <Card>
         <CardHeader>
           <CardTitle>Notificações</CardTitle>

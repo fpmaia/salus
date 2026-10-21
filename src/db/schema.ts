@@ -1036,6 +1036,28 @@ export const faturasSaas = pgTable(
   ],
 );
 
+export const statusConexaoWhatsapp = pgEnum("status_conexao_whatsapp", ["desconectado", "conectando", "conectado"]);
+
+// Número de WhatsApp do espaço conectado por QR Code (Evolution API). Uma linha por tenant.
+// A instância na Evolution se chama salus-<tenant_id>; o risco de bloqueio é aceito pelo admin.
+export const whatsappConexoes = pgTable(
+  "whatsapp_conexoes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: tenantIdDoContexto(),
+    instancia: text("instancia").notNull(),
+    status: statusConexaoWhatsapp("status").notNull().default("desconectado"),
+    // Número conectado (só dígitos, com DDI), quando a Evolution informa.
+    numero: text("numero"),
+    conectadoEm: timestamp("conectado_em", { withTimezone: true }),
+    riscoAceitoEm: timestamp("risco_aceito_em", { withTimezone: true }).notNull(),
+    riscoAceitoPor: uuid("risco_aceito_por").references(() => users.id, { onDelete: "set null" }),
+    criadoEm: criadoEm(),
+    atualizadoEm: atualizadoEm(),
+  },
+  (t) => [uniqueIndex("whatsapp_conexoes_tenant_key").on(t.tenantId)],
+);
+
 // Conta Asaas do próprio espaço para cobrar os profissionais. Uma linha por tenant.
 export const configuracoesCobranca = pgTable(
   "configuracoes_cobranca",

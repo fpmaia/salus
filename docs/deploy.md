@@ -78,6 +78,8 @@ BACKUP_S3_SECRET_KEY=
 
 Opcionais: `WHATSAPP_*`, `ASAAS_*`, `BACKUP_RETENCAO_DIARIO` (padrão `35d`) e `BACKUP_INTERVALO_SEGUNDOS` (padrão 1 dia).
 
+**WhatsApp por QR Code (Evolution API).** Com `WHATSAPP_PROVIDER=evolution`, `EVOLUTION_API_URL` e `EVOLUTION_API_KEY` (a chave global da Evolution), cada espaço conecta o próprio número em Notificações → "WhatsApp do espaço", lendo o QR Code no celular. A instância se chama `salus-<id do espaço>`. Antes de conectar, o admin aceita o risco: não é a API oficial e o número pode ser bloqueado. Enquanto estiver desconectado, as mensagens ficam na fila e as que perderem a hora são descartadas no envio. Suba a Evolution na mesma rede interna do compose e não a exponha na internet. Para a Cloud API oficial, use `WHATSAPP_PROVIDER=meta` (templates aprovados na Meta).
+
 Variável obrigatória ausente faz o `docker compose` recusar subir. Segredo inválido (curto, repetido, `SECRETS_KEY` sem 32 bytes, e-mail em modo `console`) faz o app e o worker recusarem o boot (`src/env.ts`).
 
 ## 3. Subir

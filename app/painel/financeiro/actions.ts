@@ -7,6 +7,7 @@ import { ErroNegocio } from "@/src/server/erros";
 import {
   definirValorAgendamento,
   fecharCompetencia,
+  fecharCompetenciaEmLote,
   lancarAjuste,
   registrarPagamento,
   reprocessar,
@@ -44,6 +45,16 @@ export async function fecharCompetenciaAcao(profissionalId: string, competencia:
     const ctx = await obterContextoTenant();
     await fecharCompetencia(ctx, profissionalId, competencia);
     return "Competência fechada";
+  });
+}
+
+export async function fecharTodosAcao(competencia: string): Promise<EstadoAcao> {
+  return executarAcao(async () => {
+    const ctx = await obterContextoTenant();
+    const { fechados, erros } = await fecharCompetenciaEmLote(ctx, competencia);
+    const resumo = `${fechados.length} profissional(is) fechado(s)`;
+    if (erros.length === 0) return resumo;
+    return { erro: `${resumo}. Não fechados: ${erros.map((e) => `${e.nome} (${e.motivo})`).join("; ")}`, sucesso: null };
   });
 }
 

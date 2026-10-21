@@ -12,7 +12,9 @@ import { gerarFaturaDoMes, sincronizarFaturas } from "../server/assinatura";
 import { sincronizarCobrancas } from "../server/cobrancas";
 import { processarNotasFiscais } from "../server/fiscal";
 import { agendarLembretes, processarFila } from "../server/notificacoes";
+import { evolutionDoAmbiente } from "../server/evolution";
 import { providerDoAmbiente } from "../server/provider";
+import { providerDoTenant } from "../server/whatsapp";
 import { limparLimitesAntigos } from "../server/limite-taxa";
 import { concluirReservasPassadas, materializarRecorrencias } from "../server/reservas";
 
@@ -43,6 +45,14 @@ type Job = {
 };
 
 const provider = providerDoAmbiente();
+// Evolution (QR Code): cada espaço envia pelo próprio número, só quando conectado.
+const evolution = evolutionDoAmbiente();
+
+async function enviarFila(tenantId: string, agora: Date) {
+  if (!evolution) return processarFila(tenantId, provider, agora);
+  const doTenant = await providerDoTenant(tenantId, evolution, agora);
+  return doTenant ? processarFila(tenantId, doTenant, agora) : { pulado: "nada a enviar ou WhatsApp desconectado" };
+}
 
 const JOBS: Job[] = [
   // Diário, de madrugada: estende as recorrências até o fim da janela de 8 semanas.
@@ -51,7 +61,7 @@ const JOBS: Job[] = [
   { fila: "agenda.concluir-reservas", cron: "*/15 * * * *", executar: concluirReservasPassadas },
   // Lembretes D-1 (janela de 2h a 24h antes) e envio da outbox com retentativas.
   { fila: "notificacoes.agendar-lembretes", cron: "*/15 * * * *", executar: agendarLembretes },
-  { fila: "notificacoes.enviar", cron: "* * * * *", porTenant: (tenantId, agora) => processarFila(tenantId, provider, agora) },
+  { fila: "notificacoes.enviar", cron: "* * * * *", porTenant: enviarFila },
   // NFS-e: reenvia pendentes (consultando antes, sem duplicar) e acompanha as em processamento.
   { fila: "fiscal.processar-notas", cron: "*/2 * * * *", porTenant: (tenantId, agora) => processarNotasFiscais(tenantId, agora) },
   // Asaas: fatura mensal do SaaS (idempotente, roda todo dia) e sincronização de reserva dos webhooks.
@@ -111,7 +121,7 @@ async function main() {
   }
   // Fila da Fase 0, substituída pelos jobs acima.
   await boss.unschedule("manutencao.heartbeat").catch(() => undefined);
-  log.info("worker pronto", { whatsapp: provider.nome, filas: JOBS.map((j) => j.fila) });
+  log.info("worker pronto", { whatsapp: evolution ? "evolution" : provider.nome, filas: JOBS.map((j) => j.fila) });
 
   // Heartbeat para o healthcheck do container: o arquivo é tocado enquanto o banco responde.
   const batimento = setInterval(async () => {

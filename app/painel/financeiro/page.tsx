@@ -20,7 +20,7 @@ import { Label } from "@/components/ui/label";
 import { formatarPercentual } from "@/src/domain/dinheiro";
 import { pode } from "@/src/domain/rbac";
 import { obterConfigCobranca } from "@/src/server/cobrancas";
-import { gerarTokenWebhookAcao, reprocessarAcao, salvarConfigCobrancaAcao } from "./actions";
+import { fecharTodosAcao, gerarTokenWebhookAcao, reprocessarAcao, salvarConfigCobrancaAcao } from "./actions";
 import { BotaoTokenWebhook } from "./token-webhook";
 import { NavCompetencia, rotuloCompetencia, Saldo } from "./componentes";
 
@@ -44,6 +44,9 @@ export default async function FinanceiroPage({ searchParams }: PageProps<"/paine
   const aReceber = resumo.filter((p) => p.saldoAcumulado > 0).reduce((acc, p) => acc + p.saldoAcumulado, 0);
   const aPagar = resumo.filter((p) => p.saldoAcumulado < 0).reduce((acc, p) => acc - p.saldoAcumulado, 0);
   const c = competencia.slice(0, 7);
+  // Fechamento em lote: mês já terminado e ainda com profissionais em aberto.
+  const abertos = resumo.filter((p) => !p.fechado).length;
+  const podeFecharTodos = pode(ctx.role, "financeiro.fechar") && competencia < (await competenciaAtual(ctx)) && abertos > 0;
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6">
@@ -89,6 +92,15 @@ export default async function FinanceiroPage({ searchParams }: PageProps<"/paine
         <CardHeader>
           <CardTitle>Profissionais</CardTitle>
           <CardDescription>Movimento do mês e saldo acumulado até o fim da competência.</CardDescription>
+          {podeFecharTodos && (
+            <FormAcao
+              acao={fecharTodosAcao.bind(null, competencia)}
+              textoBotao={`Fechar o mês de todos (${abertos} em aberto)`}
+              textoPendente="Fechando…"
+              confirmar={`Fechar ${rotuloCompetencia(competencia)} de ${abertos} profissional(is)? Depois de fechado, o mês não muda mais.`}
+              className="mt-2 flex flex-wrap items-center gap-2"
+            />
+          )}
         </CardHeader>
         <CardContent className="overflow-x-auto">
           <table className="w-full min-w-[40rem] text-sm">

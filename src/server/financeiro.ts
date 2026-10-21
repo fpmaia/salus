@@ -565,6 +565,28 @@ export async function fecharCompetencia(
   );
 }
 
+/**
+ * Fecha a competência de todos os profissionais ainda abertos (ativos ou com movimento), um
+ * por vez e cada um na própria transação: uma falha não impede os outros e volta na lista.
+ */
+export async function fecharCompetenciaEmLote(ctx: ContextoTenant, competencia: string, agora = new Date(), database?: Database) {
+  exigirPermissao(ctx.role, "financeiro.fechar");
+  const c = competenciaSchema.parse(competencia);
+  const abertos = (await resumoCompetencia(ctx, c, database)).filter((p) => !p.fechado);
+  const fechados: { profissionalId: string; nome: string; saldoFinal: number }[] = [];
+  const erros: { profissionalId: string; nome: string; motivo: string }[] = [];
+  for (const p of abertos) {
+    try {
+      const { saldoFinal } = await fecharCompetencia(ctx, p.id, c, agora, database);
+      fechados.push({ profissionalId: p.id, nome: p.nome, saldoFinal });
+    } catch (erro) {
+      if (!(erro instanceof ErroNegocio)) throw erro;
+      erros.push({ profissionalId: p.id, nome: p.nome, motivo: erro.message });
+    }
+  }
+  return { fechados, erros };
+}
+
 // ---------------------------------------------------------------------------
 // Pagamentos, ajustes e valor do atendimento
 // ---------------------------------------------------------------------------
