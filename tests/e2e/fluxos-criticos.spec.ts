@@ -20,7 +20,8 @@ test("profissional reserva uma sala; reservar o mesmo horário de novo é recusa
   };
 
   await reservar();
-  await expect(formulario.getByText(/Reserva criada para .*10:00–12:00/)).toBeVisible();
+  // No painel, a confirmação aparece como aviso (sobrevive ao formulário remontar).
+  await expect(page.getByRole("status").getByText(/Reserva criada para .*10:00–12:00/)).toBeVisible();
 
   // A sobreposição é barrada pela constraint EXCLUDE do banco.
   await reservar();
@@ -54,8 +55,9 @@ test("admin fecha o mês anterior e o extrato fica congelado", async ({ page }) 
   await page.goto(`/painel/financeiro/${profissionalId}?competencia=${competenciaAnterior}`);
   await expect(page.getByText("Competência aberta")).toBeVisible();
 
-  page.once("dialog", (dialogo) => dialogo.accept());
   await page.getByRole("button", { name: /^Fechar / }).click();
+  // Confirmação com o impacto explicado (diálogo da página, não o do navegador).
+  await page.getByRole("dialog", { name: "Confirmar ação" }).getByRole("button", { name: "Confirmar" }).click();
   // O formulário some depois do fechamento (junto com a mensagem): vale o estado da página.
   await expect(page.getByText(/Fechado em/)).toBeVisible();
 
@@ -185,7 +187,7 @@ test("equipe agenda em 1 passo com cadastro rápido, desfaz o status e remarca",
   await formulario.getByRole("button", { name: "Cadastrar e escolher" }).click();
   await expect(formulario.getByRole("button", { name: "Trocar" })).toBeVisible();
   await formulario.getByRole("button", { name: "Agendar" }).click();
-  await expect(formulario.getByText(/sala reservada automaticamente/)).toBeVisible();
+  await expect(page.getByRole("status").getByText(/sala reservada automaticamente/)).toBeVisible();
 
   await page.goto(`/painel/atendimentos?data=${amanha}`);
   const item = page.getByRole("listitem").filter({ hasText: "17:00–18:00" }).filter({ hasText: "Bruno Rápido" });
@@ -193,8 +195,8 @@ test("equipe agenda em 1 passo com cadastro rápido, desfaz o status e remarca",
   await expect(item.getByText("Confirmado", { exact: true })).toBeVisible();
 
   // Clique errado: desfaz e volta para "Agendado".
-  page.once("dialog", (dialogo) => dialogo.accept());
   await item.getByRole("button", { name: "Desfazer (voltar a Agendado)" }).click();
+  await page.getByRole("dialog", { name: "Confirmar ação" }).getByRole("button", { name: "Confirmar" }).click();
   await expect(item.getByText("Agendado", { exact: true })).toBeVisible();
 
   await item.locator("summary", { hasText: "Remarcar" }).click();

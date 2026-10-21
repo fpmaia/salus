@@ -4,9 +4,10 @@ import { obterContextoTenant } from "@/src/auth/sessao";
 import { pode, type Permissao } from "@/src/domain/rbac";
 import { assinaturaEmAtraso } from "@/src/server/assinatura";
 import { SalusLogo } from "@/components/brand/salus-logo";
-import { LSCodeBadge } from "@/components/brand/ls-code";
+import { RodapeLegal } from "@/components/rodape-legal";
 import { PainelNav, PainelNavMobile, type ItemNavegacao } from "@/components/painel-nav";
 import { modulosDoEspaco, type Modulo } from "@/src/server/modulos";
+import { ProvedorAvisos } from "@/components/avisos";
 import { BotaoSair } from "./botao-sair";
 import { SeletorClinica } from "@/components/seletor-clinica";
 
@@ -47,6 +48,7 @@ export default async function PainelLayout({ children }: LayoutProps<"/painel">)
   const atraso = pode(ctx.role, "assinatura.ver") && (await assinaturaEmAtraso(ctx));
 
   return (
+    <ProvedorAvisos>
     <div className="flex min-h-screen flex-1 flex-col bg-background selection:bg-primary/20 selection:text-primary">
 
       {/* Header Principal do Painel */}
@@ -121,7 +123,7 @@ export default async function PainelLayout({ children }: LayoutProps<"/painel">)
         {children}
       </div>
 
-      {/* Footer do Painel com Créditos Oficiais */}
+      {/* Rodapé: marca do Salus e documentos legais (a LS Code só aparece nas páginas públicas). */}
       <footer className="border-t border-border/40 bg-muted/10 py-6 px-4 sm:px-6 print:hidden">
         <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-3 sm:flex-row text-xs text-muted-foreground">
           <div className="flex items-center gap-2">
@@ -129,9 +131,10 @@ export default async function PainelLayout({ children }: LayoutProps<"/painel">)
             <span>Salus • Gestão de Saúde</span>
           </div>
 
-          <LSCodeBadge variant="footer" />
+          <RodapeLegal className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1" />
         </div>
       </footer>
     </div>
+    </ProvedorAvisos>
   );
 }

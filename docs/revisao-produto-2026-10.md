@@ -23,6 +23,7 @@
 | 21/10/2026 | D | Primeiros passos no lugar do tour e do manual (removidos): no início do admin, as 7 etapas na ordem de uso (unidade, salas, profissional, contrato, convite, paciente, primeira consulta), com progresso, link de cada uma e a próxima em destaque; some quando tudo estiver feito. Criar a unidade já abre a tela dela para adicionar as salas. |
 | 21/10/2026 | D | Navegação: menu agrupado em Operação, Financeiro e Configurações; no desktop, operação e financeiro na barra e configurações num menu suspenso; no celular, gaveta com os três grupos, nome do usuário e sair (fecha ao navegar e com Esc), e cabeçalho numa linha só. |
 | 21/10/2026 | D | Início por papel no lugar do painel genérico (sem os indicadores decorativos nem os códigos de auditoria): o admin vê o mês (receita, ocupação, a receber e pendências: mês anterior sem fechar, cobranças vencidas, profissional sem contrato) e o dia; a recepção vê o dia (consultas, na recepção, atrasados, a confirmar, próximos e salas livres agora); o profissional vê a semana (consultas, reservas, saldo com a prévia do fechamento e atalho para o PIX). Saudações pulam títulos ("Dra. Ana" → "Ana"), também no WhatsApp. |
+| 21/10/2026 | D | Retorno das ações: no painel, a confirmação de sucesso vira aviso (toast) que não some quando o formulário remonta; erros continuam no formulário. Confirmação de ações destrutivas num diálogo da página (com Voltar e Confirmar) no lugar do `window.confirm`. Rodapé do painel sem a LS Code (só nas páginas públicas), com os documentos legais. |
 
 ---
 
