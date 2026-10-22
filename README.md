@@ -104,6 +104,7 @@ Usuários do seed: `admin|recepcao|profissional@alfa.salus.dev` e `...@beta.salu
 | `npm run worker` | Worker pg-boss |
 | `docker compose up --build` | Stack completa de dev: db, migrate, app e worker |
 | `npm run backup:testar` | Backup cifrado + restauração num banco temporário, conferindo o manifesto (requer `npm run db:up`) |
+| `npm run manual:telas` | Regera as telas do [manual do usuário](https://claude.ai/artifact/LaigH1EqEe6ejig1hjzj3v) em `tests/manual/telas/`, com o espaço de demonstração "Espaço Vida Saúde" (`tests/manual/seed.ts`). Usa o banco `salus_test` e a porta 3100 como o E2E; com `CI=1`, usa o build de produção (`npx next build` antes) |
 
 **Multi-tenant na prática**
 - O app conecta como `salus_app` (sem `BYPASSRLS`, não dono das tabelas); migrations rodam como `salus_owner`.

@@ -19,7 +19,8 @@
     "db:studio": "drizzle-kit studio",
     "worker": "tsx src/worker/index.ts",
     "plataforma:promover": "tsx src/db/scripts/promover-superadmin.ts",
-    "backup:testar": "sh scripts/testar-backup.sh"
+    "backup:testar": "sh scripts/testar-backup.sh",
+    "manual:telas": "playwright test -c tests/manual/playwright.config.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1152.0",
