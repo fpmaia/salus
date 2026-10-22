@@ -15,7 +15,7 @@ export async function aceitarConviteEquipeAcao(token: string) {
     const { tenantId } = await aceitarConviteMembro(sessao.user.id, token);
     tenantIdRedirecionar = tenantId;
     return "Convite aceito com sucesso!";
-  });
+  }, { liberadaNaSuspensao: true });
 
   if (resultado.sucesso && tenantIdRedirecionar) {
     redirect("/painel");

@@ -12,6 +12,7 @@ import { cpfValido, somenteDigitos } from "../domain/documentos";
 import { normalizarTelefoneBr, primeiroNome } from "../domain/notificacoes";
 import { exigirPermissao, pode } from "../domain/rbac";
 import { partesLocais } from "../domain/tempo";
+import { espacoSuspensoPorAtraso } from "./assinatura";
 import { ErroNegocio } from "./erros";
 import { moduloAtivoNoTenant } from "./modulos";
 import { linkDoAgendamento } from "./links";
@@ -118,6 +119,8 @@ async function resolverSlug(slug: string, database: Database) {
   if (!rows[0]) return null;
   // Espaço com o módulo desligado: a página pública fica indisponível.
   if (!(await moduloAtivoNoTenant(rows[0].tenant_id, "agendaOnline", database))) return null;
+  // Espaço suspenso por atraso no SaaS: sem consultas novas (as já marcadas continuam).
+  if (await espacoSuspensoPorAtraso(rows[0].tenant_id, new Date(), database)) return null;
   return { tenantId: rows[0].tenant_id, profissionalId: rows[0].profissional_id };
 }
 

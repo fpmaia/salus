@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { AlertCircle } from "lucide-react";
-import { obterContextoTenant } from "@/src/auth/sessao";
+import { obterContextoTenant, situacaoDaAssinaturaAtual } from "@/src/auth/sessao";
 import { pode, type Permissao } from "@/src/domain/rbac";
-import { assinaturaEmAtraso } from "@/src/server/assinatura";
+import { formatarDataBr } from "@/src/server/reservas";
 import { SalusLogo } from "@/components/brand/salus-logo";
 import { RodapeLegal } from "@/components/rodape-legal";
 import { PainelNav, PainelNavMobile, type ItemNavegacao } from "@/components/painel-nav";
@@ -45,7 +45,9 @@ export default async function PainelLayout({ children }: LayoutProps<"/painel">)
   }));
 
 
-  const atraso = pode(ctx.role, "assinatura.ver") && (await assinaturaEmAtraso(ctx));
+  // Atraso: só quem paga vê o aviso. Suspensão: todos (as ações recusam para todos).
+  const situacao = await situacaoDaAssinaturaAtual();
+  const pagaAssinatura = pode(ctx.role, "assinatura.ver");
 
   return (
     <ProvedorAvisos>
@@ -102,19 +104,28 @@ export default async function PainelLayout({ children }: LayoutProps<"/painel">)
         </div>
       </header>
 
-      {/* Alerta de Assinatura Vencida */}
-      {atraso && (
-        <div className="bg-destructive/10 border-b border-destructive/20 px-4 py-2.5 text-center text-xs sm:text-sm font-medium text-destructive flex items-center justify-center gap-2 print:hidden animate-in fade-in">
+      {/* Fatura do Salus em atraso (carência) ou espaço suspenso (só consulta) */}
+      {situacao.estado !== "em_dia" && (situacao.estado === "suspensa" || pagaAssinatura) && (
+        <div
+          role="alert"
+          className={`border-b px-4 py-2.5 text-center text-xs sm:text-sm font-medium flex flex-wrap items-center justify-center gap-x-2 gap-y-1 print:hidden ${
+            situacao.estado === "suspensa"
+              ? "bg-destructive/10 border-destructive/20 text-destructive"
+              : "bg-warning/10 border-warning/20 text-warning"
+          }`}
+        >
           <AlertCircle className="size-4 shrink-0" />
           <span>
-            A fatura do Salus deste espaço está vencida. Regularize para evitar suspensão de recursos.
+            {situacao.estado === "suspensa"
+              ? `Espaço só para consulta: a fatura do Salus venceu em ${formatarDataBr(situacao.vencimento)} e não foi paga. Ninguém consegue marcar nem alterar nada até o pagamento.`
+              : `A fatura do Salus venceu em ${formatarDataBr(situacao.vencimento)}. Se não for paga até ${formatarDataBr(situacao.suspensaoEm)}, o espaço fica só para consulta.`}
+            {!pagaAssinatura && " Fale com o administrador do espaço."}
           </span>
-          <Link
-            href="/painel/assinatura"
-            className="font-semibold underline underline-offset-4 hover:opacity-80"
-          >
-            Ver assinatura
-          </Link>
+          {pagaAssinatura && (
+            <Link href="/painel/assinatura" className="font-semibold underline underline-offset-4 hover:opacity-80">
+              Pagar a fatura
+            </Link>
+          )}
         </div>
       )}
 

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { cache } from "react";
 import type { ContextoTenant } from "../db/tenant";
 import { aceiteVigente } from "../server/aceites";
+import { exigirAssinaturaEmDia, situacaoDaAssinaturaDoEspaco } from "../server/assinatura";
 import { precisaConfigurar2FA, ROTA_CONFIGURAR_2FA } from "./dois-fatores";
 import { listarMembershipsDoUsuario } from "../server/memberships";
 import { getAuth } from "./server";
@@ -56,3 +57,11 @@ export const obterContextoTenant = cache(async (): Promise<ContextoUsuario> => {
     })),
   };
 });
+
+/** Situação da assinatura do espaço atual (uma consulta por requisição). */
+export const situacaoDaAssinaturaAtual = cache(async () => situacaoDaAssinaturaDoEspaco(await obterContextoTenant()));
+
+/** Espaço suspenso por atraso no SaaS: só consulta (as Server Actions chamam via executarAcao). */
+export async function exigirEspacoEmDia() {
+  await exigirAssinaturaEmDia(await obterContextoTenant());
+}

@@ -3,15 +3,27 @@ import { and, asc, count, desc, eq, inArray, isNotNull } from "drizzle-orm";
 import { z } from "zod";
 import { registrarAuditoria } from "../db/audit";
 import { getDb, type Database, type Transaction } from "../db/client";
-import { eventosWebhook, faturasSaas, planosSaas, profissionais, salas, tenants, unidades } from "../db/schema";
+import { eventosWebhook, faturasSaas, memberships, planosSaas, profissionais, salas, tenants, unidades, users } from "../db/schema";
 import { type ContextoTenant, withSistema, withTenant } from "../db/tenant";
-import { excedeLimite, mapearStatusAsaas, usoAcimaDosLimites, vencimentoDaFaturaSaas, type RecursoLimitado } from "../domain/cobranca";
+import {
+  excedeLimite,
+  mapearStatusAsaas,
+  situacaoDaAssinatura,
+  usoAcimaDosLimites,
+  vencimentoDaFaturaSaas,
+  type RecursoLimitado,
+  type SituacaoAssinatura,
+} from "../domain/cobranca";
 import { competenciaDe } from "../domain/financeiro";
 import { exigirPermissao } from "../domain/rbac";
 import { somarDias } from "../domain/tempo";
 import { ErroGateway, gatewayDaPlataforma, type GatewayCobranca } from "./asaas";
+import { emailDoAmbiente, type ProvedorEmail } from "./email";
+import { emailAssinaturaEmAtraso } from "./email-modelos";
 import { ErroNegocio } from "./erros";
 import { hojeDoEspaco } from "./fuso";
+import { urlPublica } from "./links";
+import { formatarDataBr } from "./reservas";
 
 // Cobrança do SaaS (Salus → espaço) na conta Asaas da PLATAFORMA (variáveis ASAAS_*),
 // e limites de uso por plano.
@@ -59,19 +71,112 @@ export async function obterAssinatura(ctx: ContextoTenant, database?: Database) 
       const uso = await usoAtual(tx);
       const planos = await tx.select().from(planosSaas).where(eq(planosSaas.ativo, true)).orderBy(asc(planosSaas.precoMensalCentavos));
       const faturas = await tx.select().from(faturasSaas).orderBy(desc(faturasSaas.competencia)).limit(12);
-      return { plano, uso, planos, faturas, emAtraso: faturas.some((f) => f.status === "vencida") };
+      return { plano, uso, planos, faturas, situacao: await situacaoNaTransacao(tx) };
     },
     database,
   );
 }
 
-/** Fatura do SaaS vencida? (aviso no layout do painel). */
-export async function assinaturaEmAtraso(ctx: ContextoTenant, database?: Database): Promise<boolean> {
-  return withTenant(
-    ctx,
-    async (tx) => (await tx.select({ id: faturasSaas.id }).from(faturasSaas).where(eq(faturasSaas.status, "vencida")).limit(1)).length > 0,
+// ---------------------------------------------------------------------------
+// Inadimplência: carência, aviso e suspensão (regra em src/domain/cobranca.ts)
+// ---------------------------------------------------------------------------
+
+export const MENSAGEM_SUSPENSO =
+  "Este espaço está só para consulta porque a fatura do Salus está em atraso. Assim que ela for paga, tudo volta a funcionar.";
+
+async function situacaoNaTransacao(tx: Transaction, agora = new Date()): Promise<SituacaoAssinatura> {
+  const abertas = await tx
+    .select({ status: faturasSaas.status, vencimento: faturasSaas.vencimento })
+    .from(faturasSaas)
+    .where(inArray(faturasSaas.status, ["pendente", "vencida"]));
+  return situacaoDaAssinatura(abertas, await hojeDoEspaco(tx, agora));
+}
+
+/** Situação da assinatura do espaço (aviso no painel e bloqueio das ações). Qualquer papel. */
+export async function situacaoDaAssinaturaDoEspaco(ctx: ContextoTenant, agora = new Date(), database?: Database) {
+  return withTenant(ctx, (tx) => situacaoNaTransacao(tx, agora), database);
+}
+
+/** Para quem não tem sessão (agendamento online): o espaço está suspenso por atraso? */
+export async function espacoSuspensoPorAtraso(tenantId: string, agora = new Date(), database?: Database): Promise<boolean> {
+  return (await withSistema(tenantId, (tx) => situacaoNaTransacao(tx, agora), database)).estado === "suspensa";
+}
+
+/** Suspenso, o espaço só consulta: as mutações recusam (exceto pagar e trocar de plano). */
+export async function exigirAssinaturaEmDia(ctx: ContextoTenant, agora = new Date(), database?: Database): Promise<void> {
+  if ((await situacaoDaAssinaturaDoEspaco(ctx, agora, database)).estado === "suspensa") throw new ErroNegocio(MENSAGEM_SUSPENSO);
+}
+
+/**
+ * Job diário: e-mail aos admins 5 dias antes da suspensão e no dia em que ela começa (um de
+ * cada por fatura). A suspensão em si não depende do job: é calculada a cada acesso.
+ */
+export async function avisarAtrasoDaAssinatura(
+  tenantId: string,
+  opcoes: { agora?: Date; provedor?: ProvedorEmail; database?: Database } = {},
+): Promise<{ aviso: "nenhum" | "suspensao_proxima" | "suspensa"; emails: number }> {
+  const agora = opcoes.agora ?? new Date();
+  const database = opcoes.database ?? getDb();
+  const preparo = await withSistema(
+    tenantId,
+    async (tx) => {
+      const situacao = await situacaoNaTransacao(tx, agora);
+      if (situacao.estado === "em_dia") return null;
+      const suspensa = situacao.estado === "suspensa";
+      if (!suspensa && (await hojeDoEspaco(tx, agora)) < situacao.avisarEm) return null;
+      const [fatura] = await tx
+        .select()
+        .from(faturasSaas)
+        .where(and(inArray(faturasSaas.status, ["pendente", "vencida"]), eq(faturasSaas.vencimento, situacao.vencimento)))
+        .orderBy(asc(faturasSaas.competencia))
+        .limit(1);
+      if (!fatura || (suspensa ? fatura.suspensaoAvisadaEm : fatura.avisoSuspensaoEm)) return null;
+      const [tenant] = await tx.select({ nome: tenants.nome }).from(tenants);
+      const admins = await tx
+        .select({ email: users.email })
+        .from(memberships)
+        .innerJoin(users, eq(users.id, memberships.userId))
+        .where(and(eq(memberships.role, "admin"), eq(memberships.ativo, true)));
+      return { situacao, suspensa, fatura, espaco: tenant?.nome ?? "", admins: admins.map((a) => a.email) };
+    },
     database,
   );
+  if (!preparo) return { aviso: "nenhum", emails: 0 };
+
+  const { situacao, suspensa, fatura } = preparo;
+  const provedor = opcoes.provedor ?? emailDoAmbiente();
+  let emails = 0;
+  for (const para of preparo.admins) {
+    const mensagem = emailAssinaturaEmAtraso(para, {
+      espaco: preparo.espaco,
+      vencimento: formatarDataBr(situacao.vencimento),
+      suspensaoEm: formatarDataBr(situacao.suspensaoEm),
+      suspensa,
+      url: `${urlPublica()}/painel/assinatura`,
+    });
+    if (await provedor.enviar(mensagem).then(() => true, () => false)) emails++;
+  }
+  // Nenhum e-mail saiu (provedor fora do ar): tenta de novo na próxima rodada.
+  if (preparo.admins.length > 0 && emails === 0) return { aviso: "nenhum", emails: 0 };
+
+  await withSistema(
+    tenantId,
+    async (tx) => {
+      // Na suspensão, o aviso prévio também fica marcado (não faz sentido mandá-lo depois).
+      await tx
+        .update(faturasSaas)
+        .set(suspensa ? { suspensaoAvisadaEm: agora, avisoSuspensaoEm: fatura.avisoSuspensaoEm ?? agora } : { avisoSuspensaoEm: agora })
+        .where(eq(faturasSaas.id, fatura.id));
+      await registrarAuditoria(tx, {
+        acao: suspensa ? "assinatura.suspensa" : "assinatura.aviso_suspensao",
+        entidade: "faturas_saas",
+        entidadeId: fatura.id,
+        dados: { vencimento: situacao.vencimento, suspensaoEm: situacao.suspensaoEm },
+      });
+    },
+    database,
+  );
+  return { aviso: suspensa ? "suspensa" : "suspensao_proxima", emails };
 }
 
 /** Troca de plano: vale a partir da próxima fatura. Downgrade só se o uso couber no novo plano. */

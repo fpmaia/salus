@@ -3,7 +3,7 @@ import { FormAcao } from "@/components/form-acao";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { exigirPermissaoNaPagina } from "@/src/auth/permissao";
 import { obterContextoTenant } from "@/src/auth/sessao";
-import { RECURSOS_LIMITADOS, ROTULOS_RECURSO } from "@/src/domain/cobranca";
+import { DIAS_DE_CARENCIA_SAAS, RECURSOS_LIMITADOS, ROTULOS_RECURSO } from "@/src/domain/cobranca";
 import { formatarMoeda } from "@/src/domain/dinheiro";
 import { obterAssinatura } from "@/src/server/assinatura";
 import { formatarDataBr } from "@/src/server/reservas";
@@ -29,7 +29,7 @@ export default async function AssinaturaPage({
 
   const ctx = await obterContextoTenant();
   exigirPermissaoNaPagina(ctx.role, "assinatura.ver");
-  const { plano, uso, planos, faturas, emAtraso } = await obterAssinatura(ctx);
+  const { plano, uso, planos, faturas, situacao } = await obterAssinatura(ctx);
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6">
@@ -76,11 +76,17 @@ export default async function AssinaturaPage({
         </div>
       )}
 
-      {emAtraso && (
-        <Card className="border-destructive/50">
+      {situacao.estado !== "em_dia" && (
+        <Card className={situacao.estado === "suspensa" ? "border-destructive/50" : "border-warning/50"}>
           <CardHeader>
-            <CardTitle className="text-base text-destructive">Há fatura vencida</CardTitle>
-            <CardDescription>Regularize pelo link de pagamento abaixo para evitar a suspensão do acesso.</CardDescription>
+            <CardTitle className={`text-base ${situacao.estado === "suspensa" ? "text-destructive" : "text-warning"}`}>
+              {situacao.estado === "suspensa" ? "Espaço só para consulta" : "Fatura em atraso"}
+            </CardTitle>
+            <CardDescription>
+              {situacao.estado === "suspensa"
+                ? `A fatura que venceu em ${formatarDataBr(situacao.vencimento)} não foi paga. A equipe continua vendo tudo, mas não consegue marcar nem alterar nada, e o agendamento online está fora do ar. Os lembretes dos pacientes já marcados continuam saindo. Pague abaixo: o espaço volta a funcionar assim que o pagamento for confirmado.`
+                : `A fatura venceu em ${formatarDataBr(situacao.vencimento)}. Há ${DIAS_DE_CARENCIA_SAAS} dias de carência: se não for paga até ${formatarDataBr(situacao.suspensaoEm)}, o espaço fica só para consulta até o pagamento.`}
+            </CardDescription>
           </CardHeader>
         </Card>
       )}
@@ -140,7 +146,7 @@ export default async function AssinaturaPage({
       <Card>
         <CardHeader>
           <CardTitle>Faturas</CardTitle>
-          <CardDescription>Cobradas via Asaas no dia 1º de cada mês, com vencimento no dia 10. Pague por PIX, boleto ou cartão.</CardDescription>
+          <CardDescription>Cobradas via Asaas no dia 1º de cada mês, com vencimento no dia 10. Pague por PIX, boleto ou cartão. Sem pagamento em {DIAS_DE_CARENCIA_SAAS} dias depois do vencimento, o espaço fica só para consulta.</CardDescription>
         </CardHeader>
         <CardContent>
           {faturas.length === 0 ? (

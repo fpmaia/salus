@@ -274,6 +274,13 @@
       "when": 1792619917064,
       "tag": "0038_telefone_normalizado",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1792633335103,
+      "tag": "0039_inadimplencia_saas",
+      "breakpoints": true
     }
   ]
 }

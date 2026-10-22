@@ -9,7 +9,7 @@ export async function trocarPlanoAcao(codigo: string) {
     const ctx = await obterContextoTenant();
     await trocarPlano(ctx, codigo);
     return "Plano alterado: vale a partir da próxima fatura";
-  });
+  }, { liberadaNaSuspensao: true });
 }
 
 export async function simularPagamentoFaturaAcao(faturaId: string) {
@@ -17,5 +17,5 @@ export async function simularPagamentoFaturaAcao(faturaId: string) {
     const ctx = await obterContextoTenant();
     await simularPagamentoFatura(ctx, faturaId);
     return "Pagamento simulado";
-  });
+  }, { liberadaNaSuspensao: true });
 }

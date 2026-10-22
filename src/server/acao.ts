@@ -1,5 +1,6 @@
 import { revalidatePath } from "next/cache";
 import { unstable_rethrow } from "next/navigation";
+import { exigirEspacoEmDia } from "../auth/sessao";
 import { reportarErro } from "../observabilidade/monitoramento";
 import { mensagemDeErro } from "./erros";
 
@@ -11,11 +12,15 @@ export const ESTADO_INICIAL: EstadoAcao = { erro: null, sucesso: null };
 /**
  * Executa a mutação, converte erros esperados em mensagem e revalida o painel.
  * Erros inesperados viram uma mensagem genérica com código (detalhe só no log do servidor).
+ * Espaço suspenso por atraso no SaaS recusa a mutação, exceto as `liberadaNaSuspensao`
+ * (pagar e trocar de plano, aceitar convite, painel da plataforma).
  */
 export async function executarAcao(
   fn: () => Promise<string | EstadoAcao | void>,
+  opcoes: { liberadaNaSuspensao?: boolean } = {},
 ): Promise<EstadoAcao> {
   try {
+    if (!opcoes.liberadaNaSuspensao) await exigirEspacoEmDia();
     const resultado = await fn();
     revalidatePath("/painel", "layout");
     if (resultado && typeof resultado === "object") return resultado;

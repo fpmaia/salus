@@ -8,7 +8,7 @@ import { descarregarMonitoramento, iniciarMonitoramento, reportarErro } from "..
 import { notificarAlerta, verificarAlertas } from "../server/alertas";
 import type { Transaction } from "../db/client";
 import { listarTenantsAtivos, withSistema } from "../db/tenant";
-import { gerarFaturaDoMes, sincronizarFaturas } from "../server/assinatura";
+import { avisarAtrasoDaAssinatura, gerarFaturaDoMes, sincronizarFaturas } from "../server/assinatura";
 import { sincronizarCobrancas } from "../server/cobrancas";
 import { processarNotasFiscais } from "../server/fiscal";
 import { agendarLembretes, processarFila } from "../server/notificacoes";
@@ -71,6 +71,8 @@ const JOBS: Job[] = [
   // Asaas: fatura mensal do SaaS (idempotente, roda todo dia) e sincronização de reserva dos webhooks.
   { fila: "assinatura.gerar-faturas", cron: "0 9 * * *", porTenant: (tenantId, agora) => gerarFaturaDoMes(tenantId, { agora }) },
   { fila: "assinatura.sincronizar", cron: "*/30 * * * *", porTenant: (tenantId, agora) => sincronizarFaturas(tenantId, { agora }) },
+  // Inadimplência: e-mail aos admins 5 dias antes da suspensão e no dia dela (12:00 UTC = 09:00 em Brasília).
+  { fila: "assinatura.avisar-atraso", cron: "0 12 * * *", porTenant: (tenantId, agora) => avisarAtrasoDaAssinatura(tenantId, { agora }) },
   { fila: "cobrancas.sincronizar", cron: "*/15 * * * *", porTenant: (tenantId, agora) => sincronizarCobrancas(tenantId, { agora }) },
   // Contadores de rate limit parados há mais de 1 dia.
   { fila: "manutencao.limpar-rate-limits", cron: "30 7 * * *", global: (agora) => limparLimitesAntigos(agora.getTime()) },

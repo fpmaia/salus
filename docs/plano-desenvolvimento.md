@@ -270,7 +270,10 @@ Testes: `src/domain/cobranca.test.ts`, `tests/integration/cobrancas.test.ts` e `
   - A troca de plano vale a partir da próxima fatura; o downgrade é recusado se o uso não couber no novo plano.
 - **Fatura do SaaS:** uma por tenant e mês (`faturas_saas`, idempotente), pelo preço do plano. Vence no dia 10 ou, se gerada depois disso, em 3 dias.
   - Job diário `assinatura.gerar-faturas` e sincronização a cada 30 min.
-  - Fatura vencida mostra um aviso no painel do admin. A suspensão do tenant continua manual.
+  - Inadimplência (`situacaoDaAssinatura` em `src/domain/cobranca.ts`): vale a fatura em aberto mais antiga já vencida ("vencida", ou "pendente" depois do vencimento; "erro" de envio não conta). Há 15 dias de carência com aviso no painel; no 16º dia o espaço fica só para consulta.
+  - Só consulta: `executarAcao` recusa as Server Actions (exceto as marcadas `liberadaNaSuspensao`: pagar, trocar de plano, aceitar convite e plataforma), o upload de anexo recusa e o agendamento online fica indisponível. Worker, lembretes e o link do paciente continuam. A situação é calculada a cada acesso, então o espaço volta sozinho quando a fatura é paga.
+  - Job diário `assinatura.avisar-atraso`: e-mail aos admins 5 dias antes e no dia da suspensão, um de cada por fatura (`aviso_suspensao_em`, `suspensao_avisada_em`), com auditoria.
+  - A suspensão manual da plataforma (`tenants.status = suspenso`) é outra coisa: corta o acesso de todos e para os jobs.
 - **Cobrança do profissional:** gerada na página financeira do profissional (valor sugerido = saldo), com vencimento padrão configurável. O cliente Asaas é criado uma vez por profissional e exige CPF/CNPJ.
 - **Webhooks:**
   - Rotas: `/api/webhooks/asaas/plataforma` e `/api/webhooks/asaas/<tenantId>`.

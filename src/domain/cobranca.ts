@@ -58,6 +58,38 @@ export function vencimentoDaFaturaSaas(competencia: DataLocal): DataLocal {
   return somarDias(competencia, 9);
 }
 
+// Inadimplência do SaaS: 15 dias de carência depois do vencimento (fatura do dia 10 →
+// suspensão no dia 26). Cobre um boleto pago com atraso e a compensação, e o Asaas ainda
+// manda os próprios lembretes nesse meio-tempo. Suspenso, o espaço fica só para consulta
+// e volta sozinho quando a fatura é paga. O aviso por e-mail sai 5 dias antes.
+export const DIAS_DE_CARENCIA_SAAS = 15;
+export const DIAS_DE_AVISO_SAAS = 5;
+
+export type SituacaoAssinatura =
+  | { estado: "em_dia" }
+  | { estado: "atrasada" | "suspensa"; vencimento: DataLocal; suspensaoEm: DataLocal; avisarEm: DataLocal };
+
+/**
+ * Situação pela fatura em aberto mais antiga já vencida. "pendente" depois do vencimento
+ * também conta (o OVERDUE do Asaas pode chegar atrasado); "erro" não: a fatura nem chegou
+ * ao Asaas, então a falha é nossa.
+ */
+export function situacaoDaAssinatura(faturas: { status: StatusCobranca; vencimento: DataLocal }[], hoje: DataLocal): SituacaoAssinatura {
+  const vencidas = faturas
+    .filter((f) => f.status === "vencida" || (f.status === "pendente" && f.vencimento < hoje))
+    .map((f) => f.vencimento)
+    .sort();
+  if (vencidas.length === 0) return { estado: "em_dia" };
+  const vencimento = vencidas[0];
+  const suspensaoEm = somarDias(vencimento, DIAS_DE_CARENCIA_SAAS + 1);
+  return {
+    estado: hoje >= suspensaoEm ? "suspensa" : "atrasada",
+    vencimento,
+    suspensaoEm,
+    avisarEm: somarDias(suspensaoEm, -DIAS_DE_AVISO_SAAS),
+  };
+}
+
 export const RECURSOS_LIMITADOS = ["unidades", "salas", "profissionais"] as const;
 export type RecursoLimitado = (typeof RECURSOS_LIMITADOS)[number];
 

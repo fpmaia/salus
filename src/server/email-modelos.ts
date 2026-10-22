@@ -127,3 +127,27 @@ export function emailDatasNaoReservadas(
     rodape: "Você recebeu este e-mail porque tem uma reserva recorrente neste espaço.",
   });
 }
+
+export function emailAssinaturaEmAtraso(
+  para: string,
+  dados: { espaco: string; vencimento: string; suspensaoEm: string; suspensa: boolean; url: string },
+): MensagemEmail {
+  return montar({
+    para,
+    assunto: dados.suspensa
+      ? `${dados.espaco} está só para consulta no Salus: fatura em atraso`
+      : `A fatura do Salus de ${dados.espaco} está em atraso`,
+    saudacao: "Olá!",
+    paragrafos: dados.suspensa
+      ? [
+          `A fatura do Salus que venceu em ${dados.vencimento} ainda não foi paga, então ${dados.espaco} ficou só para consulta: a equipe vê a agenda, os pacientes e o financeiro, mas não consegue marcar nem alterar nada, e o agendamento online fica fora do ar.`,
+          "Os lembretes dos pacientes já marcados continuam saindo. Assim que o pagamento for confirmado, o espaço volta a funcionar sozinho.",
+        ]
+      : [
+          `A fatura do Salus que venceu em ${dados.vencimento} ainda não foi paga.`,
+          `Se não for paga até ${dados.suspensaoEm}, ${dados.espaco} fica só para consulta: ninguém consegue marcar nem alterar nada até o pagamento. Se já pagou, desconsidere este e-mail.`,
+        ],
+    botao: { texto: "Pagar a fatura", url: dados.url },
+    rodape: "Você recebeu este e-mail porque administra este espaço no Salus.",
+  });
+}

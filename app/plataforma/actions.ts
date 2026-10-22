@@ -24,7 +24,7 @@ export async function suspenderClinicaPlataformaAcao(
     revalidatePath("/plataforma");
     revalidatePath("/plataforma/clinicas");
     return "Clínica suspensa com sucesso.";
-  });
+  }, { liberadaNaSuspensao: true });
 }
 
 export async function reativarClinicaPlataformaAcao(
@@ -39,7 +39,7 @@ export async function reativarClinicaPlataformaAcao(
     revalidatePath("/plataforma");
     revalidatePath("/plataforma/clinicas");
     return "Clínica reativada com sucesso.";
-  });
+  }, { liberadaNaSuspensao: true });
 }
 
 export async function alterarPlanoPlataformaAcao(
@@ -55,7 +55,7 @@ export async function alterarPlanoPlataformaAcao(
     revalidatePath("/plataforma");
     revalidatePath("/plataforma/clinicas");
     return "Plano da clínica alterado com sucesso.";
-  });
+  }, { liberadaNaSuspensao: true });
 }
 
 export async function banirUsuarioPlataformaAcao(
@@ -71,7 +71,7 @@ export async function banirUsuarioPlataformaAcao(
     revalidatePath("/plataforma");
     revalidatePath("/plataforma/usuarios");
     return "Usuário banido e sessões encerradas.";
-  });
+  }, { liberadaNaSuspensao: true });
 }
 
 export async function desbanirUsuarioPlataformaAcao(
@@ -86,5 +86,5 @@ export async function desbanirUsuarioPlataformaAcao(
     revalidatePath("/plataforma");
     revalidatePath("/plataforma/usuarios");
     return "Usuário desbanido com sucesso.";
-  });
+  }, { liberadaNaSuspensao: true });
 }

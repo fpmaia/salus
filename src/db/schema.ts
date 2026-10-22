@@ -1062,6 +1062,9 @@ export const faturasSaas = pgTable(
     invoiceUrl: text("invoice_url"),
     pagoEm: timestamp("pago_em", { withTimezone: true }),
     ultimoErro: text("ultimo_erro"),
+    // E-mails da inadimplência (um de cada por fatura): aviso 5 dias antes e suspensão.
+    avisoSuspensaoEm: timestamp("aviso_suspensao_em", { withTimezone: true }),
+    suspensaoAvisadaEm: timestamp("suspensao_avisada_em", { withTimezone: true }),
     criadoEm: criadoEm(),
     atualizadoEm: atualizadoEm(),
   },

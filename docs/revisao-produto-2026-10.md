@@ -31,6 +31,7 @@
 | 21/10/2026 | D | Landing nova para o dono do espaço: proposta de valor (ocupação, inadimplência e tempo da recepção), telas ilustrativas com dados de exemplo, passos para começar, segurança sem jargão técnico e sem preço ("planos pelo número de salas"). O botão "Agendar demonstração" abre o WhatsApp comercial (`SALUS_WHATSAPP_COMERCIAL`); sem a variável, leva ao cadastro. A LS Code fica só no rodapé. **Fase D concluída. Pendente: definir o número do WhatsApp comercial e o preço.** |
 | 21/10/2026 | C/D | Sobras de código fechadas: C10 (data da série recorrente que o worker não conseguiu reservar vira pendência para a equipe e e-mail para o profissional), C13 (o "hoje" do espaço é a data local mais atrasada entre as unidades; cron em UTC), C15 (telefone normalizado gerado pelo banco e indexado no agendamento online), relatório do fechamento em PDF, remarcar arrastando a consulta na grade, "Meu dia" do profissional no celular e páginas de convite com o nome do espaço. |
 | 21/10/2026 | — | **Decisão de preço:** ficam os planos que já estão no sistema (Básico R$ 199/mês (1 unidade, 5 salas, 15 profissionais) · Pro R$ 499/mês (3 unidades, 20 salas, 60 profissionais) · Enterprise R$ 1.299/mês (50 unidades, 500 salas, 2.000 profissionais)). O preço por sala ativa sai da recomendação. |
+| 21/10/2026 | E | **Suspensão automática por inadimplência no SaaS** (adiantada da Fase E): **15 dias de carência** depois do vencimento: a fatura que vence no dia 10 suspende o espaço no dia 26. Suspenso, o espaço fica **só para consulta**: a equipe vê agenda, pacientes e financeiro, mas nenhuma ação de criar ou alterar passa (só pagar e trocar de plano), e o agendamento online sai do ar. Lembretes dos pacientes já marcados e o link de confirmar/cancelar continuam, para não punir o paciente. Volta sozinho quando a fatura é paga. O admin recebe e-mail 5 dias antes e no dia da suspensão; o aviso aparece no painel desde o 1º dia de atraso. |
 
 ---
 
@@ -146,6 +147,7 @@ Nada disto se resolve só com código. Cada item precisa de uma conta, de uma de
 | Prontuário | Fica, mas **opcional e desligado por padrão**: feature flag por espaço. |
 | Esconder até o piloto | Plataforma (superadmin) fora da navegação do cliente. NFS‑e e agendamento online atrás de flag. Manual e tour trocados por checklist. |
 | Plano SaaS | **Decidido (21/10):** ficam os planos do sistema, com limite de unidades, salas e profissionais: Básico R$ 199/mês (1 unidade, 5 salas, 15 profissionais) · Pro R$ 499/mês (3 unidades, 20 salas, 60 profissionais) · Enterprise R$ 1.299/mês (50 unidades, 500 salas, 2.000 profissionais). O preço por sala ativa, recomendado na revisão, foi descartado. |
+| Inadimplência no SaaS | **Decidido (21/10):** **15 dias de carência** depois do vencimento: a fatura que vence no dia 10 suspende o espaço no dia 26. Suspenso, o espaço fica **só para consulta**: a equipe vê agenda, pacientes e financeiro, mas nenhuma ação de criar ou alterar passa (só pagar e trocar de plano), e o agendamento online sai do ar. Lembretes dos pacientes já marcados e o link de confirmar/cancelar continuam, para não punir o paciente. Volta sozinho quando a fatura é paga. O admin recebe e-mail 5 dias antes e no dia da suspensão; o aviso aparece no painel desde o 1º dia de atraso. Por que 15 dias: cobre boleto pago com atraso e a compensação, o Asaas manda os próprios lembretes nesse meio-tempo, e um bloqueio total puniria os pacientes, que não têm culpa. A suspensão manual da plataforma (acesso cortado) continua para fraude ou cancelamento. |
 | Marca LS Code | Assinatura discreta só na landing e no rodapé público. **Nunca** dentro do painel do cliente. |
 
 ---
@@ -417,7 +419,7 @@ Prioridade: **P0** = bloqueia produção/segurança · **P1** = bloqueia o pilot
 - WhatsApp pela Cloud API oficial (Evolution ou direto).
 - Religar NFS‑e e agendamento online para quem pedir.
 - Prontuário: modelos de evolução por especialidade, Memed, assinatura ICP‑Brasil.
-- Suspensão automática do espaço por inadimplência na fatura do SaaS (os planos e a fatura mensal pelo Asaas já existem).
+- ~~Suspensão automática do espaço por inadimplência na fatura do SaaS~~ **Adiantada e feita (21/10):** 15 dias de carência e depois só consulta (veja as premissas).
 - Receita Saúde (recibo oficial do profissional pessoa física).
 
 ---
