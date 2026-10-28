@@ -118,7 +118,7 @@ export default async function AssinaturaPage({
                 Projeção da Próxima Fatura
               </CardTitle>
               <CardDescription>
-                Estimativa detalhada com fechamento no dia 1º, calculada com base no seu plano, uso atual e licenças ativas.
+                Estimativa da próxima fatura (gerada no início do mês), com base no plano, no uso atual e nas licenças pagas pelo espaço.
               </CardDescription>
             </div>
             <div className="text-right">
@@ -336,20 +336,16 @@ export default async function AssinaturaPage({
                   </div>
                 </div>
                 <div className="pt-4">
-                  {ehAtual ? (
-                    <span className="block text-center text-xs font-medium text-primary py-2">
-                      Seu plano atual
-                    </span>
-                  ) : (
-                    <FormAcao
-                      acao={trocarPlanoAcao.bind(null, p.codigo)}
-                      textoBotao={p.precoMensalCentavos > (plano?.precoMensalCentavos ?? 0) ? "Fazer upgrade" : "Mudar para este"}
-                      textoPendente="Mudar plano…"
-                      variante={p.precoMensalCentavos > (plano?.precoMensalCentavos ?? 0) ? "default" : "outline"}
-                      className="w-full"
-                      confirmar={`Mudar para o plano ${p.nome}?`}
-                    />
-                  )}
+                  {/* Sempre o mesmo FormAcao (desabilitado no plano atual): trocar de plano não o desmonta e o aviso aparece. */}
+                  <FormAcao
+                    acao={trocarPlanoAcao.bind(null, p.codigo)}
+                    textoBotao={ehAtual ? "Seu plano atual" : p.precoMensalCentavos > (plano?.precoMensalCentavos ?? 0) ? "Fazer upgrade" : "Mudar para este"}
+                    textoPendente="Mudar plano…"
+                    variante={!ehAtual && p.precoMensalCentavos > (plano?.precoMensalCentavos ?? 0) ? "default" : "outline"}
+                    className="w-full"
+                    confirmar={`Mudar para o plano ${p.nome}?`}
+                    desabilitado={ehAtual}
+                  />
                 </div>
               </div>
             );
@@ -362,7 +358,7 @@ export default async function AssinaturaPage({
         <CardHeader>
           <CardTitle>Faturas</CardTitle>
           <CardDescription>
-            Cobradas via Asaas no dia 1º de cada mês, com vencimento no dia 10. Pague por PIX, boleto ou cartão. Sem pagamento em {DIAS_DE_CARENCIA_SAAS} dias depois do vencimento, o espaço fica só para consulta.
+            Geradas pelo Asaas no início de cada mês, com vencimento no dia 10 (na primeira, 3 dias depois de gerada). Pague por PIX, boleto ou cartão. Sem pagamento em {DIAS_DE_CARENCIA_SAAS} dias depois do vencimento, o espaço fica só para consulta.
           </CardDescription>
         </CardHeader>
         <CardContent>

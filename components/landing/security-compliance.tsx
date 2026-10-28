@@ -51,9 +51,9 @@ export function SecurityCompliance() {
             <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
               <Database className="size-5" />
             </div>
-            <h3 className="text-base font-bold text-foreground">Isolamento RLS</h3>
+            <h3 className="text-base font-bold text-foreground">Dados separados por espaço</h3>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              Row Level Security direto no banco de dados Postgres: nenhuma clínica consegue acessar dados de outra, mesmo em falhas de aplicação.
+              A separação entre espaços é garantida no próprio banco de dados: nenhuma clínica acessa dados de outra, mesmo se houver uma falha na aplicação.
             </p>
           </div>
 

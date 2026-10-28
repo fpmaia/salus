@@ -8,45 +8,50 @@ test("profissional reserva uma sala; reservar o mesmo horário de novo é recusa
   await entrar(page, "profissional");
   await page.goto(`/painel/agenda?data=${amanha}`);
 
-  const formulario = page.locator("form", { has: page.getByRole("button", { name: "Reservar" }) });
-  const reservar = async () => {
-    await page.locator("#salaId").selectOption({ label: "Sala 1" });
-    await page.locator("#data-reserva").fill(amanha);
-    await page.locator("#horaInicio").fill("10:00");
-    await page.locator("#horaFim").fill("12:00");
-    // Antes de reservar, o profissional vê o custo pelo contrato (R$ 45/h × 2h).
-    await expect(formulario.getByText(/Valor estimado: R\$\s90,00/)).toBeVisible();
-    await formulario.getByRole("button", { name: "Reservar" }).click();
+  // Clique num horário livre da grade → modal → "Apenas Reservar Sala".
+  const reservar = async (inicio: string, fim: string) => {
+    await page.getByRole("link", { name: `Agendar em Sala 1 às ${inicio}` }).click();
+    const modal = page.getByRole("dialog", { name: "Novo Agendamento" });
+    await modal.getByRole("button", { name: "Apenas Reservar Sala" }).click();
+    await modal.locator("#reserva-fim").fill(fim);
+    return modal;
   };
 
-  await reservar();
-  // No painel, a confirmação aparece como aviso (sobrevive ao formulário remontar).
-  await expect(page.getByRole("status").getByText(/Reserva criada para .*10:00–12:00/)).toBeVisible();
+  const modal = await reservar("10:00", "12:00");
+  // Antes de reservar, o profissional vê o custo pelo contrato (R$ 45/h × 2h).
+  await expect(modal.getByText(/Valor estimado: R\$\s90,00/)).toBeVisible();
+  await modal.getByRole("button", { name: "Reservar Horário da Sala" }).click();
+  await expect(page.getByRole("dialog", { name: "Novo Agendamento" })).toHaveCount(0);
+  // A reserva aparece na grade.
+  await expect(page.getByText("10:00 – 12:00").first()).toBeVisible();
 
   // A sobreposição é barrada pela constraint EXCLUDE do banco.
-  await reservar();
-  await expect(formulario.getByText("A sala já está reservada nesse horário")).toBeVisible();
+  const repetido = await reservar("09:00", "11:00");
+  await repetido.getByRole("button", { name: "Reservar Horário da Sala" }).click();
+  await expect(repetido.getByText("A sala já está reservada nesse horário")).toBeVisible();
 });
 
 test("recepção agenda um paciente dentro da reserva do profissional", async ({ page }) => {
-  const { amanha, reservaAmanha } = dados();
+  const { amanha } = dados();
   await entrar(page, "recepcao");
-  await page.goto(`/painel/agenda?data=${amanha}&reserva=${reservaAmanha}`);
+  await page.goto(`/painel/agenda?data=${amanha}`);
 
-  const formulario = page.locator("form", { has: page.getByRole("button", { name: "Agendar" }) });
-  await formulario.getByRole("combobox", { name: "Paciente" }).fill("Ana Pac");
-  await formulario.getByRole("option", { name: /Ana Paciente/ }).click();
-  await formulario.getByLabel("Início").fill("14:00");
-  await formulario.getByLabel("Fim").fill("15:00");
-  await formulario.getByLabel("Observação (administrativa)").fill("Primeira consulta");
-  await formulario.getByRole("button", { name: "Agendar" }).click();
+  // O trecho vago da reserva do profissional (14h–15h; às 15h já há paciente) abre o modal travado nele.
+  await page.getByTitle("Clique para agendar paciente neste horário do médico").filter({ hasText: "14:00 – 15:00" }).click();
+  const modal = page.getByRole("dialog", { name: "Agendar Paciente" });
+  await expect(modal.getByText("Dra. E2E")).toBeVisible();
+  await modal.getByRole("combobox", { name: "Paciente da Consulta" }).fill("Ana Pac");
+  await modal.getByRole("option", { name: /Ana Paciente/ }).click();
+  await modal.getByLabel("Horário de Início").fill("14:00");
+  await modal.getByLabel("Horário de Término").fill("15:00");
+  await modal.getByLabel("Observação Interna (opcional)").fill("Primeira consulta");
+  await modal.getByRole("button", { name: "Confirmar Agendamento do Paciente" }).click();
+  await expect(modal).toHaveCount(0);
 
-  // O painel da reserva remonta depois de agendar (a mensagem some): vale a lista de pacientes.
-  await expect(page.getByRole("link", { name: "Ana Paciente" }).first()).toBeVisible();
-  await expect(page.getByText("Obs.: Primeira consulta")).toBeVisible();
   await page.goto(`/painel/atendimentos?data=${amanha}`);
-  await expect(page.getByText("14:00–15:00")).toBeVisible();
-  await expect(page.getByRole("link", { name: "Ana Paciente" })).toBeVisible();
+  const item = page.getByRole("listitem").filter({ hasText: "14:00–15:00" });
+  await expect(item.getByRole("link", { name: "Ana Paciente" })).toBeVisible();
+  await expect(item.getByText("Obs.: Primeira consulta")).toBeVisible();
 });
 
 test("admin fecha o mês anterior e o extrato fica congelado", async ({ page }) => {
@@ -179,21 +184,22 @@ test("admin reajusta o contrato pela tela e o histórico mostra as duas versões
 });
 
 test("equipe agenda em 1 passo com cadastro rápido, desfaz o status e remarca", async ({ page }) => {
-  const { amanha, sala1 } = dados();
+  const { amanha } = dados();
   // Admin (a recepção já ativou o 2FA no teste anterior); as ações são as mesmas da equipe.
   await entrar(page, "admin");
   // Horário vago clicado na grade: reserva a sala e agenda o paciente juntos.
-  await page.goto(`/painel/agenda?data=${amanha}&nova=${sala1}&inicio=17:00`);
-  const cartao = page.locator(`[data-slot="card"]`, { hasText: "Agendar paciente neste horário" });
-  const formulario = cartao.locator("form");
-  await formulario.getByLabel("Profissional").selectOption({ label: "Dra. E2E" });
-  await formulario.getByRole("combobox", { name: "Paciente" }).fill("Bruno Rápido");
-  await formulario.getByRole("button", { name: "+ Novo paciente “Bruno Rápido”" }).click();
-  await formulario.getByLabel("Telefone (WhatsApp)").fill("11 90000-0002");
-  await formulario.getByRole("button", { name: "Cadastrar e escolher" }).click();
-  await expect(formulario.getByRole("button", { name: "Trocar" })).toBeVisible();
-  await formulario.getByRole("button", { name: "Agendar" }).click();
-  await expect(page.getByRole("status").getByText(/sala reservada automaticamente/)).toBeVisible();
+  await page.goto(`/painel/agenda?data=${amanha}`);
+  await page.getByRole("link", { name: "Agendar em Sala 1 às 17:00" }).click();
+  const modal = page.getByRole("dialog", { name: "Novo Agendamento" });
+  await modal.getByLabel("Médico / Profissional").selectOption({ label: "Dra. E2E" });
+  await modal.getByRole("combobox", { name: "Paciente" }).fill("Bruno Rápido");
+  await modal.getByRole("button", { name: "+ Novo paciente “Bruno Rápido”" }).click();
+  await modal.getByLabel("Telefone (WhatsApp)").fill("11 90000-0002");
+  await modal.getByRole("button", { name: "Cadastrar e escolher" }).click();
+  await expect(modal.getByRole("button", { name: "Trocar" })).toBeVisible();
+  await modal.locator("#consulta-fim").fill("18:00");
+  await modal.getByRole("button", { name: "Confirmar Agendamento" }).click();
+  await expect(modal).toHaveCount(0);
 
   await page.goto(`/painel/atendimentos?data=${amanha}`);
   const item = page.getByRole("listitem").filter({ hasText: "17:00–18:00" }).filter({ hasText: "Bruno Rápido" });
@@ -215,7 +221,7 @@ test("equipe agenda em 1 passo com cadastro rápido, desfaz o status e remarca",
 
   // Arrastando na grade: a consulta vai para as 20h na mesma sala, com a mesma duração.
   await page.goto(`/painel/agenda?data=${amanha}`);
-  await page.locator("[data-agendamento]", { hasText: "Bruno Rápido" }).dragTo(page.getByRole("link", { name: "Reservar Sala 1 às 20:00" }));
+  await page.locator("[data-agendamento]", { hasText: "Bruno Rápido" }).dragTo(page.getByRole("link", { name: "Agendar em Sala 1 às 20:00" }));
   await expect(page.getByRole("status").getByText(/Remarcado para .*20:00/)).toBeVisible();
   await page.goto(`/painel/atendimentos?data=${amanha}`);
   await expect(page.getByRole("listitem").filter({ hasText: "20:00–21:00" }).filter({ hasText: "Bruno Rápido" })).toBeVisible();
@@ -281,13 +287,18 @@ test("paciente abre o link: vê o espaço, baixa o evento para a agenda e confir
   await expect(page.getByText("Confirmada. Até lá!")).toBeVisible();
 });
 
-test("landing fala com o dono do espaço, sem jargão técnico", async ({ page }) => {
+test("landing fala com o dono do espaço, sem jargão técnico e com preços reais", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { level: 1 })).toContainText("Salas ocupadas");
-  // Sem WhatsApp comercial configurado, a demonstração vira o cadastro.
-  await expect(page.getByRole("link", { name: "Criar meu espaço" }).first()).toHaveAttribute("href", "/cadastro");
-  const texto = await page.locator("main").innerText();
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  const texto = await page.locator("body").innerText();
   expect(texto).not.toMatch(/\b(RLS|GIST|tenant|D-1)\b/i);
+  // Só o que o produto entrega: sem plano anual, SLA ou depoimentos/métricas inventados.
+  expect(texto).not.toMatch(/\b(plano anual|anual|SLA)\b|no-show em mais de|\+70%/i);
+  const planos = page.locator("#planos");
+  for (const preco of [/R\$\s199,00/, /R\$\s499,00/, /R\$\s1\.299,00/]) await expect(planos.getByText(preco).first()).toBeVisible();
+  // Sem WhatsApp comercial configurado, o contato vira o cadastro.
+  await expect(planos.getByRole("link", { name: "Falar com a equipe" })).toHaveAttribute("href", "/cadastro");
+  await expect(planos.getByRole("link", { name: /Começar no Básico/ })).toHaveAttribute("href", "/cadastro");
 });
 
 test("no celular, o profissional vê a lista do dia em vez de só a grade de salas", async ({ page }) => {

@@ -108,6 +108,9 @@ export function ModalDetalhesEvento({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="titulo-modal-detalhes"
         className="w-full max-w-lg rounded-2xl border border-border/80 bg-background shadow-2xl overflow-hidden flex flex-col max-h-[92vh]"
         onClick={(e) => e.stopPropagation()}
       >
@@ -122,7 +125,7 @@ export function ModalDetalhesEvento({
               {ehAtendimento ? <User className="size-5" /> : <Clock className="size-5" />}
             </div>
             <div>
-              <h2 className="font-heading text-lg font-bold tracking-tight text-foreground">
+              <h2 id="titulo-modal-detalhes" className="font-heading text-lg font-bold tracking-tight text-foreground">
                 {ehAtendimento ? "Detalhes da Consulta" : "Turno Reservado"}
               </h2>
               <p className="text-xs text-muted-foreground flex items-center gap-2 mt-0.5">
@@ -309,12 +312,13 @@ export function ModalDetalhesEvento({
                     >
                       <div className="grid grid-cols-3 gap-2">
                         <div className="flex flex-col gap-1">
-                          <Label className="text-[11px]">Nova data</Label>
-                          <Input name="data" type="date" required defaultValue={dados.data} className="h-8 text-xs" />
+                          <Label htmlFor="remarcar-data" className="text-[11px]">Nova data</Label>
+                          <Input id="remarcar-data" name="data" type="date" required defaultValue={dados.data} className="h-8 text-xs" />
                         </div>
                         <div className="flex flex-col gap-1">
-                          <Label className="text-[11px]">Início</Label>
+                          <Label htmlFor="remarcar-inicio" className="text-[11px]">Início</Label>
                           <Input
+                            id="remarcar-inicio"
                             name="horaInicio"
                             type="time"
                             step={slotMinutos * 60}
@@ -324,8 +328,9 @@ export function ModalDetalhesEvento({
                           />
                         </div>
                         <div className="flex flex-col gap-1">
-                          <Label className="text-[11px]">Término</Label>
+                          <Label htmlFor="remarcar-fim" className="text-[11px]">Término</Label>
                           <Input
+                            id="remarcar-fim"
                             name="horaFim"
                             type="time"
                             step={slotMinutos * 60}
@@ -337,8 +342,8 @@ export function ModalDetalhesEvento({
                       </div>
                       {salas.length > 0 && (
                         <div className="flex flex-col gap-1">
-                          <Label className="text-[11px]">Sala</Label>
-                          <NativeSelect name="salaId" defaultValue={dados.salaId} className="h-8 text-xs">
+                          <Label htmlFor="remarcar-sala" className="text-[11px]">Sala</Label>
+                          <NativeSelect id="remarcar-sala" name="salaId" defaultValue={dados.salaId} className="h-8 text-xs">
                             {salas.map((s) => (
                               <option key={s.id} value={s.id}>
                                 {s.nome}

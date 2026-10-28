@@ -77,6 +77,9 @@ export function ModalAgendamento({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="titulo-modal-agendamento"
         className="w-full max-w-lg rounded-2xl border border-border/80 bg-background shadow-2xl overflow-hidden flex flex-col max-h-[92vh]"
         onClick={(e) => e.stopPropagation()}
       >
@@ -87,7 +90,7 @@ export function ModalAgendamento({
               <Calendar className="size-5" />
             </div>
             <div>
-              <h2 className="font-heading text-lg font-bold tracking-tight text-foreground">
+              <h2 id="titulo-modal-agendamento" className="font-heading text-lg font-bold tracking-tight text-foreground">
                 {temReservaDoMedico ? "Agendar Paciente" : "Novo Agendamento"}
               </h2>
               <p className="text-xs text-muted-foreground flex items-center gap-2 mt-0.5">

@@ -112,6 +112,9 @@ describe("criação com grade fixa", () => {
     const antiga = await obterContrato(admin, contratoAna, AGORA, db);
     expect(antiga.contrato.vigenteAte).toBe("2030-03-31");
     expect(antiga.grade).toEqual([]);
+    // O último dia ainda é de contrato; no dia seguinte, encerrado.
+    expect((await obterContrato(admin, contratoAna, new Date("2030-03-31T15:00:00Z"), db)).situacao).toBe("vigente");
+    expect((await obterContrato(admin, contratoAna, new Date("2030-04-01T15:00:00Z"), db)).situacao).toBe("encerrado");
     const nova = await obterContrato(admin, r.id, AGORA, db);
     expect(nova.grade).toHaveLength(1);
     expect(nova.versoes.map((v) => v.codigo)).toEqual(["CTR-2030-0002", "CTR-2030-0001"]);

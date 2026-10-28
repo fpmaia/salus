@@ -20,6 +20,8 @@ type Props = {
   depois?: (estado: EstadoAcao) => React.ReactNode;
   /** Chamado depois de cada ação concluída com sucesso. */
   aoConcluir?: (estado: EstadoAcao) => void;
+  /** Botão desabilitado (o formulário continua montado para o aviso de sucesso aparecer). */
+  desabilitado?: boolean;
 };
 
 /** Formulário ligado a uma Server Action, com estado pendente e mensagens. */
@@ -33,6 +35,7 @@ export function FormAcao({
   confirmar,
   depois,
   aoConcluir,
+  desabilitado = false,
 }: Props) {
   const [estado, executar, pendente] = useActionState(acao, inicial);
   const formulario = useRef<HTMLFormElement>(null);
@@ -75,7 +78,7 @@ export function FormAcao({
     >
       {children}
       <div className="flex flex-wrap items-center gap-3">
-        <Button type="submit" variant={variante} disabled={pendente}>
+        <Button type="submit" variant={variante} disabled={pendente || desabilitado}>
           {pendente ? textoPendente : textoBotao}
         </Button>
         {estado.erro && (

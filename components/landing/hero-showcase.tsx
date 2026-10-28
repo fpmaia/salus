@@ -203,7 +203,7 @@ export function HeroShowcase() {
                 <h4 className="font-bold text-sm text-foreground flex items-center gap-2">
                   <Wallet className="size-4 text-amber-500" /> Automação de Locação & Baixa PIX
                 </h4>
-                <p className="text-xs text-muted-foreground">Contratos convertidos automaticamente em cobrança no dia 1º.</p>
+                <p className="text-xs text-muted-foreground">No fechamento do mês, o contrato vira extrato e cobrança por PIX.</p>
               </div>
               <span className="text-xs font-bold text-emerald-600">
                 +R$ 24.890,00 no mês
