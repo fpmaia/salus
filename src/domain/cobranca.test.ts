@@ -10,6 +10,7 @@ import {
   formaDaBaixa,
   mapearStatusAsaas,
   situacaoDaAssinatura,
+  statusParaExibir,
   usoAcimaDosLimites,
   vencimentoDaFaturaSaas,
 } from "./cobranca";
@@ -188,5 +189,11 @@ describe("cobrança", () => {
       expect(situacaoDaAssinatura([{ status: "pendente", vencimento: "2030-04-10" }], "2030-04-10").estado).toBe("em_dia");
       expect(situacaoDaAssinatura([{ status: "erro", vencimento: "2030-01-10" }], "2030-04-10").estado).toBe("em_dia");
     });
+  });
+
+  it("pendente depois do vencimento aparece como vencida", () => {
+    expect(statusParaExibir("pendente", "2030-04-10", "2030-04-11")).toBe("vencida");
+    expect(statusParaExibir("pendente", "2030-04-10", "2030-04-10")).toBe("pendente");
+    expect(statusParaExibir("paga", "2030-04-10", "2030-05-01")).toBe("paga");
   });
 });

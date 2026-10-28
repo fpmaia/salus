@@ -263,11 +263,6 @@ export function ModalDetalhesEvento({
                         textoPendente="Atualizando…"
                         variante={s === "presente" ? "default" : s === "falta" ? "outline" : "secondary"}
                         aoConcluir={aoConcluirAcao}
-                        className={
-                          s === "presente"
-                            ? "bg-warning hover:bg-warning/90 text-warning-foreground font-bold shadow-xs"
-                            : ""
-                        }
                       />
                     ))}
 

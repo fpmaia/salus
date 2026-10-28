@@ -1,0 +1,182 @@
+{
+  "01-entrar": {
+    "largura": 1280,
+    "altura": 820
+  },
+  "02-convite": {
+    "largura": 1280,
+    "altura": 820
+  },
+  "03-perfil": {
+    "largura": 1280,
+    "altura": 1140
+  },
+  "04-cadastro": {
+    "largura": 1280,
+    "altura": 820
+  },
+  "10-admin-inicio": {
+    "largura": 1280,
+    "altura": 1144
+  },
+  "11-unidades": {
+    "largura": 1280,
+    "altura": 1162
+  },
+  "12-unidade": {
+    "largura": 1280,
+    "altura": 2462
+  },
+  "13-profissionais": {
+    "largura": 1280,
+    "altura": 883
+  },
+  "14-contratos": {
+    "largura": 1280,
+    "altura": 820
+  },
+  "15-contrato-novo": {
+    "largura": 1280,
+    "altura": 1790
+  },
+  "16-equipe": {
+    "largura": 1280,
+    "altura": 820
+  },
+  "20-recepcao-inicio": {
+    "largura": 1280,
+    "altura": 828
+  },
+  "21-agenda-salas": {
+    "largura": 1280,
+    "altura": 1499
+  },
+  "22-agendar-modal": {
+    "largura": 1280,
+    "altura": 820
+  },
+  "23-detalhes-consulta": {
+    "largura": 1280,
+    "altura": 820
+  },
+  "24-consultas-do-dia": {
+    "largura": 1280,
+    "altura": 1688
+  },
+  "25-remarcar": {
+    "largura": 1280,
+    "altura": 820
+  },
+  "26-pacientes": {
+    "largura": 1280,
+    "altura": 820
+  },
+  "27-paciente": {
+    "largura": 1280,
+    "altura": 1037
+  },
+  "28-lista-espera": {
+    "largura": 1280,
+    "altura": 976
+  },
+  "30-profissional-inicio": {
+    "largura": 1280,
+    "altura": 872
+  },
+  "31-reservar-sala": {
+    "largura": 1280,
+    "altura": 820
+  },
+  "32-meu-contrato": {
+    "largura": 1280,
+    "altura": 919
+  },
+  "33-meu-extrato": {
+    "largura": 1280,
+    "altura": 1045
+  },
+  "34-recibo": {
+    "largura": 1280,
+    "altura": 820
+  },
+  "35-meu-dia-celular": {
+    "largura": 390,
+    "altura": 844
+  },
+  "36-prontuario-lista": {
+    "largura": 1280,
+    "altura": 820
+  },
+  "37-prontuario-paciente": {
+    "largura": 1280,
+    "altura": 2727
+  },
+  "38-agenda-online": {
+    "largura": 1280,
+    "altura": 820
+  },
+  "40-financeiro": {
+    "largura": 1280,
+    "altura": 1218
+  },
+  "41-financeiro-profissional": {
+    "largura": 1280,
+    "altura": 1419
+  },
+  "42-fechamento-pdf": {
+    "largura": 1280,
+    "altura": 820
+  },
+  "43-notas-fiscais": {
+    "largura": 1280,
+    "altura": 1184
+  },
+  "50-notificacoes": {
+    "largura": 1280,
+    "altura": 820
+  },
+  "60-assinatura": {
+    "largura": 1280,
+    "altura": 1734
+  },
+  "61-licencas-prontuario": {
+    "largura": 1280,
+    "altura": 820
+  },
+  "62-planos": {
+    "largura": 1280,
+    "altura": 820
+  },
+  "65-espaco-suspenso": {
+    "largura": 1280,
+    "altura": 820
+  },
+  "70-link-paciente": {
+    "largura": 390,
+    "altura": 844
+  },
+  "71-agendar-online": {
+    "largura": 390,
+    "altura": 982
+  },
+  "80-plataforma": {
+    "largura": 1280,
+    "altura": 820
+  },
+  "81-plataforma-clinicas": {
+    "largura": 1280,
+    "altura": 820
+  },
+  "82-plataforma-planos": {
+    "largura": 1280,
+    "altura": 820
+  },
+  "83-plataforma-financeiro": {
+    "largura": 1280,
+    "altura": 1006
+  },
+  "84-plataforma-auditoria": {
+    "largura": 1280,
+    "altura": 820
+  }
+}

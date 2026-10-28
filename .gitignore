@@ -17,6 +17,7 @@
 /tests/e2e/.dados.json
 /tests/manual/.dados.json
 /tests/manual/telas/
+/public/manual/animacoes/.tmp/
 
 # next.js
 /.next/

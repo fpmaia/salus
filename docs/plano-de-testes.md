@@ -15,7 +15,7 @@ Atualize a matriz sempre que uma funcionalidade nova entrar: toda linha aponta p
 | Integração (Postgres real, RLS) | `npm run test:integration` | `npm run db:up` (Postgres na porta 5433) |
 | Tudo do Vitest | `npm test` | idem |
 | Ponta a ponta (navegador) | `npm run test:e2e` | idem; sobe o app na porta 3100 com o banco `salus_test` |
-| Telas e animações do manual | `npm run manual:telas` | idem |
+| Telas e animações do manual (`/manual`) | `npm run manual:telas` | idem; gera `public/manual/telas` e `public/manual/animacoes` |
 
 Notas:
 
@@ -24,7 +24,7 @@ Notas:
   e rode o Playwright com `--output` fora do OneDrive (ex.: `--output %TEMP%\pw-out`).
 - O CI (`.github/workflows/ci.yml`) roda lint, tipos, Vitest, build, E2E, teste de backup e a checagem do compose de produção.
 
-Situação em 28/10/2026: **527 testes no Vitest (27 arquivos unitários + 32 de integração) e 26 fluxos E2E, todos passando.**
+Situação em 28/10/2026: **528 testes no Vitest (27 arquivos unitários + 32 de integração) e 27 fluxos E2E, todos passando.**
 
 ## Pirâmide
 
@@ -147,6 +147,8 @@ contra a cobrança atual; reativar não dá segundo teste; o admin pode assumir 
 | 18 | Landing prometia plano anual, recursos exclusivos por plano, SLA, depoimentos e métricas inventados, "criptografia ponta a ponta" | Textos alinhados ao produto; preços de fonte única | E2E landing, `planos-limites.test` |
 | 19 | Textos diziam que a fatura "fecha no dia 1º" | "Gerada no início do mês, vence dia 10" | revisão |
 | 20 | Teste desatualizado (mensagem do limite) derrubava outros 2 em cascata | Asserção atualizada | `assinatura.test` |
+| 21 | Faturamento da plataforma mostrava "Em atraso: R$ 0,00" com espaço já suspenso (pendente vencida contava como "em aberto") | `statusParaExibir` | `cobranca.test` |
+| 22 | O estilo do botão de check-in pintava o formulário inteiro, inclusive a mensagem de erro | Estilo padrão do botão | gravação do manual |
 
 ## 7. Pendências conhecidas (não corrigidas)
 
@@ -155,7 +157,9 @@ contra a cobrança atual; reativar não dá segundo teste; o admin pode assumir 
 - **E2E do superadmin**: o seed E2E não cria superadmin com 2FA; a área é coberta só por integração.
 - **Cobrança avulsa do profissional exige CPF no cadastro** (o Asaas não cria cliente sem documento): a mensagem orienta a
   preencher em Profissionais.
-- **Animações e prints do manual** dependem de `npm run manual:telas` rodando localmente (ver `tests/manual/`).
+- **Animações e prints do manual** são gerados por `npm run manual:telas` (ver `tests/manual/`) e versionados em `public/manual/`.
+  A animação do check-in só é gravada entre 6h e 20h (precisa de uma consulta na próxima hora).
+- **Texto "Lembretes D-1"** na tela de Notificações ainda usa jargão.
 
 ## 8. Checklist manual (antes de cada versão em produção)
 

@@ -90,6 +90,11 @@ export function situacaoDaAssinatura(faturas: { status: StatusCobranca; vencimen
   };
 }
 
+/** Para exibir: "pendente" depois do vencimento já é atraso (o OVERDUE do Asaas pode chegar depois). */
+export function statusParaExibir<S extends string>(status: S, vencimento: DataLocal, hoje: DataLocal): S | "vencida" {
+  return status === "pendente" && vencimento < hoje ? "vencida" : status;
+}
+
 export const RECURSOS_LIMITADOS = ["unidades", "salas", "profissionais"] as const;
 export type RecursoLimitado = (typeof RECURSOS_LIMITADOS)[number];
 

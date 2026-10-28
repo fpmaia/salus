@@ -16,7 +16,8 @@ import {
 } from "../db/schema";
 import { erroPostgres } from "../db/erros";
 import { withSistema, withUser } from "../db/tenant";
-import { estadoLicencaProntuario } from "../domain/cobranca";
+import { estadoLicencaProntuario, statusParaExibir } from "../domain/cobranca";
+import { hojeNoFuso } from "../domain/tempo";
 import { ErroNegocio } from "./erros";
 
 export type MetricasPlataforma = {
@@ -369,6 +370,8 @@ export async function obterFaturamentoPlataforma(userId: string, database?: Data
     database,
   );
 
+  // Pendente e já vencida conta como atraso (métricas e etiqueta), como na suspensão do espaço.
+  const hoje = hojeNoFuso("America/Sao_Paulo");
   const faturas = linhas.map((f) => ({
     id: f.id,
     tenantId: f.tenant_id,
@@ -376,7 +379,7 @@ export async function obterFaturamentoPlataforma(userId: string, database?: Data
     competencia: String(f.competencia).slice(0, 10),
     vencimento: String(f.vencimento).slice(0, 10),
     valorCentavos: Number(f.valor_centavos),
-    status: f.status,
+    status: statusParaExibir(f.status, String(f.vencimento).slice(0, 10), hoje),
     invoiceUrl: f.invoice_url,
     asaasPaymentId: f.asaas_payment_id,
     ultimoErro: f.ultimo_erro,
@@ -489,7 +492,11 @@ export async function obterDetalhesClinicaPlataforma(userId: string, tenantId: s
         .innerJoin(users, eq(users.id, memberships.userId))
         .orderBy(asc(users.name));
 
-      const faturas = await tx.select().from(faturasSaas).orderBy(desc(faturasSaas.competencia));
+      const hoje = hojeNoFuso("America/Sao_Paulo", agora);
+      const faturas = (await tx.select().from(faturasSaas).orderBy(desc(faturasSaas.competencia))).map((f) => ({
+        ...f,
+        status: statusParaExibir(f.status, f.vencimento, hoje),
+      }));
       const faturasIds = faturas.map((f) => f.id);
       const itensFaturas = faturasIds.length > 0 ? await tx.select().from(faturasSaasItens).where(inArray(faturasSaasItens.faturaId, faturasIds)) : [];
       const itensPorFatura = itensFaturas.reduce(

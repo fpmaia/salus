@@ -55,3 +55,17 @@ test("módulos desligados (padrão) não aparecem no menu e as páginas ficam re
     await restrita(page, rota);
   }
 });
+
+test("o botão Manual do painel abre a seção da tela atual", async ({ page }) => {
+  await entrar(page, "admin");
+  for (const [rota, secao] of [
+    ["/painel/agenda", "agenda"],
+    ["/painel/financeiro", "financeiro"],
+    ["/painel/assinatura", "planos"],
+  ] as const) {
+    await page.goto(rota);
+    await expect(page.getByRole("link", { name: "Ajuda desta tela" })).toHaveAttribute("href", `/manual#${secao}`);
+  }
+  await page.goto("/manual#planos");
+  await expect(page.getByRole("heading", { name: "Planos, limites e excedentes" })).toBeVisible();
+});

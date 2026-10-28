@@ -23,9 +23,21 @@ import { criarPaciente } from "../../src/server/pacientes";
 import { criarProfissional, gerarConvite } from "../../src/server/profissionais";
 import { concluirReservasPassadas, criarReserva } from "../../src/server/reservas";
 import { criarSala, criarUnidade, definirHorarios } from "../../src/server/unidades";
+import { configurarAgendamentoOnline } from "../../src/server/agendamento-online";
+import { GatewaySimulado } from "../../src/server/asaas";
+import { ativarLicencaProntuario, gerarFaturaDoMes } from "../../src/server/assinatura";
+import { definirModulos } from "../../src/server/modulos";
+import { finalizarRegistro, salvarRascunho } from "../../src/server/prontuario";
 
 export const SENHA = "salus-manual-123";
-export const EMAIL = { admin: "mariana@vidasaude.com.br", recepcao: "juliana@vidasaude.com.br", profissional: "helena.costa@vidasaude.com.br" };
+export const EMAIL = {
+  admin: "mariana@vidasaude.com.br",
+  recepcao: "juliana@vidasaude.com.br",
+  profissional: "helena.costa@vidasaude.com.br",
+  // Dono da plataforma (área /plataforma) e o admin de um espaço com a fatura em atraso.
+  superadmin: "suporte@salus.app",
+  atraso: "rodrigo@clinicabemestar.com.br",
+};
 
 // Espaço de demonstração do manual do usuário ("Espaço Vida Saúde"), criado pelos serviços do
 // app no banco salus_test (o mesmo do E2E: não rode junto com o `npm test` nem com o E2E).
@@ -44,12 +56,16 @@ export default async function setup() {
   const auth = betterAuth(opcoesAuth(db));
   definirProvedorEmail(new EmailMemoria());
   const agoraReal = new Date();
+  // Mesma chave do servidor do E2E (playwright.config.ts): o prontuário do seed é cifrado com ela.
+  process.env.SECRETS_KEY ||= Buffer.alloc(32, 7).toString("base64");
   try {
     const ids: Record<string, string> = {};
     for (const [role, nome] of [
       ["admin", "Mariana Alves"],
       ["recepcao", "Juliana Souza"],
       ["profissional", "Dra. Helena Costa"],
+      ["superadmin", "Equipe Salus"],
+      ["atraso", "Rodrigo Nunes"],
     ] as const) {
       const { user } = await auth.api.signUpEmail({ body: { name: nome, email: EMAIL[role], password: SENHA } });
       await db.update(users).set({ emailVerified: true }).where(eq(users.id, user.id));
@@ -87,7 +103,7 @@ export default async function setup() {
     await definirHorarios(admin, unidade, [0, 1, 2, 3, 4, 5, 6].map((diaSemana) => ({ diaSemana, abre: "07:00", fecha: "21:00" })), db);
     const { id: c1 } = await criarSala(admin, unidade, { nome: "Consultório 1" }, db);
     const { id: c2 } = await criarSala(admin, unidade, { nome: "Consultório 2" }, db);
-    await criarSala(admin, unidade, { nome: "Sala de grupo" }, db);
+    const { id: grupo } = await criarSala(admin, unidade, { nome: "Sala de grupo" }, db);
 
     const pac: Record<string, string> = {};
     for (const [chave, nome, telefone] of [
@@ -155,6 +171,18 @@ export default async function setup() {
     const { id: consultaLink } = await criarAgendamento(admin, { pacienteId: pac.bruno, reservaId: resAmanha, data: amanha, horaInicio: "15:00", horaFim: "16:00" }, criadaEm, db);
     const linkPaciente = `/c/${gerarTokenAgendamento(admin.tenantId, consultaLink, new Date(agoraReal.getTime() + 7 * 86_400_000))}`;
 
+    // Consulta que começa na próxima hora cheia (check-in liberado 1h antes), para a animação do check-in.
+    const proximaHora = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "America/Sao_Paulo", hour: "2-digit", hourCycle: "h23" }).format(agoraReal)) + 1;
+    let pacienteCheckin: string | null = null;
+    if (proximaHora >= 7 && proximaHora <= 20) {
+      const inicio = `${String(proximaHora).padStart(2, "0")}:00`;
+      const fim = `${String(proximaHora + 1).padStart(2, "0")}:00`;
+      const { id: heitor } = await criarPaciente(admin, { nome: "Heitor Campos", telefone: "(11) 98123-4567", consentimentoLembretes: true }, new Date(), db);
+      const { id: resGrupo } = await criarReserva(admin, { salaId: grupo, profissionalId: camila, data: hoje, horaInicio: inicio, horaFim: fim }, criadaEm, db);
+      await criarAgendamento(admin, { pacienteId: heitor, reservaId: resGrupo, data: hoje, horaInicio: inicio, horaFim: fim }, criadaEm, db);
+      pacienteCheckin = "Heitor Campos";
+    }
+
     await adicionarNaEspera(admin, { pacienteId: pac.gabriela, profissionalId: helena, preferencia: "Terças à tarde, depois das 16h" }, db);
     await adicionarNaEspera(admin, { pacienteId: pac.fabio, preferencia: "Qualquer manhã" }, db);
 
@@ -163,7 +191,42 @@ export default async function setup() {
     await withSistema(admin.tenantId, (tx) => agendarLembretes(tx, agoraReal), db);
     await processarFila(admin.tenantId, new ConsoleProvider(), agoraReal, 20, db).catch(() => undefined);
 
-    const dados = { helena, rafael, paciente: pac.ana, hoje, amanha, competenciaAnterior: mesAnterior.slice(0, 7), atendimentoPago, linkPaciente, linkConvite: `/convite/${tokenConvite}`, unidade, c2 };
+    // Módulos ligados, prontuário (Helena em teste, Rafael pago pelo espaço), agenda online da Helena.
+    await definirModulos(admin, { fiscal: true, agendaOnline: true, prontuario: true }, db);
+    const ctxHelena: ContextoTenant = { tenantId: admin.tenantId, userId: ids.profissional, role: "profissional" };
+    await ativarLicencaProntuario(ctxHelena, helena, agoraReal, db);
+    await ativarLicencaProntuario(admin, rafael, agoraReal, db);
+    const evolucao = await salvarRascunho(
+      ctxHelena,
+      {
+        pacienteId: pac.carla,
+        anotacoes: "Paciente relata melhora do sono e menos episódios de ansiedade. Mantida a frequência semanal.",
+        prescricao: "Registro diário do humor até o próximo encontro.",
+      },
+      { agora: agoraReal, database: db },
+    );
+    await finalizarRegistro(ctxHelena, evolucao.id, { agora: agoraReal, database: db });
+    await salvarRascunho(ctxHelena, { pacienteId: pac.carla, anotacoes: "Rascunho da sessão de hoje." }, { agora: agoraReal, database: db });
+    const { slug: slugHelena } = await configurarAgendamentoOnline(
+      admin,
+      { profissionalId: helena, ativo: true, duracaoConsultaMin: 60, antecedenciaMinHoras: 2, janelaDias: 30, mensagemPublica: "Atendimento adulto. Chegue 10 minutos antes." },
+      db,
+    );
+
+    // Fatura do mês do Salus (gateway simulado).
+    await gerarFaturaDoMes(admin.tenantId, { agora: agoraReal, gateway: new GatewaySimulado(), database: db });
+
+    // Superadmin da plataforma.
+    await db.update(users).set({ role: "superadmin" }).where(eq(users.id, ids.superadmin));
+
+    // Outro espaço, com a fatura vencida há mais de 15 dias: painel só para consulta.
+    await criarTenantComAdmin(ids.atraso, { nomeTenant: "Clínica Bem Estar", documento: "45.723.174/0001-10" }, db);
+    const [mAtraso] = await listarMembershipsDoUsuario(ids.atraso, db);
+    const adminAtraso: ContextoTenant = { tenantId: mAtraso.tenantId, userId: ids.atraso, role: "admin" };
+    await criarUnidade(adminAtraso, { nome: "Unidade Centro" }, db);
+    await gerarFaturaDoMes(adminAtraso.tenantId, { agora: new Date(agoraReal.getTime() - 45 * 86_400_000), gateway: new GatewaySimulado(), database: db });
+
+    const dados = { pacienteCheckin, carla: pac.carla, slugHelena, helena, rafael, paciente: pac.ana, hoje, amanha, competenciaAnterior: mesAnterior.slice(0, 7), atendimentoPago, linkPaciente, linkConvite: `/convite/${tokenConvite}`, unidade, c2 };
     writeFileSync(path.resolve("tests/manual/.dados.json"), JSON.stringify(dados, null, 2));
   } finally {
     await db.$client.end();

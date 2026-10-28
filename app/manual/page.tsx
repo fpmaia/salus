@@ -9,7 +9,7 @@ import { ManualConteudo } from "@/components/manual/manual-conteudo";
 export const metadata: Metadata = {
   title: "Manual de Utilização Oficial — Salus Gestão de Saúde",
   description:
-    "Guia passo a passo completo da plataforma Salus. Aprenda a configurar unidades e salas, gerenciar equipe com RBAC, operar a agenda e lista de espera, emitir contratos, prontuário CFM e faturas PIX.",
+    "Guia passo a passo do Salus, com telas e animações: configurar o espaço, agenda e recepção, contratos e financeiro, prontuário, agendamento online, planos e controle de acesso.",
   keywords: [
     "manual salus",
     "guia de uso salus",
@@ -22,7 +22,7 @@ export const metadata: Metadata = {
 
 function linkWhatsapp(): string {
   const numero = (process.env.SALUS_WHATSAPP_COMERCIAL ?? "").replace(/\D/g, "");
-  if (!numero) return "/contato";
+  if (!numero) return "";
   const texto = "Olá! Estou consultando o Manual do Salus e gostaria de tirar uma dúvida operacional.";
   return `https://wa.me/${numero}?text=${encodeURIComponent(texto)}`;
 }
@@ -33,7 +33,7 @@ export default function ManualPage() {
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground selection:bg-primary/20 selection:text-primary">
       {/* Header Fixo */}
-      <header className="sticky top-0 z-50 w-full border-b border-border/70 bg-background/85 backdrop-blur-md">
+      <header className="sticky top-0 z-50 w-full border-b border-border/70 bg-background/85 backdrop-blur-md print:hidden">
         <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
           <div className="flex items-center gap-4">
             <SalusLogo href="/" size="md" priority />
@@ -80,18 +80,19 @@ export default function ManualPage() {
             </h1>
 
             <p className="text-sm sm:text-base text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-              Tudo o que você e sua equipe precisam para dominar a gestão de espaços clínicos, agendamento de salas,
-              prontuário eletrônico CFM, cobranças automáticas e conformidade com a LGPD.
+              Passo a passo com as telas do sistema e animações curtas. Busque pelo que quer fazer ou escolha o seu perfil. Dentro do
+              painel, o botão Manual abre direto a seção da tela em que você está.
             </p>
           </div>
         </section>
 
         {/* CONTEÚDO PRINCIPAL INTERATIVO COM FILTRO E BUSCA */}
-        <section className="px-4 py-12 sm:px-6">
+        <section className="px-4 py-10 sm:px-6">
           <ManualConteudo />
         </section>
 
-        {/* SEÇÃO DE SUPORTE HUMANIZADO */}
+        {/* Suporte (só com o WhatsApp comercial configurado) */}
+        {linkSuporte && (
         <section className="border-t border-border/60 bg-muted/20 px-4 py-12 sm:px-6">
           <div className="mx-auto max-w-4xl rounded-3xl border border-border/70 bg-card/80 p-8 sm:p-10 backdrop-blur-xs shadow-xs text-center space-y-5">
             <div className="inline-flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary mx-auto">
@@ -121,10 +122,11 @@ export default function ManualPage() {
             </div>
           </div>
         </section>
+        )}
       </main>
 
       {/* FOOTER */}
-      <footer className="border-t border-border/80 px-4 py-12 sm:px-6 bg-card">
+      <footer className="border-t border-border/80 px-4 py-12 sm:px-6 bg-card print:hidden">
         <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-6 sm:flex-row">
           <div className="flex flex-col items-center gap-2 sm:flex-row sm:gap-4">
             <SalusLogo size="sm" />

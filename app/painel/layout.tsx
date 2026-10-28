@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AlertCircle, BookOpen, Shield } from "lucide-react";
+import { AlertCircle, Shield } from "lucide-react";
 import { obterContextoTenant, situacaoDaAssinaturaAtual } from "@/src/auth/sessao";
 import { pode, type Permissao } from "@/src/domain/rbac";
 import { formatarDataBr } from "@/src/server/reservas";
@@ -13,6 +13,7 @@ import { BannerPrimeirosPassos } from "@/components/banner-primeiros-passos";
 import { BannerProntuarioProfissional } from "@/components/banner-prontuario-profissional";
 import { primeirosPassos } from "@/src/server/primeiros-passos";
 import { obterStatusLicencaProntuarioProfissional } from "@/src/server/assinatura";
+import { BotaoAjuda } from "@/components/manual/ajuda-contextual";
 import { BotaoSair } from "./botao-sair";
 import { SeletorClinica } from "@/components/seletor-clinica";
 
@@ -85,14 +86,7 @@ export default async function PainelLayout({ children }: LayoutProps<"/painel">)
                         <Shield className="size-3" /> Plataforma
                       </Link>
                     )}
-                    <Link
-                      href="/manual"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-muted-foreground flex items-center gap-1 hover:underline ml-auto"
-                    >
-                      <BookOpen className="size-3" /> Manual
-                    </Link>
+                    <BotaoAjuda compacto className="text-muted-foreground flex items-center gap-1 hover:underline ml-auto" />
                   </div>
                 </div>
               }
@@ -128,16 +122,7 @@ export default async function PainelLayout({ children }: LayoutProps<"/painel">)
               </Link>
             )}
 
-            <Link
-              href="/manual"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-xl border border-border/70 bg-card/60 px-2.5 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-muted hover:text-foreground transition-all mr-1 shadow-2xs"
-              title="Abrir Manual de Utilização da plataforma em nova aba"
-            >
-              <BookOpen className="size-3.5 text-primary" />
-              <span>Manual</span>
-            </Link>
+            <BotaoAjuda className="inline-flex items-center gap-1.5 rounded-xl border border-border/70 bg-card/60 px-2.5 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-muted hover:text-foreground transition-all mr-1 shadow-2xs" />
 
             <div className="hidden flex-col items-end sm:flex mr-1">
               <span className="text-xs font-medium text-foreground">{ctx.usuario.nome}</span>
