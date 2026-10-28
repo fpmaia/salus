@@ -1,6 +1,8 @@
 // Regras do prontuário. Domínio puro: sem I/O.
 
 export type ConteudoClinico = {
+  /** Título do documento (relatório, laudo, declaração…); vazio nas evoluções. */
+  titulo?: string;
   /** Evolução / anotações clínicas. */
   anotacoes: string;
   /** Prescrição, orientações ou atestado em texto livre (sem validade de receita digital). */
@@ -8,6 +10,7 @@ export type ConteudoClinico = {
 };
 
 export const LIMITE_CONTEUDO = 20_000;
+export const LIMITE_TITULO = 200;
 export const LIMITE_ANEXO_BYTES = 10 * 1024 * 1024;
 export const TIPOS_ANEXO = ["application/pdf", "image/jpeg", "image/png", "image/webp"] as const;
 
@@ -16,6 +19,7 @@ export function validarConteudo(c: ConteudoClinico): string | null {
   if (c.anotacoes.length > LIMITE_CONTEUDO || c.prescricao.length > LIMITE_CONTEUDO) {
     return `Cada campo aceita até ${LIMITE_CONTEUDO} caracteres`;
   }
+  if ((c.titulo ?? "").length > LIMITE_TITULO) return `O título aceita até ${LIMITE_TITULO} caracteres`;
   return null;
 }
 
@@ -41,8 +45,7 @@ export function canonicoDoRegistro(r: {
   anexos: string[]; // hashes SHA-256
   finalizadoEm: Date;
 }): string {
-  return JSON.stringify([
-    "salus.prontuario.v1",
+  const base = [
     r.id,
     r.pacienteId,
     r.profissionalId,
@@ -53,7 +56,10 @@ export function canonicoDoRegistro(r: {
     r.conteudo.prescricao,
     [...r.anexos].sort(),
     r.finalizadoEm.toISOString(),
-  ]);
+  ];
+  // Documentos têm título: entra no hash (v2). Evoluções seguem na v1, sem mudar hashes antigos.
+  const titulo = r.conteudo.titulo?.trim();
+  return JSON.stringify(titulo ? ["salus.prontuario.v2", ...base, titulo] : ["salus.prontuario.v1", ...base]);
 }
 
 /** Nome de arquivo seguro para cabeçalho Content-Disposition. */

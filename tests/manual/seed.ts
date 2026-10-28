@@ -207,6 +207,19 @@ export default async function setup() {
     );
     await finalizarRegistro(ctxHelena, evolucao.id, { agora: agoraReal, database: db });
     await salvarRascunho(ctxHelena, { pacienteId: pac.carla, anotacoes: "Rascunho da sessão de hoje." }, { agora: agoraReal, database: db });
+    const relatorio = await salvarRascunho(
+      ctxHelena,
+      {
+        pacienteId: pac.carla,
+        tipo: "documento",
+        titulo: "Relatório clínico",
+        anotacoes:
+          "RELATÓRIO CLÍNICO\n\nPaciente em acompanhamento semanal desde fevereiro, com queixa inicial de insônia e ansiedade.\n\nEvolução: melhora do sono e redução das crises. Mantida a frequência semanal.",
+        prescricao: "Recomenda-se a continuidade do acompanhamento.",
+      },
+      { agora: agoraReal, database: db },
+    );
+    await finalizarRegistro(ctxHelena, relatorio.id, { agora: agoraReal, database: db });
     const { slug: slugHelena } = await configurarAgendamentoOnline(
       admin,
       { profissionalId: helena, ativo: true, duracaoConsultaMin: 60, antecedenciaMinHoras: 2, janelaDias: 30, mensagemPublica: "Atendimento adulto. Chegue 10 minutos antes." },

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { AlertTriangle, Clock, Sparkles } from "lucide-react";
+import { AlertTriangle, Clock, FileText, NotebookPen, Printer, Sparkles } from "lucide-react";
 import { FormAcao } from "@/components/form-acao";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -29,8 +29,11 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const textarea =
   "min-h-28 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
 
-export default async function ProntuarioPacientePage({ params }: PageProps<"/painel/prontuario/[pacienteId]">) {
+type Aba = "evolucoes" | "documentos";
+
+export default async function ProntuarioPacientePage({ params, searchParams }: PageProps<"/painel/prontuario/[pacienteId]">) {
   const { pacienteId } = await params;
+  const aba: Aba = (await searchParams).aba === "documentos" ? "documentos" : "evolucoes";
   const ctx = await obterContextoTenant();
   await exigirModuloNaPagina(ctx, "prontuario");
   exigirPermissaoNaPagina(ctx.role, "prontuario.proprio");
@@ -42,8 +45,14 @@ export default async function ProntuarioPacientePage({ params }: PageProps<"/pai
   });
   const { paciente, registros, compartilhamentos, colegas, atendimentos } = dados;
   const evolucoes = registros.filter((r) => r.tipo === "evolucao").reverse();
+  const documentos = registros.filter((r) => r.tipo === "documento").reverse();
+  const lista = aba === "documentos" ? documentos : evolucoes;
   const adendosDe = (id: string) => registros.filter((r) => r.adendoDe === id);
-  const rascunhosDeAdendo = registros.filter((r) => r.tipo === "adendo" && r.status === "rascunho" && r.proprio);
+  const daAba = new Set(lista.map((r) => r.id));
+  const rascunhosDeAdendo = registros.filter(
+    (r) => r.tipo === "adendo" && r.status === "rascunho" && r.proprio && r.adendoDe && daAba.has(r.adendoDe),
+  );
+  const podeEscrever = !statusLicenca.possuiPerfilProfissional || statusLicenca.podeEscrever;
 
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-8 sm:px-6">
@@ -82,20 +91,48 @@ export default async function ProntuarioPacientePage({ params }: PageProps<"/pai
           {paciente.dataNascimento && <p className="text-sm text-muted-foreground">Nascimento: {formatarDataBr(paciente.dataNascimento)}</p>}
         </div>
         <Link href={`/painel/prontuario/${pacienteId}/imprimir`} target="_blank" className="text-sm text-primary underline-offset-4 hover:underline">
-          Imprimir / PDF
+          Imprimir prontuário completo
         </Link>
       </div>
 
-      {(!statusLicenca.possuiPerfilProfissional || statusLicenca.podeEscrever) && (
+      <nav aria-label="Seções do prontuário" className="flex gap-1 rounded-xl border bg-muted/40 p-1 text-sm">
+        {(
+          [
+            ["evolucoes", "Evoluções", NotebookPen, evolucoes.length],
+            ["documentos", "Documentos", FileText, documentos.length],
+          ] as const
+        ).map(([id, rotulo, Icone, total]) => (
+          <Link
+            key={id}
+            href={id === "evolucoes" ? `/painel/prontuario/${pacienteId}` : `/painel/prontuario/${pacienteId}?aba=documentos`}
+            aria-current={aba === id ? "page" : undefined}
+            className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2 font-medium transition ${
+              aba === id ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Icone className="size-4" /> {rotulo}
+            <span className="rounded-full bg-muted px-1.5 text-[11px] text-muted-foreground">{total}</span>
+          </Link>
+        ))}
+      </nav>
+
+      {podeEscrever && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Nova evolução ou relatório clínico</CardTitle>
+            <CardTitle className="text-base">{aba === "documentos" ? "Novo documento" : "Nova evolução"}</CardTitle>
             <CardDescription>
-              Anotação livre ou modelos com 1 clique (CFP nº 06/2019, Escolar, Encaminhamento). Salva como rascunho.
+              {aba === "documentos"
+                ? "Relatório, laudo, declaração, atestado ou encaminhamento para entregar ao paciente ou a terceiros. Comece por um modelo; salva como rascunho e, depois de finalizado, pode ser impresso ou salvo em PDF."
+                : "Anotação da sessão ou consulta. Salva como rascunho; depois de finalizada não pode ser alterada, só complementada por adendo."}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <EditorRegistroComModelos acao={salvarRascunhoAcao.bind(null, pacienteId, undefined)} atendimentos={atendimentos} />
+            <EditorRegistroComModelos
+              key={aba}
+              tipo={aba === "documentos" ? "documento" : "evolucao"}
+              acao={salvarRascunhoAcao.bind(null, pacienteId, undefined)}
+              atendimentos={atendimentos}
+            />
           </CardContent>
         </Card>
       )}
@@ -112,8 +149,10 @@ export default async function ProntuarioPacientePage({ params }: PageProps<"/pai
       ))}
 
       <div className="flex flex-col gap-4">
-        {evolucoes.length === 0 && <p className="text-sm text-muted-foreground">Nenhum registro ainda.</p>}
-        {evolucoes.map((r) => (
+        {lista.length === 0 && (
+          <p className="text-sm text-muted-foreground">{aba === "documentos" ? "Nenhum documento emitido ainda." : "Nenhuma evolução ainda."}</p>
+        )}
+        {lista.map((r) => (
           <Card key={r.id} className={r.status === "rascunho" ? "border-warning/40" : undefined}>
             <CardContent className="flex flex-col gap-4">
               {r.status === "rascunho" ? (
@@ -128,17 +167,17 @@ export default async function ProntuarioPacientePage({ params }: PageProps<"/pai
                         <ConteudoRegistro registro={a} />
                       </div>
                     ))}
-                  <div className="flex items-center justify-between gap-2 pt-2 border-t text-xs">
-                    <span className="text-muted-foreground text-[11px]">Registro com assinatura eletrônica</span>
+                  <div className="flex items-center justify-between gap-2 border-t pt-2 text-xs">
+                    <span className="text-[11px] text-muted-foreground">Registro com assinatura eletrônica</span>
                     <Link
                       href={`/painel/prontuario/${pacienteId}/imprimir/${r.id}`}
                       target="_blank"
                       className="inline-flex items-center gap-1 font-semibold text-primary underline-offset-4 hover:underline"
                     >
-                      📄 Imprimir este Relatório / Laudo →
+                      <Printer className="size-3.5" /> {r.tipo === "documento" ? "Imprimir documento / PDF" : "Imprimir esta evolução"}
                     </Link>
                   </div>
-                  {r.proprio && (
+                  {r.proprio && podeEscrever && (
                     <details>
                       <summary className="cursor-pointer text-xs text-muted-foreground">Incluir adendo (correção ou complemento)</summary>
                       <div className="mt-3">
@@ -232,7 +271,12 @@ function AcoesRascunho({ registro, pacienteId, atendimentos }: { registro: Regis
       {registro.tipo === "adendo" ? (
         <ConteudoRegistro registro={registro} />
       ) : (
-        <EditorRegistroComModelos acao={salvarRascunhoAcao.bind(null, pacienteId, registro.id)} atendimentos={atendimentos} registro={registro} />
+        <EditorRegistroComModelos
+          tipo={registro.tipo === "documento" ? "documento" : "evolucao"}
+          acao={salvarRascunhoAcao.bind(null, pacienteId, registro.id)}
+          atendimentos={atendimentos}
+          registro={registro}
+        />
       )}
       {registro.tipo !== "adendo" && registro.anexos.length > 0 && <ConteudoAnexos registro={registro} />}
       <AnexoUpload registroId={registro.id} />

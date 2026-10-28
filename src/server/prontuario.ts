@@ -32,7 +32,7 @@ type Opcoes = { agora?: Date; database?: Database };
 const MENSAGENS: Record<string, string> = {
   "prontuario.imutavel": "Registro finalizado não pode ser alterado: use um adendo",
   "prontuario.campos_fixos": "Paciente, autor e tipo do registro não podem mudar",
-  "prontuario.adendo_invalido": "O adendo precisa se referir a uma evolução finalizada sua deste paciente",
+  "prontuario.adendo_invalido": "O adendo precisa se referir a uma evolução ou documento finalizado seu deste paciente",
   "prontuario.anexo_fora_do_rascunho": "Anexos só podem ser incluídos ou removidos enquanto o registro é rascunho",
 };
 
@@ -72,6 +72,7 @@ async function comoProfissional<T>(
 }
 
 const conteudoSchema = z.object({
+  titulo: z.string().optional(),
   anotacoes: z.string().default(""),
   prescricao: z.string().default(""),
 });
@@ -92,14 +93,19 @@ export const rascunhoSchema = z.object({
   registroId: z.uuid().optional(),
   pacienteId: z.uuid(),
   agendamentoId: z.uuid().nullable().optional(),
+  /** Evolução (anotação da sessão) ou documento (relatório, laudo, declaração…). */
+  tipo: z.enum(["evolucao", "documento"]).default("evolucao"),
+  titulo: z.string().trim().default(""),
   anotacoes: z.string().default(""),
   prescricao: z.string().default(""),
 });
 
-/** Cria ou atualiza um rascunho de evolução. */
+/** Cria ou atualiza um rascunho de evolução ou de documento. */
 export async function salvarRascunho(ctx: ContextoTenant, dados: z.input<typeof rascunhoSchema>, opcoes: Opcoes = {}) {
   const d = rascunhoSchema.parse(dados);
-  const conteudo = { anotacoes: d.anotacoes, prescricao: d.prescricao };
+  if (d.tipo === "documento" && !d.titulo) throw new ErroNegocio("Dê um título ao documento (ex.: Relatório clínico, Laudo)");
+  const conteudo: ConteudoClinico =
+    d.tipo === "documento" ? { titulo: d.titulo, anotacoes: d.anotacoes, prescricao: d.prescricao } : { anotacoes: d.anotacoes, prescricao: d.prescricao };
   const problema = validarConteudo(conteudo);
   if (problema) throw new ErroNegocio(problema);
   return comoProfissional(
@@ -119,7 +125,7 @@ export async function salvarRascunho(ctx: ContextoTenant, dados: z.input<typeof 
         const alterados = await tx
           .update(registrosClinicos)
           .set({ conteudoCifrado, agendamentoId: d.agendamentoId ?? null })
-          .where(and(eq(registrosClinicos.id, d.registroId), eq(registrosClinicos.pacienteId, d.pacienteId)))
+          .where(and(eq(registrosClinicos.id, d.registroId), eq(registrosClinicos.pacienteId, d.pacienteId), eq(registrosClinicos.tipo, d.tipo)))
           .returning({ id: registrosClinicos.id })
           .catch(traduzir);
         if (alterados.length === 0) throw new ErroNegocio("Rascunho não encontrado");
@@ -127,10 +133,15 @@ export async function salvarRascunho(ctx: ContextoTenant, dados: z.input<typeof 
       }
       const [r] = await tx
         .insert(registrosClinicos)
-        .values({ pacienteId: d.pacienteId, profissionalId, agendamentoId: d.agendamentoId ?? null, conteudoCifrado })
+        .values({ pacienteId: d.pacienteId, profissionalId, agendamentoId: d.agendamentoId ?? null, tipo: d.tipo, conteudoCifrado })
         .returning({ id: registrosClinicos.id })
         .catch(traduzir);
-      await registrarAuditoria(tx, { acao: "prontuario.rascunho", entidade: "registros_clinicos", entidadeId: r.id, dados: { pacienteId: d.pacienteId } });
+      await registrarAuditoria(tx, {
+        acao: "prontuario.rascunho",
+        entidade: "registros_clinicos",
+        entidadeId: r.id,
+        dados: { pacienteId: d.pacienteId, tipo: d.tipo },
+      });
       return r;
     },
     opcoes.database,
@@ -342,7 +353,7 @@ export async function revogarCompartilhamento(ctx: ContextoTenant, compartilhame
 
 export type RegistroLido = {
   id: string;
-  tipo: "evolucao" | "adendo";
+  tipo: "evolucao" | "adendo" | "documento";
   adendoDe: string | null;
   status: "rascunho" | "finalizado";
   autorId: string;
@@ -460,17 +471,18 @@ export async function exportarProntuario(ctx: ContextoTenant, pacienteId: string
   );
 }
 
-/** Versão para impressão/PDF de um único relatório ou laudo clínico individual. */
+/** Versão para impressão/PDF de um único registro finalizado (documento ou evolução), com o autor dele. */
 export async function exportarRegistroIndividual(ctx: ContextoTenant, pacienteId: string, registroId: string, opcoes: Opcoes = {}) {
   return comoProfissional(
     ctx,
     async (tx, profissionalId) => {
       await exigirPacienteDoProfissional(tx, profissionalId, pacienteId);
       const [paciente] = await tx.select().from(pacientes).where(eq(pacientes.id, pacienteId));
-      const [autor] = await tx.select().from(profissionais).where(eq(profissionais.id, profissionalId));
       const todos = await lerRegistros(tx, pacienteId, profissionalId);
-      const registro = todos.find((r) => r.id === registroId);
-      if (!registro) throw new ErroNegocio("Registro não encontrado");
+      const registro = todos.find((r) => r.id === registroId && r.tipo !== "adendo");
+      if (!registro || registro.status !== "finalizado") throw new ErroNegocio("Registro não encontrado");
+      // Registro compartilhado sai com o nome e o conselho de quem escreveu, não de quem imprime.
+      const [autor] = await tx.select().from(profissionais).where(eq(profissionais.id, registro.autorId));
       const adendos = todos.filter((r) => r.adendoDe === registroId && r.status === "finalizado");
       await registrarAuditoria(tx, {
         acao: "prontuario.exportado_individual",

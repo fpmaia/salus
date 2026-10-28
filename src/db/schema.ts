@@ -1255,7 +1255,8 @@ export const chavesTenant = pgTable(
   (t) => [uniqueIndex("chaves_tenant_tenant_key").on(t.tenantId)],
 );
 
-export const tipoRegistroClinico = pgEnum("tipo_registro_clinico", ["evolucao", "adendo"]);
+// documento: relatório, laudo, declaração, atestado ou encaminhamento emitido ao paciente.
+export const tipoRegistroClinico = pgEnum("tipo_registro_clinico", ["evolucao", "adendo", "documento"]);
 export const statusRegistroClinico = pgEnum("status_registro_clinico", ["rascunho", "finalizado"]);
 
 // Evolução clínica (ou adendo). Rascunho é editável; finalizado é imutável (trigger) e

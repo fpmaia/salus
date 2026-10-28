@@ -81,7 +81,7 @@
   },
   "30-profissional-inicio": {
     "largura": 1280,
-    "altura": 872
+    "altura": 820
   },
   "31-reservar-sala": {
     "largura": 1280,
@@ -109,7 +109,11 @@
   },
   "37-prontuario-paciente": {
     "largura": 1280,
-    "altura": 2727
+    "altura": 2414
+  },
+  "37b-prontuario-documentos": {
+    "largura": 1280,
+    "altura": 2259
   },
   "38-agenda-online": {
     "largura": 1280,

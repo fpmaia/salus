@@ -26,6 +26,7 @@ export default async function ImprimirRelatorioIndividualPage({
   });
 
   const { paciente, registro, adendos, autor } = dados;
+  const titulo = registro.tipo === "documento" ? registro.conteudo.titulo || "Documento" : "Evolução clínica";
   const hoje = new Date().toLocaleDateString("pt-BR", {
     day: "numeric",
     month: "long",
@@ -38,8 +39,10 @@ export default async function ImprimirRelatorioIndividualPage({
       {/* Botão de Impressão (oculto no papel) */}
       <div className="flex items-center justify-between gap-3 border-b pb-4 print:hidden">
         <div>
-          <span className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Documento Clínico Individual</span>
-          <h1 className="text-lg font-bold">Relatório / Parecer — {paciente.nome}</h1>
+          <span className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Documento clínico</span>
+          <h1 className="text-lg font-bold">
+            {titulo} — {paciente.nome}
+          </h1>
         </div>
         <BotaoImprimir />
       </div>
@@ -75,7 +78,7 @@ export default async function ImprimirRelatorioIndividualPage({
             <span className="text-foreground">{autor.nome} {autor.conselho ? `(${autor.conselho} ${autor.registro ?? ""})` : ""}</span>
           </div>
           <div>
-            <span className="font-semibold text-muted-foreground">Data da Sessão / Registro: </span>
+            <span className="font-semibold text-muted-foreground">{registro.tipo === "documento" ? "Data do documento: " : "Data da sessão / registro: "}</span>
             <span className="text-foreground">{horarioLocal(registro.finalizadoEm ?? registro.criadoEm)}</span>
           </div>
         </div>
@@ -83,6 +86,7 @@ export default async function ImprimirRelatorioIndividualPage({
 
       {/* Conteúdo Principal do Relatório */}
       <article className="flex flex-col gap-6 text-sm leading-relaxed font-serif text-foreground/90 whitespace-pre-wrap px-2">
+        {registro.tipo === "documento" && <h2 className="text-center font-sans text-base font-bold uppercase tracking-wide">{titulo}</h2>}
         {registro.conteudo.anotacoes ? (
           <div>{registro.conteudo.anotacoes}</div>
         ) : (
@@ -127,7 +131,7 @@ export default async function ImprimirRelatorioIndividualPage({
               .join(" · ")}
           </span>
           <span className="text-[10px] text-muted-foreground/80 mt-1 font-mono">
-            Assinatura Digital Eletrônica · SHA-256: {registro.hash?.slice(0, 16)}...
+            Assinatura eletrônica simples · SHA-256: {registro.hash?.slice(0, 16)}...
           </span>
         </div>
 

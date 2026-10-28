@@ -178,12 +178,27 @@ test("evolução no prontuário", async ({ browser, baseURL }) => {
   await gravar(browser, baseURL!, "evolucao-prontuario", "profissional", async (page) => {
     await page.goto(`/painel/prontuario/${d.carla}`);
     await poster(page, "evolucao-prontuario");
-    const editor = page.getByLabel("Evolução / Relatório Clínico").first();
+    const editor = page.getByLabel("Evolução", { exact: true }).first();
     await digitar(page, editor, "Sessão focada em rotina de sono. Paciente refere boa adesão ao registro diário.");
     await clicar(page, page.getByRole("button", { name: "Criar rascunho" }));
     await clicar(page, page.getByRole("button", { name: "Finalizar" }).last());
     await clicar(page, page.getByRole("dialog", { name: "Confirmar ação" }).getByRole("button", { name: "Confirmar" }));
     await expect(page.getByText("Sessão focada em rotina de sono.").first()).toBeVisible();
+  });
+});
+
+test("documento no prontuário", async ({ browser, baseURL }) => {
+  const d = dados();
+  await gravar(browser, baseURL!, "documento-prontuario", "profissional", async (page) => {
+    await page.goto(`/painel/prontuario/${d.carla}?aba=documentos`);
+    await poster(page, "documento-prontuario");
+    await clicar(page, page.getByRole("button", { name: /Declaração de acompanhamento/ }));
+    await page.waitForTimeout(900);
+    await clicar(page, page.getByRole("button", { name: "Criar rascunho" }));
+    await clicar(page, page.getByRole("button", { name: "Finalizar" }).last());
+    await clicar(page, page.getByRole("dialog", { name: "Confirmar ação" }).getByRole("button", { name: "Confirmar" }));
+    await expect(page.getByText("Declaração de acompanhamento ·").first()).toBeVisible();
+    await page.waitForTimeout(900);
   });
 });
 

@@ -20,6 +20,7 @@ import {
   criarAdendo,
   descartarRascunho,
   exportarProntuario,
+  exportarRegistroIndividual,
   finalizarRegistro,
   lerSolicitacao,
   obterProntuario,
@@ -197,6 +198,81 @@ describe("integridade e anexos", () => {
     await migrador.$client.end();
     const { registros } = await obterProntuario(ctx.ana, paciente, { database: db });
     expect(registros.find((r) => r.id === evolucao)?.integro).toBe(false);
+  });
+});
+
+describe("documentos (relatório, laudo, declaração)", () => {
+  let pacienteDoc: string;
+  let documento: string;
+
+  beforeAll(async () => {
+    ({ id: pacienteDoc } = await criarPaciente(ctx.ana, { nome: "Paciente Documentos" }, AGORA, db));
+  });
+
+  it("documento exige título e fica separado das evoluções", async () => {
+    await expect(
+      salvarRascunho(ctx.ana, { pacienteId: pacienteDoc, tipo: "documento", titulo: " ", anotacoes: "texto" }, { database: db }),
+    ).rejects.toThrow("título");
+    ({ id: documento } = await salvarRascunho(
+      ctx.ana,
+      { pacienteId: pacienteDoc, tipo: "documento", titulo: "Relatório clínico", anotacoes: "Paciente em acompanhamento semanal." },
+      { database: db },
+    ));
+    await salvarRascunho(ctx.ana, { pacienteId: pacienteDoc, anotacoes: "Sessão 1" }, { database: db });
+
+    const { registros } = await obterProntuario(ctx.ana, pacienteDoc, { database: db });
+    expect(registros.filter((r) => r.tipo === "documento").map((r) => r.conteudo.titulo)).toEqual(["Relatório clínico"]);
+    expect(registros.filter((r) => r.tipo === "evolucao")).toHaveLength(1);
+  });
+
+  it("o rascunho não muda de tipo ao ser salvo de novo", async () => {
+    await expect(
+      salvarRascunho(ctx.ana, { registroId: documento, pacienteId: pacienteDoc, tipo: "evolucao", anotacoes: "x" }, { database: db }),
+    ).rejects.toThrow("Rascunho não encontrado");
+  });
+
+  it("finalizado fica imutável, com o título no hash, e aceita adendo", async () => {
+    await salvarRascunho(
+      ctx.ana,
+      { registroId: documento, pacienteId: pacienteDoc, tipo: "documento", titulo: "Relatório clínico final", anotacoes: "Paciente em acompanhamento semanal desde março." },
+      { database: db },
+    );
+    await finalizarRegistro(ctx.ana, documento, { agora: AGORA, database: db });
+    const { id: adendo } = await criarAdendo(ctx.ana, documento, { anotacoes: "Complemento: alta prevista em junho.", prescricao: "" }, { database: db });
+    await finalizarRegistro(ctx.ana, adendo, { agora: AGORA, database: db });
+
+    const { registros } = await obterProntuario(ctx.ana, pacienteDoc, { database: db });
+    expect(registros.find((r) => r.id === documento)).toMatchObject({ tipo: "documento", integro: true, conteudo: { titulo: "Relatório clínico final" } });
+    expect(registros.find((r) => r.id === adendo)).toMatchObject({ adendoDe: documento, integro: true });
+    await expect(
+      salvarRascunho(ctx.ana, { registroId: documento, pacienteId: pacienteDoc, tipo: "documento", titulo: "Outro", anotacoes: "x" }, { database: db }),
+    ).rejects.toThrow("use um adendo");
+  });
+
+  it("trocar o título por fora da aplicação quebra a integridade", async () => {
+    const migrador = createDb(TEST_DATABASE_MIGRATOR_URL, { max: 1 });
+    const chave = await withTenant(admin, (tx) => chaveDoTenant(tx), db);
+    const adulterado = cifrarTexto(chave, JSON.stringify({ titulo: "Laudo", anotacoes: "Paciente em acompanhamento semanal desde março.", prescricao: "" }));
+    await migrador.execute(sql`alter table registros_clinicos disable trigger registros_clinicos_protecao`);
+    await migrador.execute(sql`update registros_clinicos set conteudo_cifrado = ${adulterado} where id = ${documento}`);
+    await migrador.execute(sql`alter table registros_clinicos enable trigger registros_clinicos_protecao`);
+    await migrador.$client.end();
+    const { registros } = await obterProntuario(ctx.ana, pacienteDoc, { database: db });
+    expect(registros.find((r) => r.id === documento)?.integro).toBe(false);
+  });
+
+  it("impressão individual: só finalizado, e com o autor do documento mesmo quando compartilhado", async () => {
+    const { id: rascunho } = await salvarRascunho(
+      ctx.ana,
+      { pacienteId: pacienteDoc, tipo: "documento", titulo: "Declaração", anotacoes: "rascunho" },
+      { database: db },
+    );
+    await expect(exportarRegistroIndividual(ctx.ana, pacienteDoc, rascunho, { database: db })).rejects.toThrow("Registro não encontrado");
+
+    await compartilharProntuario(ctx.ana, { pacienteId: pacienteDoc, paraProfissionalId: prof.beto, consentimento: "Termo assinado pelo paciente em 05/03/2030" }, { database: db });
+    const impresso = await exportarRegistroIndividual(ctx.beto, pacienteDoc, documento, { database: db });
+    expect(impresso.autor.nome).toBe("Dra. ana");
+    expect(impresso.registro.tipo).toBe("documento");
   });
 });
 

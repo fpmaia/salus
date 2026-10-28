@@ -139,6 +139,8 @@ test("profissional", async ({ page }) => {
   await foto(page, "36-prontuario-lista");
   await page.goto(`/painel/prontuario/${d.carla}`);
   await foto(page, "37-prontuario-paciente", { inteira: true });
+  await page.goto(`/painel/prontuario/${d.carla}?aba=documentos`);
+  await foto(page, "37b-prontuario-documentos", { inteira: true });
   await page.goto("/painel/agendamento-online");
   await foto(page, "38-agenda-online", { inteira: true });
 

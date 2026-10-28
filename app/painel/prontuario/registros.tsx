@@ -16,13 +16,18 @@ export function SeloIntegridade({ registro }: { registro: RegistroLido }) {
   );
 }
 
+export function rotuloDoRegistro(registro: RegistroLido): string {
+  if (registro.tipo === "documento") return registro.conteudo.titulo || "Documento";
+  return registro.tipo === "adendo" ? "Adendo" : "Evolução";
+}
+
 /** Conteúdo de um registro (usado na tela, na impressão e na solicitação). */
 export function ConteudoRegistro({ registro, comLinks = true }: { registro: RegistroLido; comLinks?: boolean }) {
   return (
     <div className="flex flex-col gap-2 text-sm">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="font-medium">
-          {registro.tipo === "adendo" ? "Adendo" : "Evolução"} · {registro.autorNome}
+          {rotuloDoRegistro(registro)} · {registro.autorNome}
           <span className="block text-xs font-normal text-muted-foreground">
             {registro.finalizadoEm ? `Finalizado em ${horarioLocal(registro.finalizadoEm)}` : `Criado em ${horarioLocal(registro.criadoEm)}`}
           </span>
@@ -58,9 +63,9 @@ export function ConteudoRegistro({ registro, comLinks = true }: { registro: Regi
   );
 }
 
-/** Lista para impressão: evoluções finalizadas com os adendos logo abaixo. */
+/** Lista para impressão: evoluções e documentos finalizados, com os adendos logo abaixo. */
 export function RegistrosParaImpressao({ registros }: { registros: RegistroLido[] }) {
-  const evolucoes = registros.filter((r) => r.tipo === "evolucao");
+  const evolucoes = registros.filter((r) => r.tipo !== "adendo");
   if (registros.length === 0) return <p className="text-sm">Nenhum registro finalizado.</p>;
   return (
     <div className="flex flex-col gap-4">

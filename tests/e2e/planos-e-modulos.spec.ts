@@ -26,7 +26,7 @@ test("admin vê uso e preços do plano, sobe para o Pro e volta ao Básico", asy
   await expect(page.getByRole("status").getByText(/os limites já valem/)).toBeVisible();
 });
 
-test("admin liga os módulos; o profissional ativa o teste do prontuário e registra uma evolução", async ({ page }) => {
+test("admin liga os módulos; o profissional ativa o teste do prontuário, registra uma evolução e emite um documento", async ({ page }) => {
   await entrar(page, "admin");
   await page.goto("/painel/unidades");
   const modulos = page.locator("form", { has: page.getByRole("button", { name: "Salvar módulos" }) });
@@ -43,12 +43,26 @@ test("admin liga os módulos; o profissional ativa o teste do prontuário e regi
   await expect(page.getByRole("link", { name: "Ana Paciente" })).toBeVisible();
 
   await page.getByRole("link", { name: "Ana Paciente" }).click();
-  await expect(page.getByText("Nova evolução ou relatório clínico")).toBeVisible();
-  await page.getByLabel("Evolução / Relatório Clínico").first().fill("Paciente relata melhora do sono.");
+  await expect(page.getByText("Nova evolução")).toBeVisible();
+  await page.getByLabel("Evolução", { exact: true }).fill("Paciente relata melhora do sono.");
   await page.getByRole("button", { name: "Criar rascunho" }).click();
   await page.getByRole("button", { name: "Finalizar" }).click();
   await confirmar(page);
   await expect(page.getByText("Paciente relata melhora do sono.").first()).toBeVisible();
+
+  // Documento: aba própria, modelo pronto, título e impressão individual.
+  await page.getByRole("link", { name: /Documentos/ }).click();
+  await expect(page.getByText("Nenhum documento emitido ainda.")).toBeVisible();
+  await page.getByRole("button", { name: /Atestado de comparecimento/ }).click();
+  await expect(page.getByLabel("Título do documento")).toHaveValue("Atestado de comparecimento");
+  await page.getByRole("button", { name: "Criar rascunho" }).click();
+  await page.getByRole("button", { name: "Finalizar" }).click();
+  await confirmar(page);
+  await expect(page.getByText("Atestado de comparecimento ·")).toBeVisible();
+  await expect(page.getByText("Paciente relata melhora do sono.")).toHaveCount(0);
+
+  const [impressao] = await Promise.all([page.waitForEvent("popup"), page.getByRole("link", { name: /Imprimir documento/ }).click()]);
+  await expect(impressao.getByRole("heading", { name: /Atestado de comparecimento — Ana Paciente/ })).toBeVisible();
 });
 
 test("paciente agenda pela página pública do profissional", async ({ page }) => {

@@ -21,6 +21,8 @@ export async function salvarRascunhoAcao(pacienteId: string, registroId: string 
       registroId,
       pacienteId,
       agendamentoId: textoOuUndefined(formData, "agendamentoId") ?? null,
+      tipo: texto(formData, "tipo") === "documento" ? "documento" : "evolucao",
+      titulo: texto(formData, "titulo"),
       anotacoes: texto(formData, "anotacoes"),
       prescricao: texto(formData, "prescricao"),
     });
