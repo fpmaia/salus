@@ -6,7 +6,7 @@ import { Client } from "pg";
 import { opcoesAuth } from "../../src/auth/config";
 import { createDb } from "../../src/db/client";
 import { aplicarMigrations } from "../../src/db/migrator";
-import { memberships, profissionais, users } from "../../src/db/schema";
+import { memberships, planosSaas, profissionais, users } from "../../src/db/schema";
 import { type ContextoTenant, withSistema, withTenant } from "../../src/db/tenant";
 import { agendarLembretes, processarFila } from "../../src/server/notificacoes";
 import { ConsoleProvider } from "../../src/server/provider";
@@ -28,6 +28,7 @@ import { GatewaySimulado } from "../../src/server/asaas";
 import { ativarLicencaProntuario, gerarFaturaDoMes } from "../../src/server/assinatura";
 import { definirModulos } from "../../src/server/modulos";
 import { finalizarRegistro, salvarRascunho } from "../../src/server/prontuario";
+import { criarConviteClinica } from "../../src/server/convites-clinica";
 
 export const SENHA = "salus-manual-123";
 export const EMAIL = {
@@ -231,6 +232,15 @@ export default async function setup() {
 
     // Superadmin da plataforma.
     await db.update(users).set({ role: "superadmin" }).where(eq(users.id, ids.superadmin));
+    // Convites de teste grátis: um aguardando cadastro (link na página pública) e outro mais antigo.
+    const [{ id: planoPro }] = await db.select({ id: planosSaas.id }).from(planosSaas).where(eq(planosSaas.codigo, "pro"));
+    await criarConviteClinica(ids.superadmin, { email: "contato@espacoharmonia.com.br", planoId: planoPro, diasTeste: 15, observacao: "Feira de saúde" }, new Date(agoraReal.getTime() - 20 * 86_400_000), db);
+    const { link: linkTeste } = await criarConviteClinica(
+      ids.superadmin,
+      { email: "renata@clinicaserena.com.br", planoId: planoPro, diasTeste: 30, observacao: "Indicação da Mariana" },
+      agoraReal,
+      db,
+    );
 
     // Outro espaço, com a fatura vencida há mais de 15 dias: painel só para consulta.
     await criarTenantComAdmin(ids.atraso, { nomeTenant: "Clínica Bem Estar", documento: "45.723.174/0001-10" }, db);
@@ -239,7 +249,7 @@ export default async function setup() {
     await criarUnidade(adminAtraso, { nome: "Unidade Centro" }, db);
     await gerarFaturaDoMes(adminAtraso.tenantId, { agora: new Date(agoraReal.getTime() - 45 * 86_400_000), gateway: new GatewaySimulado(), database: db });
 
-    const dados = { pacienteCheckin, carla: pac.carla, slugHelena, helena, rafael, paciente: pac.ana, hoje, amanha, competenciaAnterior: mesAnterior.slice(0, 7), atendimentoPago, linkPaciente, linkConvite: `/convite/${tokenConvite}`, unidade, c2 };
+    const dados = { pacienteCheckin, carla: pac.carla, slugHelena, helena, rafael, paciente: pac.ana, hoje, amanha, competenciaAnterior: mesAnterior.slice(0, 7), atendimentoPago, linkPaciente, linkConvite: `/convite/${tokenConvite}`, linkTeste, unidade, c2 };
     writeFileSync(path.resolve("tests/manual/.dados.json"), JSON.stringify(dados, null, 2));
   } finally {
     await db.$client.end();

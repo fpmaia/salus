@@ -759,6 +759,7 @@ export const SECOES: Secao[] = [
       <>{b("Planos")}: altere preço, limites e preços de excedente e do prontuário. Vale para as próximas faturas.</>,
       <>{b("Financeiro")}: faturas de todos os espaços, com o que está pago, em aberto e em atraso.</>,
       <>{b("Usuários")} e {b("Auditoria")}: bloquear acesso e ver quem fez cada alteração.</>,
+      <>{b("Convites")}: libere um teste grátis para uma clínica nova (veja a próxima seção).</>,
     ],
     midias: [
       { tipo: "print", nome: "80-plataforma", legenda: "Visão geral da plataforma" },
@@ -768,6 +769,43 @@ export const SECOES: Secao[] = [
     ],
     dicas: [<>A área exige a verificação em duas etapas. Toda ação fica na auditoria da plataforma.</>],
     termos: ["superadmin", "plataforma", "clínicas", "planos", "faturamento"],
+  },
+  {
+    id: "teste-gratis",
+    grupo: "plataforma",
+    titulo: "Teste grátis para uma clínica",
+    resumo: "Convite da equipe Salus que deixa uma clínica nova usar um plano de graça por alguns dias.",
+    perfis: ["plataforma", "admin"],
+    onde: "/plataforma/convites",
+    link: "/plataforma/convites",
+    passos: [
+      <>Em {b("Convites")}, informe o e-mail de quem vai administrar a clínica, o {b("Plano do teste")}, os {b("Dias de teste grátis")} e por quantos dias o link vale.</>,
+      <>Clique em {b("Gerar convite e enviar e-mail")}. O e-mail sai na hora; se não sair, copie o link que aparece na tela e envie você mesmo.</>,
+      <>A pessoa abre o link, cria a conta (ou entra) com aquele e-mail e clica em {b("Cadastrar meu espaço")}.</>,
+      <>O espaço já nasce no plano do convite, com o aviso {b("Teste grátis até…")} no painel e na Assinatura.</>,
+      <>Para estender ou encerrar o teste, abra a clínica em {b("Clínicas")} e altere {b("Teste até")}.</>,
+    ],
+    midias: [
+      { tipo: "print", nome: "85-plataforma-convites", legenda: "Convites de teste grátis enviados e a situação de cada um" },
+      { tipo: "print", nome: "86-teste-gratis-link", legenda: "O que a clínica vê ao abrir o link" },
+    ],
+    conteudo: (
+      <div className="flex flex-col gap-2">
+        <p>{b("Como fica a cobrança")}</p>
+        <ul className="list-disc space-y-1 pl-5">
+          <li>Durante o teste não sai nenhuma fatura do Salus.</li>
+          <li>O mês em que o teste termina também não é cobrado: a primeira fatura é a do mês seguinte, com vencimento no dia 10.</li>
+          <li>Os limites do plano valem desde o primeiro dia; o espaço pode trocar de plano quando quiser.</li>
+          <li>Encerrar o teste pela ficha da clínica volta a cobrança já no mês atual.</li>
+        </ul>
+      </div>
+    ),
+    problemas: [
+      { sintoma: `"Entre com o mesmo e-mail para o qual o convite foi enviado"`, solucao: <>O convite só vale para o e-mail convidado. Saia da conta e entre (ou cadastre-se) com ele, ou gere um convite novo para o outro e-mail.</> },
+      { sintoma: "Sua conta já participa de um espaço", solucao: <>O convite serve para cadastrar um espaço novo. Para dar teste a um espaço que já existe, use {b("Teste até")} na ficha da clínica.</> },
+      { sintoma: "Convite expirado", solucao: <>Gere outro em {b("Convites")}: o novo substitui o anterior do mesmo e-mail.</> },
+    ],
+    termos: ["teste grátis", "trial", "convite", "degustação", "período de teste", "sem cobrança"],
   },
 
   // -------------------------------------------------------------------------

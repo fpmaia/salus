@@ -12,11 +12,17 @@ import {
   ShieldCheck,
   ExternalLink,
 } from "lucide-react";
+import { FormAcao } from "@/components/form-acao";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { exigirUsuario } from "@/src/auth/sessao";
+import { primeiraCompetenciaCobrada } from "@/src/domain/cobranca";
+import { hojeNoFuso } from "@/src/domain/tempo";
 import { formatarMoeda } from "@/src/domain/dinheiro";
 import { obterDetalhesClinicaPlataforma } from "@/src/server/plataforma";
 import { formatarDataBr } from "@/src/server/reservas";
 import { rotuloCompetencia } from "@/app/painel/financeiro/componentes";
+import { definirFimDoTesteAcao } from "@/app/plataforma/convites/actions";
 
 const STATUS_FATURA: Record<string, { bg: string; text: string; label: string }> = {
   paga: { bg: "bg-emerald-500/10 border-emerald-500/20", text: "text-emerald-600 dark:text-emerald-400", label: "Paga" },
@@ -134,6 +140,27 @@ export default async function DetalhesClinicaPlataformaPage({
               <span>Prontuário EHR:</span>
               <strong className="text-foreground">{formatarMoeda(tenant.precoProntuarioCentavos)}/mês</strong>
             </div>
+          </div>
+
+          {/* Teste grátis: estender, encerrar ou liberar */}
+          <div className="space-y-2 border-t pt-3 text-xs">
+            <p className="font-semibold text-foreground">Teste grátis</p>
+            <p className="text-muted-foreground">
+              {tenant.testeAte
+                ? `${tenant.testeAte >= hojeNoFuso("America/Sao_Paulo") ? "Em teste" : "Teste terminou"} em ${formatarDataBr(tenant.testeAte)}. Primeira fatura: ${rotuloCompetencia(primeiraCompetenciaCobrada(tenant.testeAte))}.`
+                : "Sem teste: cobrança mensal normal."}
+            </p>
+            <FormAcao acao={definirFimDoTesteAcao.bind(null, tenant.id)} textoBotao="Salvar teste" variante="outline" className="flex flex-col gap-2">
+              <Label htmlFor="teste-ate" className="text-xs">
+                Teste até
+              </Label>
+              <Input id="teste-ate" name="testeAte" type="date" defaultValue={tenant.testeAte ?? ""} />
+              {tenant.testeAte && (
+                <label className="flex items-center gap-2 text-muted-foreground">
+                  <input type="checkbox" name="encerrar" /> Encerrar o teste (cobra a partir do mês atual)
+                </label>
+              )}
+            </FormAcao>
           </div>
         </div>
 

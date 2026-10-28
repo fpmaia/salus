@@ -440,6 +440,7 @@ export async function obterDetalhesClinicaPlataforma(userId: string, tenantId: s
           documento: tenants.documento,
           status: tenants.status,
           criadoEm: tenants.criadoEm,
+          testeAte: tenants.testeAte,
           planoId: tenants.planoId,
           planoNome: planosSaas.nome,
           planoCodigo: planosSaas.codigo,

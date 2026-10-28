@@ -18,12 +18,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authClient } from "@/src/auth/client";
+import { destinoDoConvite } from "@/src/auth/destino-convite";
 import { loginDemoServerAcao } from "./actions";
-
-// Volta para o convite depois de entrar/cadastrar (só aceita token, nunca URL arbitrária).
-function destinoDoConvite(convite: string | string[] | undefined): string | null {
-  return typeof convite === "string" && /^[\w-]{20,100}$/.test(convite) ? `/convite/${convite}` : null;
-}
 
 export function FormularioEntrar({
   searchParams,
@@ -34,7 +30,8 @@ export function FormularioEntrar({
   demo: boolean;
 }) {
   const parametros = use(searchParams);
-  const destino = destinoDoConvite(parametros.convite);
+  const convite = destinoDoConvite(parametros);
+  const destino = convite?.destino ?? null;
   const router = useRouter();
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
@@ -266,7 +263,7 @@ export function FormularioEntrar({
           <p className="text-center text-xs text-muted-foreground">
             Não tem uma conta cadastrada?{" "}
             <Link
-              href={destino ? `/cadastro?convite=${String(parametros.convite)}` : "/cadastro"}
+              href={destino ? `/cadastro?${convite?.consulta}` : "/cadastro"}
               className="font-medium text-primary underline-offset-4 hover:underline"
             >
               Criar novo espaço

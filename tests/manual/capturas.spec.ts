@@ -175,4 +175,9 @@ test("plataforma (superadmin)", async ({ page }) => {
   await foto(page, "83-plataforma-financeiro", { inteira: true });
   await page.goto("/plataforma/auditoria");
   await foto(page, "84-plataforma-auditoria");
+  await page.goto("/plataforma/convites");
+  await foto(page, "85-plataforma-convites", { inteira: true });
+  await page.context().clearCookies();
+  await page.goto(dados().linkTeste);
+  await foto(page, "86-teste-gratis-link");
 });

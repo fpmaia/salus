@@ -1,17 +1,25 @@
 import { redirect } from "next/navigation";
-import { Building2 } from "lucide-react";
+import { Building2, Gift } from "lucide-react";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { exigirUsuario } from "@/src/auth/sessao";
+import { obterConviteClinicaPublico } from "@/src/server/convites-clinica";
 import { listarMembershipsDoUsuario, usuarioTemEspacoBloqueado } from "@/src/server/memberships";
 import { SalusLogo } from "@/components/brand/salus-logo";
 import { LSCodeBadge } from "@/components/brand/ls-code";
 import { FormularioOnboarding } from "./formulario";
 
-export default async function OnboardingPage() {
+export default async function OnboardingPage({ searchParams }: PageProps<"/onboarding">) {
   const usuario = await exigirUsuario();
   const memberships = await listarMembershipsDoUsuario(usuario.id);
   if (memberships.length > 0) redirect("/painel");
   if (await usuarioTemEspacoBloqueado(usuario.id)) redirect("/conta-suspensa");
+  // Convite trial válido e para este e-mail: o espaço nasce no plano do convite, em teste.
+  const { trial } = await searchParams;
+  const convite = typeof trial === "string" ? await obterConviteClinicaPublico(trial) : null;
+  const teste =
+    convite?.situacao === "pendente" && convite.email.toLowerCase() === usuario.email.toLowerCase() && typeof trial === "string"
+      ? { token: trial, planoNome: convite.planoNome, diasTeste: convite.diasTeste }
+      : null;
 
   return (
     <main className="relative flex min-h-screen flex-1 flex-col items-center justify-center px-4 py-12 selection:bg-primary/20 selection:text-primary">
@@ -36,7 +44,16 @@ export default async function OnboardingPage() {
             </CardDescription>
           </CardHeader>
 
-          <FormularioOnboarding />
+          {teste && (
+            <div className="mx-6 mb-2 flex items-start gap-2 rounded-xl border border-primary/30 bg-primary/5 p-3 text-xs text-foreground">
+              <Gift className="mt-0.5 size-4 shrink-0 text-primary" />
+              <span>
+                <strong>Teste grátis de {teste.diasTeste} dias no plano {teste.planoNome}.</strong> Sem cobrança durante o teste; a
+                primeira fatura só vem no mês seguinte ao fim dele.
+              </span>
+            </div>
+          )}
+          <FormularioOnboarding conviteTrial={teste?.token} />
         </Card>
 
         <LSCodeBadge variant="compact" />

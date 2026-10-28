@@ -88,6 +88,21 @@ export function emailConviteEquipe(para: string, dados: { espaco: string; papel:
   });
 }
 
+export function emailConviteClinica(para: string, dados: { plano: string; dias: number; url: string; expiraEm: Date }): MensagemEmail {
+  return montar({
+    para,
+    assunto: `Seu teste grátis do Salus: ${dados.dias} dias no plano ${dados.plano}`,
+    saudacao: "Olá!",
+    paragrafos: [
+      `A equipe Salus liberou para você ${dados.dias} dias de teste grátis no plano ${dados.plano}, com todos os módulos.`,
+      "Crie a conta (ou entre) com este mesmo e-mail e cadastre o seu espaço pelo link. Durante o teste não há cobrança.",
+      `O convite vale até ${dataBr(dados.expiraEm)}.`,
+    ],
+    botao: { texto: "Começar o teste grátis", url: dados.url },
+    rodape: "Convite enviado pela equipe Salus.",
+  });
+}
+
 /** Alerta operacional para a equipe técnica (sem dado pessoal: só ids e contagens). */
 export function emailAlerta(para: string, dados: { chave: string; mensagem: string; detalhes: Record<string, unknown>; quando: Date }): MensagemEmail {
   const detalhes = JSON.stringify(dados.detalhes, null, 2);

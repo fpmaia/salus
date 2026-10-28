@@ -228,9 +228,39 @@ export const tenants = pgTable("tenants", {
   status: tenantStatus("status").notNull().default("ativo"),
   // Cliente do tenant na conta Asaas da plataforma (cobrança do SaaS).
   asaasCustomerId: text("asaas_customer_id"),
+  // Período de teste grátis (convite da plataforma): sem fatura até o mês em que termina.
+  testeAte: date("teste_ate", { mode: "string" }),
   criadoEm: criadoEm(),
   atualizadoEm: atualizadoEm(),
 });
+
+// Convite da equipe Salus para uma clínica nova testar o sistema de graça. Sem RLS por tenant
+// (é da plataforma): o app só lê e grava pelas funções app_plataforma_* e app_*_convite_clinica.
+export const convitesClinica = pgTable(
+  "convites_clinica",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    email: text("email").notNull(),
+    planoId: uuid("plano_id")
+      .notNull()
+      .references(() => planosSaas.id),
+    diasTeste: integer("dias_teste").notNull(),
+    tokenHash: text("token_hash").notNull(),
+    observacao: text("observacao"),
+    expiraEm: timestamp("expira_em", { withTimezone: true }).notNull(),
+    criadoPor: uuid("criado_por").references(() => users.id, { onDelete: "set null" }),
+    usadoEm: timestamp("usado_em", { withTimezone: true }),
+    usadoPor: uuid("usado_por").references(() => users.id, { onDelete: "set null" }),
+    tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "set null" }),
+    revogadoEm: timestamp("revogado_em", { withTimezone: true }),
+    criadoEm: criadoEm(),
+  },
+  (t) => [
+    uniqueIndex("convites_clinica_token_key").on(t.tokenHash),
+    index("convites_clinica_email_idx").on(t.email),
+    check("convites_clinica_dias_check", sql`${t.diasTeste} between 1 and 365`),
+  ],
+);
 
 export const tenantSettings = pgTable(
   "tenant_settings",

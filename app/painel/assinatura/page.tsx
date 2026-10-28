@@ -46,6 +46,7 @@ export default async function AssinaturaPage({
     profissionaisProntuario,
     projecaoProximoMes,
     situacao,
+    teste,
   } = await obterAssinatura(ctx);
 
   return (
@@ -91,6 +92,20 @@ export default async function AssinaturaPage({
             </div>
           </div>
         </div>
+      )}
+
+      {teste?.ativo && (
+        <Card className="border-primary/40 bg-primary/5">
+          <CardHeader>
+            <CardTitle className="text-base">Teste grátis até {formatarDataBr(teste.ate)}</CardTitle>
+            <CardDescription>
+              Liberado pela equipe Salus no plano {plano?.nome}. Não há cobrança durante o teste, e o mês em que ele termina também não é
+              cobrado: a primeira fatura é a de{" "}
+              {new Date(`${teste.primeiraCompetencia}T12:00:00Z`).toLocaleDateString("pt-BR", { month: "long", year: "numeric", timeZone: "UTC" })}, com
+              vencimento no dia 10. Você pode trocar de plano a qualquer momento.
+            </CardDescription>
+          </CardHeader>
+        </Card>
       )}
 
       {situacao.estado !== "em_dia" && (

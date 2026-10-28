@@ -13,12 +13,13 @@ const estadoInicial: EstadoOnboarding = {
   valores: { nomeTenant: "", documento: "" },
 };
 
-export function FormularioOnboarding() {
+export function FormularioOnboarding({ conviteTrial }: { conviteTrial?: string }) {
   const [estado, acao, pendente] = useActionState(criarEspaco, estadoInicial);
 
   return (
     // defaultValue com os valores devolvidos: o React reseta o form após a action.
     <form action={acao}>
+      {conviteTrial && <input type="hidden" name="conviteTrial" value={conviteTrial} />}
       <CardContent className="flex flex-col gap-4">
         <div className="flex flex-col gap-2">
           <Label htmlFor="nomeTenant">Nome do espaço</Label>

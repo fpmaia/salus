@@ -53,6 +53,22 @@ export function vencimentoPadrao(hoje: DataLocal, dias: number): DataLocal {
   return somarDias(hoje, dias);
 }
 
+// Teste grátis (convite da plataforma): sem fatura enquanto dura, e o mês em que termina
+// também não é cobrado. A cobrança começa na competência seguinte ao fim do teste.
+
+export function emTeste(testeAte: DataLocal | null, hoje: DataLocal): boolean {
+  return testeAte !== null && hoje <= testeAte;
+}
+
+export function primeiraCompetenciaCobrada(testeAte: DataLocal): DataLocal {
+  const [ano, mes] = testeAte.split("-").map(Number);
+  return mes === 12 ? `${ano + 1}-01-01` : `${ano}-${String(mes + 1).padStart(2, "0")}-01`;
+}
+
+export function competenciaCobravel(testeAte: DataLocal | null, competencia: DataLocal): boolean {
+  return testeAte === null || competencia >= primeiraCompetenciaCobrada(testeAte);
+}
+
 /** Vencimento da fatura do SaaS: dia 10 da competência. */
 export function vencimentoDaFaturaSaas(competencia: DataLocal): DataLocal {
   return somarDias(competencia, 9);

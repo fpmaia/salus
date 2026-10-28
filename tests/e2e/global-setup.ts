@@ -6,7 +6,7 @@ import { Client } from "pg";
 import { opcoesAuth } from "../../src/auth/config";
 import { createDb } from "../../src/db/client";
 import { aplicarMigrations } from "../../src/db/migrator";
-import { memberships, profissionais, users } from "../../src/db/schema";
+import { memberships, planosSaas, profissionais, users } from "../../src/db/schema";
 import { type ContextoTenant, withTenant } from "../../src/db/tenant";
 import { hojeNoFuso, somarDias } from "../../src/domain/tempo";
 import { definirProvedorEmail, EmailMemoria } from "../../src/server/email";
@@ -14,13 +14,14 @@ import { registrarAceite } from "../../src/server/aceites";
 import { alterarStatusAgendamento, criarAgendamento } from "../../src/server/agendamentos";
 import { criarAcordo, definirValorAgendamento } from "../../src/server/financeiro";
 import { listarMembershipsDoUsuario } from "../../src/server/memberships";
+import { criarConviteClinica } from "../../src/server/convites-clinica";
 import { criarTenantComAdmin } from "../../src/server/onboarding";
 import { gerarTokenAgendamento } from "../../src/server/links";
 import { criarPaciente } from "../../src/server/pacientes";
 import { criarProfissional, gerarConvite } from "../../src/server/profissionais";
 import { criarReserva } from "../../src/server/reservas";
 import { criarSala, criarUnidade, definirHorarios } from "../../src/server/unidades";
-import { ARQUIVO_DADOS, type DadosE2E, SENHA, usuario } from "./dados";
+import { ARQUIVO_DADOS, type DadosE2E, EMAIL_TRIAL, SENHA, usuario } from "./dados";
 
 // Banco limpo + espaço "Coworking E2E", pelos mesmos serviços do app (papel salus_app, com RLS).
 export default async function setup() {
@@ -141,7 +142,25 @@ export default async function setup() {
     const { token: tokenConvite } = await gerarConvite(admin, convidado, new Date(), db);
     const linkConvite = `/convite/${tokenConvite}`;
 
-    const dados: DadosE2E = { profissionalId, reservaAmanha, amanha, competenciaAnterior: mesAnterior.slice(0, 7), sala1, atendimentoPago, linkPaciente, linkConvite };
+    // Convite trial da plataforma para uma conta já confirmada e ainda sem espaço.
+    const [{ id: superadmin }] = await db.insert(users).values({ name: "Equipe Salus E2E", email: "suporte@e2e.salus.dev", role: "superadmin" }).returning({ id: users.id });
+    const { user: dona } = await auth.api.signUpEmail({ body: { name: "Dona Trial", email: EMAIL_TRIAL, password: SENHA } });
+    await db.update(users).set({ emailVerified: true }).where(eq(users.id, dona.id));
+    await registrarAceite(dona.id, "script", {}, db);
+    const [{ id: planoPro }] = await db.select({ id: planosSaas.id }).from(planosSaas).where(eq(planosSaas.codigo, "pro"));
+    const { link: linkTeste } = await criarConviteClinica(superadmin, { email: EMAIL_TRIAL, planoId: planoPro, diasTeste: 30 }, new Date(), db);
+
+    const dados: DadosE2E = {
+      profissionalId,
+      reservaAmanha,
+      amanha,
+      competenciaAnterior: mesAnterior.slice(0, 7),
+      sala1,
+      atendimentoPago,
+      linkPaciente,
+      linkConvite,
+      linkTeste,
+    };
     writeFileSync(path.resolve(ARQUIVO_DADOS), JSON.stringify(dados, null, 2));
   } finally {
     await db.$client.end();

@@ -177,9 +177,17 @@
   },
   "83-plataforma-financeiro": {
     "largura": 1280,
-    "altura": 1006
+    "altura": 1053
   },
   "84-plataforma-auditoria": {
+    "largura": 1280,
+    "altura": 820
+  },
+  "85-plataforma-convites": {
+    "largura": 1280,
+    "altura": 892
+  },
+  "86-teste-gratis-link": {
     "largura": 1280,
     "altura": 820
   }

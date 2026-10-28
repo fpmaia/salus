@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, Building2, LayoutDashboard, Shield, Users, Activity, Layers, DollarSign } from "lucide-react";
+import { ArrowLeft, Building2, LayoutDashboard, Shield, Users, Activity, Layers, DollarSign, Gift } from "lucide-react";
 import { redirect } from "next/navigation";
 import { precisaConfigurar2FA, ROTA_CONFIGURAR_2FA } from "@/src/auth/dois-fatores";
 import { exigirUsuario } from "@/src/auth/sessao";
@@ -54,6 +54,12 @@ export default async function PlataformaLayout({
               className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted transition-colors"
             >
               <Building2 className="size-3.5 text-muted-foreground" /> Clínicas
+            </Link>
+            <Link
+              href="/plataforma/convites"
+              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted transition-colors"
+            >
+              <Gift className="size-3.5 text-muted-foreground" /> Convites
             </Link>
             <Link
               href="/plataforma/planos"

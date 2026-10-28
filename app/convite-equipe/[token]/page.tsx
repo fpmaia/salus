@@ -74,14 +74,14 @@ export default async function ConviteEquipePage({
                   <>
                     <Button asChild>
                       <Link
-                        href={`/cadastro?convite=${encodeURIComponent(token)}&email=${encodeURIComponent(convite.email)}`}
+                        href={`/cadastro?equipe=${encodeURIComponent(token)}&email=${encodeURIComponent(convite.email)}`}
                       >
                         Criar conta
                       </Link>
                     </Button>
                     <Button variant="outline" asChild>
                       <Link
-                        href={`/entrar?convite=${encodeURIComponent(token)}&email=${encodeURIComponent(convite.email)}`}
+                        href={`/entrar?equipe=${encodeURIComponent(token)}&email=${encodeURIComponent(convite.email)}`}
                       >
                         Já tenho conta
                       </Link>

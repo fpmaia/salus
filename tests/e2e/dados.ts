@@ -8,9 +8,11 @@ export const ARQUIVO_DADOS = "tests/e2e/.dados.json";
 
 export type Papel = "admin" | "recepcao" | "profissional";
 export const usuario = (papel: Papel) => `${papel}@e2e.salus.dev`;
+/** Conta confirmada, sem espaço, com convite trial da plataforma. */
+export const EMAIL_TRIAL = "dona.trial@e2e.salus.dev";
 
 /** Ids criados pelo global-setup. */
-export type DadosE2E = { profissionalId: string; reservaAmanha: string; amanha: string; competenciaAnterior: string; sala1: string; atendimentoPago: string; linkPaciente: string; linkConvite: string };
+export type DadosE2E = { profissionalId: string; reservaAmanha: string; amanha: string; competenciaAnterior: string; sala1: string; atendimentoPago: string; linkPaciente: string; linkConvite: string; linkTeste: string };
 
 export function dados(): DadosE2E {
   return JSON.parse(readFileSync(path.resolve(ARQUIVO_DADOS), "utf-8"));

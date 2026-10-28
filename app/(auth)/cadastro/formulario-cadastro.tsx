@@ -8,13 +8,9 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authClient } from "@/src/auth/client";
+import { destinoDoConvite } from "@/src/auth/destino-convite";
 import { VERSAO_DOCUMENTOS, versaoPorExtenso } from "@/src/legal/documentos";
 import { Turnstile } from "@/components/turnstile";
-
-// Volta para o convite depois de entrar/cadastrar (só aceita token, nunca URL arbitrária).
-function destinoDoConvite(convite: string | string[] | undefined): string | null {
-  return typeof convite === "string" && /^[\w-]{20,100}$/.test(convite) ? `/convite/${convite}` : null;
-}
 
 export function FormularioCadastro({
   searchParams,
@@ -26,7 +22,8 @@ export function FormularioCadastro({
 }) {
   const [captcha, setCaptcha] = useState("");
   const parametros = use(searchParams);
-  const destino = destinoDoConvite(parametros.convite);
+  const convite = destinoDoConvite(parametros);
+  const destino = convite?.destino ?? null;
   const valorInicial = (campo: string) => (typeof parametros[campo] === "string" ? parametros[campo] : undefined);
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
@@ -73,7 +70,7 @@ export function FormularioCadastro({
         </CardContent>
         <CardFooter>
           <Button asChild variant="outline" className="w-full">
-            <Link href={destino ? `/entrar?convite=${String(parametros.convite)}` : "/entrar"}>Ir para o login</Link>
+            <Link href={destino ? `/entrar?${convite?.consulta}` : "/entrar"}>Ir para o login</Link>
           </Button>
         </CardFooter>
       </Card>
@@ -87,7 +84,11 @@ export function FormularioCadastro({
           Criar Nova Conta
         </CardTitle>
         <CardDescription className="text-xs sm:text-sm text-muted-foreground">
-          {destino ? "Cadastre-se para aceitar o convite do seu espaço." : "Cadastre-se para começar a gerenciar sua clínica ou espaço."}
+          {convite?.consulta.startsWith("trial=")
+            ? "Cadastre-se com o e-mail do convite para começar o seu teste grátis."
+            : destino
+              ? "Cadastre-se para aceitar o convite do seu espaço."
+              : "Cadastre-se para começar a gerenciar sua clínica ou espaço."}
         </CardDescription>
       </CardHeader>
 
@@ -178,7 +179,7 @@ export function FormularioCadastro({
           <p className="text-center text-xs text-muted-foreground">
             Já tem uma conta?{" "}
             <Link
-              href={destino ? `/entrar?convite=${String(parametros.convite)}` : "/entrar"}
+              href={destino ? `/entrar?${convite?.consulta}` : "/entrar"}
               className="font-medium text-primary underline-offset-4 hover:underline"
             >
               Fazer login

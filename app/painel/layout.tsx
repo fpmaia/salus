@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AlertCircle, Shield } from "lucide-react";
+import { AlertCircle, Gift, Shield } from "lucide-react";
 import { obterContextoTenant, situacaoDaAssinaturaAtual } from "@/src/auth/sessao";
 import { pode, type Permissao } from "@/src/domain/rbac";
 import { formatarDataBr } from "@/src/server/reservas";
@@ -12,7 +12,7 @@ import { ProvedorAvisos } from "@/components/avisos";
 import { BannerPrimeirosPassos } from "@/components/banner-primeiros-passos";
 import { BannerProntuarioProfissional } from "@/components/banner-prontuario-profissional";
 import { primeirosPassos } from "@/src/server/primeiros-passos";
-import { obterStatusLicencaProntuarioProfissional } from "@/src/server/assinatura";
+import { obterStatusLicencaProntuarioProfissional, periodoDeTesteDoEspaco } from "@/src/server/assinatura";
 import { BotaoAjuda } from "@/components/manual/ajuda-contextual";
 import { BotaoSair } from "./botao-sair";
 import { SeletorClinica } from "@/components/seletor-clinica";
@@ -54,6 +54,8 @@ export default async function PainelLayout({ children }: LayoutProps<"/painel">)
   const situacao = await situacaoDaAssinaturaAtual();
   const pagaAssinatura = pode(ctx.role, "assinatura.ver");
   const superadmin = await ehSuperadmin(ctx.userId);
+  // Teste grátis (convite da plataforma): só quem paga vê até quando vai e quando começa a cobrança.
+  const teste = pagaAssinatura ? await periodoDeTesteDoEspaco(ctx).catch(() => null) : null;
   const etapas = pode(ctx.role, "tenant.configurar") ? await primeirosPassos(ctx).catch(() => []) : [];
   const statusProntuarioProfissional =
     ctx.role === "profissional" && modulos.prontuario
@@ -168,6 +170,19 @@ export default async function PainelLayout({ children }: LayoutProps<"/painel">)
               Pagar a fatura
             </Link>
           )}
+        </div>
+      )}
+
+      {teste?.ativo && (
+        <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 border-b border-primary/20 bg-primary/5 px-4 py-2 text-center text-xs font-medium text-foreground print:hidden">
+          <Gift className="size-4 shrink-0 text-primary" />
+          <span>
+            Teste grátis até {formatarDataBr(teste.ate)}. A primeira fatura do Salus é a de{" "}
+            {new Date(`${teste.primeiraCompetencia}T12:00:00Z`).toLocaleDateString("pt-BR", { month: "long", year: "numeric", timeZone: "UTC" })}.
+          </span>
+          <Link href="/painel/assinatura" className="font-semibold text-primary underline underline-offset-4 hover:opacity-80">
+            Ver plano
+          </Link>
         </div>
       )}
 

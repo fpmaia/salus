@@ -11,8 +11,11 @@ import {
   estadoLicencaProntuario,
   estenderPagamentoProntuario,
   excedeLimite,
+  competenciaCobravel,
+  emTeste,
   licencaFaturavelNoEspaco,
   licencaPermiteEscrita,
+  primeiraCompetenciaCobrada,
   mapearStatusAsaas,
   situacaoDaAssinatura,
   usoAcimaDosLimites,
@@ -172,6 +175,7 @@ export async function obterAssinatura(ctx: ContextoTenant, database?: Database) 
         prontuariosEmTrial,
         prontuariosFaturaveis,
         projecaoProximoMes,
+        teste: await testeNaTransacao(tx),
         situacao: await situacaoNaTransacao(tx),
       };
     },
@@ -195,6 +199,20 @@ async function situacaoNaTransacao(tx: Transaction, agora = new Date()): Promise
 }
 
 /** Situação da assinatura do espaço (aviso no painel e bloqueio das ações). Qualquer papel. */
+export type PeriodoDeTeste = { ate: string; ativo: boolean; primeiraCompetencia: string } | null;
+
+async function testeNaTransacao(tx: Transaction, agora = new Date()): Promise<PeriodoDeTeste> {
+  const [tenant] = await tx.select({ testeAte: tenants.testeAte }).from(tenants);
+  if (!tenant?.testeAte) return null;
+  const hoje = await hojeDoEspaco(tx, agora);
+  return { ate: tenant.testeAte, ativo: emTeste(tenant.testeAte, hoje), primeiraCompetencia: primeiraCompetenciaCobrada(tenant.testeAte) };
+}
+
+/** Teste grátis do espaço (convite da plataforma), para o aviso no painel e na Assinatura. */
+export async function periodoDeTesteDoEspaco(ctx: ContextoTenant, agora = new Date(), database?: Database): Promise<PeriodoDeTeste> {
+  return withTenant(ctx, (tx) => testeNaTransacao(tx, agora), database);
+}
+
 export async function situacaoDaAssinaturaDoEspaco(ctx: ContextoTenant, agora = new Date(), database?: Database) {
   return withTenant(ctx, (tx) => situacaoNaTransacao(tx, agora), database);
 }
@@ -322,6 +340,7 @@ export async function gerarFaturaDoMes(tenantId: string, opcoes: Opcoes = {}) {
       if (!tenant || tenant.status !== "ativo") return null;
       const hoje = await hojeDoEspaco(tx, agora);
       const competencia = competenciaDe(hoje);
+      if (!competenciaCobravel(tenant.testeAte, competencia)) return null; // teste grátis
       // Fatura gerada depois do dia 10 (ex.: primeiro mês) vence em 3 dias, nunca no passado.
       const vencimentoBase = vencimentoDaFaturaSaas(competencia);
       const minimo = somarDias(hoje, 3);

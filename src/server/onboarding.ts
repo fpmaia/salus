@@ -6,11 +6,15 @@ import type { Database } from "../db/client";
 import { memberships, planosSaas, tenantSettings, tenants } from "../db/schema";
 import { withTenant } from "../db/tenant";
 import { analisarDocumento } from "../domain/documentos";
+import { usarConviteClinica } from "./convites-clinica";
+import { ErroNegocio } from "./erros";
 import { listarMembershipsDoUsuario } from "./memberships";
 
 export const dadosOnboardingSchema = z.object({
   nomeTenant: z.string().trim().min(2, "Informe o nome do espaço").max(120),
   documento: z.string().trim().min(1, "Informe o CPF ou CNPJ"),
+  /** Token do convite trial da plataforma: plano do convite e período de teste grátis. */
+  conviteTrial: z.string().optional(),
 });
 
 export class ErroOnboarding extends Error {
@@ -21,7 +25,7 @@ export class ErroOnboarding extends Error {
 }
 
 /**
- * Onboarding mínimo: cria o tenant (plano Básico), suas configurações e a membership
+ * Onboarding mínimo: cria o tenant (plano Básico, ou o do convite trial), suas configurações e a membership
  * de admin do usuário, tudo numa transação dentro do contexto do novo tenant.
  */
 export async function criarTenantComAdmin(
@@ -29,7 +33,7 @@ export async function criarTenantComAdmin(
   dados: z.input<typeof dadosOnboardingSchema>,
   database?: Database,
 ): Promise<{ tenantId: string }> {
-  const { nomeTenant, documento } = dadosOnboardingSchema.parse(dados);
+  const { nomeTenant, documento, conviteTrial } = dadosOnboardingSchema.parse(dados);
   const doc = analisarDocumento(documento);
   if (!doc) throw new ErroOnboarding("CPF ou CNPJ inválido");
 
@@ -56,6 +60,11 @@ export async function criarTenantComAdmin(
       });
       await tx.insert(tenantSettings).values({});
       await tx.insert(memberships).values({ userId, role: "admin" });
+      if (conviteTrial) {
+        await usarConviteClinica(tx, conviteTrial).catch((erro) => {
+          throw erro instanceof ErroNegocio ? new ErroOnboarding(erro.message) : erro;
+        });
+      }
       await registrarAuditoria(tx, {
         acao: "tenant.criado",
         entidade: "tenants",

@@ -21,8 +21,9 @@ export async function criarEspaco(
     documento: String(formData.get("documento") ?? ""),
   };
   if (await usuarioTemEspacoBloqueado(usuario.id)) redirect("/conta-suspensa");
+  const conviteTrial = String(formData.get("conviteTrial") ?? "") || undefined;
   try {
-    await criarTenantComAdmin(usuario.id, valores);
+    await criarTenantComAdmin(usuario.id, { ...valores, conviteTrial });
   } catch (erro) {
     if (erro instanceof ErroOnboarding) return { erro: erro.message, valores };
     if (erro instanceof ZodError) {

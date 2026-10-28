@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   calcularItensFaturaSaas,
+  competenciaCobravel,
+  emTeste,
+  primeiraCompetenciaCobrada,
   estaEmTrialProntuario,
   estadoLicencaProntuario,
   estenderPagamentoProntuario,
@@ -195,5 +198,21 @@ describe("cobrança", () => {
     expect(statusParaExibir("pendente", "2030-04-10", "2030-04-11")).toBe("vencida");
     expect(statusParaExibir("pendente", "2030-04-10", "2030-04-10")).toBe("pendente");
     expect(statusParaExibir("paga", "2030-04-10", "2030-05-01")).toBe("paga");
+  });
+});
+
+describe("teste grátis da clínica (convite da plataforma)", () => {
+  it("vale até o último dia, inclusive", () => {
+    expect(emTeste("2030-04-20", "2030-04-20")).toBe(true);
+    expect(emTeste("2030-04-20", "2030-04-21")).toBe(false);
+    expect(emTeste(null, "2030-04-01")).toBe(false);
+  });
+
+  it("o mês em que o teste termina não é cobrado; a cobrança começa no seguinte", () => {
+    expect(primeiraCompetenciaCobrada("2030-04-20")).toBe("2030-05-01");
+    expect(primeiraCompetenciaCobrada("2030-12-31")).toBe("2031-01-01");
+    expect(competenciaCobravel("2030-04-20", "2030-04-01")).toBe(false);
+    expect(competenciaCobravel("2030-04-20", "2030-05-01")).toBe(true);
+    expect(competenciaCobravel(null, "2030-04-01")).toBe(true);
   });
 });

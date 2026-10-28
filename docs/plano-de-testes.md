@@ -98,6 +98,7 @@ Fonte única dos números públicos: `src/domain/planos.ts` (o teste `planos-lim
 | Suspensa por atraso (dia 16 após o vencimento) | painel só leitura para todos; ações recusam; agenda online some; volta sozinho ao pagar | `assinatura.test`, `agendamento-online.test` |
 | Liberado na suspensão | pagar/trocar plano, aceitar convite de equipe, pagar a própria licença, desligar licença, perfil/senha/2FA, solicitação formal de prontuário | `src/server/acao.ts` (`liberadaNaSuspensao`) |
 | Suspensa pela plataforma (superadmin) | o usuário vê "Acesso ao espaço suspenso" e não cai no cadastro de novo espaço | `plataforma.test` |
+| Em teste grátis (convite da plataforma) | espaço no plano do convite; sem fatura durante o teste nem no mês em que termina; aviso para quem paga; superadmin estende ou encerra | `convite-trial.test`, `cobranca.test`, E2E `teste-gratis.spec` |
 
 ## 4. Módulos opcionais
 
@@ -149,6 +150,9 @@ contra a cobrança atual; reativar não dá segundo teste; o admin pode assumir 
 | 20 | Teste desatualizado (mensagem do limite) derrubava outros 2 em cascata | Asserção atualizada | `assinatura.test` |
 | 21 | Faturamento da plataforma mostrava "Em atraso: R$ 0,00" com espaço já suspenso (pendente vencida contava como "em aberto") | `statusParaExibir` | `cobranca.test` |
 | 22 | O estilo do botão de check-in pintava o formulário inteiro, inclusive a mensagem de erro | Estilo padrão do botão | gravação do manual |
+| 23 | Convidado pela tela Equipe com papel profissional ficava sem cadastro de profissional (sem licença do prontuário, agenda e extrato) | Cadastro criado ou vinculado pelo e-mail no aceite e na troca de papel | `equipe.test` |
+| 24 | Impressão de registro compartilhado saía com o nome de quem imprimia, e rascunho podia ser impresso | Autor do registro; só finalizado | `prontuario.test` |
+| 25 | Quem criava conta pelo convite da Equipe voltava para a página do convite de profissional ("convite inválido") | Retorno ao convite por tipo (`destino-convite.ts`) | E2E `teste-gratis.spec` (mesmo caminho) |
 
 ## 7. Pendências conhecidas (não corrigidas)
 
