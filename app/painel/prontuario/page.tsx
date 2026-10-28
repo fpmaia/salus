@@ -38,6 +38,23 @@ export default async function ProntuarioPage({ searchParams }: PageProps<"/paine
   if (profissional) {
     const statusLicenca = await obterStatusLicencaProntuarioProfissional(ctx);
 
+    // Acesso sem cadastro de profissional (ex.: e-mail já ligado a outro acesso): sem licença possível.
+    if (!statusLicenca.possuiPerfilProfissional) {
+      return (
+        <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-8 sm:px-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Prontuário</CardTitle>
+              <CardDescription>
+                Seu acesso ainda não está ligado a um cadastro de profissional neste espaço, por isso o prontuário não pode ser
+                ativado. Peça ao administrador para conferir seu e-mail em Profissionais e enviar o convite de acesso por lá.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </main>
+      );
+    }
+
     // Sem licença (nunca ativou ou o admin desligou): apresentação e ativação.
     if (statusLicenca.possuiPerfilProfissional && statusLicenca.estado === "inativa") {
       return (

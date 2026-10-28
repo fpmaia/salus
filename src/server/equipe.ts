@@ -260,6 +260,11 @@ export async function alterarPapelMembro(
         .set({ role: novoRole, atualizadoEm: new Date() })
         .where(eq(memberships.id, membershipId));
 
+      // Quem vira profissional ganha o cadastro (agenda, extrato, licença do prontuário).
+      if (novoRole === "profissional") {
+        await tx.execute(sql`select app_garantir_profissional_do_membro(${membershipId})`);
+      }
+
       await registrarAuditoria(tx, {
         acao: "membro.papel_alterado",
         entidade: "memberships",

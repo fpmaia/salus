@@ -16,6 +16,8 @@ import {
 } from "../../src/server/equipe";
 
 import { criarTenantComAdmin } from "../../src/server/onboarding";
+import { obterStatusLicencaProntuarioProfissional } from "../../src/server/assinatura";
+import { criarProfissional } from "../../src/server/profissionais";
 import { criarDbApp, criarUsuario } from "./helpers";
 
 let db: Database;
@@ -127,5 +129,44 @@ describe("gestão de equipe e controle de usuários (por clínica)", () => {
     await reativarMembro(ctxClinica, novoMembro!.membershipId, db);
     membrosAposMudanca = await listarMembrosDaClinica(ctxClinica, db);
     expect(membrosAposMudanca.find((m) => m.userId === novoUserId)?.ativo).toBe(true);
+  });
+
+  it("convite de profissional pela Equipe cria o cadastro e libera a compra do prontuário", async () => {
+    const userId = await criarUsuario(db, "Paula Convidada");
+    const [u] = await db.select().from(users).where(eq(users.id, userId));
+    const { token } = await convidarMembro(ctxClinica, { email: u.email, role: "profissional" }, new Date(), db);
+    await aceitarConviteMembro(userId, token, db);
+
+    const ctxProf: ContextoTenant = { tenantId: ctxClinica.tenantId, userId, role: "profissional" };
+    const status = await obterStatusLicencaProntuarioProfissional(ctxProf, new Date(), db);
+    expect(status.possuiPerfilProfissional).toBe(true);
+    if (!status.possuiPerfilProfissional) return;
+    expect(status.estado).toBe("inativa");
+    expect(status.profissionalNome).toBe("Paula Convidada");
+  });
+
+  it("convite pela Equipe vincula o profissional já cadastrado com o mesmo e-mail", async () => {
+    const userId = await criarUsuario(db, "Otávio Cadastrado");
+    const [u] = await db.select().from(users).where(eq(users.id, userId));
+    const { id: profissionalId } = await criarProfissional(ctxClinica, { nome: "Dr. Otávio", email: u.email.toUpperCase() }, db);
+    const { token } = await convidarMembro(ctxClinica, { email: u.email, role: "profissional" }, new Date(), db);
+    await aceitarConviteMembro(userId, token, db);
+
+    const ctxProf: ContextoTenant = { tenantId: ctxClinica.tenantId, userId, role: "profissional" };
+    const status = await obterStatusLicencaProntuarioProfissional(ctxProf, new Date(), db);
+    expect(status.possuiPerfilProfissional && status.profissionalId).toBe(profissionalId);
+  });
+
+  it("trocar o papel para profissional cria o cadastro", async () => {
+    const userId = await criarUsuario(db, "Rui Recepção");
+    const [u] = await db.select().from(users).where(eq(users.id, userId));
+    const { token } = await convidarMembro(ctxClinica, { email: u.email, role: "recepcao" }, new Date(), db);
+    await aceitarConviteMembro(userId, token, db);
+    const membro = (await listarMembrosDaClinica(ctxClinica, db)).find((m) => m.userId === userId)!;
+
+    await alterarPapelMembro(ctxClinica, membro.membershipId, "profissional", db);
+    const ctxProf: ContextoTenant = { tenantId: ctxClinica.tenantId, userId, role: "profissional" };
+    const status = await obterStatusLicencaProntuarioProfissional(ctxProf, new Date(), db);
+    expect(status.possuiPerfilProfissional).toBe(true);
   });
 });
