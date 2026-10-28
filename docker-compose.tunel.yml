@@ -1,0 +1,9 @@
+# Override para expor o Salus via Cloudflare Tunnel já instalado no Windows (host).
+# O Caddy escuta em 127.0.0.1:8085. No Cloudflare Zero Trust (Rotas do túnel IrisAgenda),
+# aponte o hostname salus.lscode.cloud para: http://localhost:8085
+services:
+  caddy:
+    ports:
+      - "127.0.0.1:8085:80"
+    volumes:
+      - ./docker/caddy/Caddyfile.tunel:/etc/caddy/Caddyfile:ro

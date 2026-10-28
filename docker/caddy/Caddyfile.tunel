@@ -1,0 +1,25 @@
+# Caddy atrás de um Cloudflare Tunnel (docker-compose.tunel.yml): a Cloudflare termina o HTTPS,
+# então aqui é HTTP puro e o IP real do cliente vem do CF-Connecting-IP (o cloudflared é o único
+# que conecta ao Caddy, dentro da rede interna do compose; nada publica as portas 80/443).
+{
+	auto_https off
+}
+
+http://{$DOMINIO} {
+	encode zstd gzip
+
+	reverse_proxy app:3000 {
+		# Única fonte de IP que o app aceita (IP_HEADER=x-real-ip). Sobrescrito aqui.
+		header_up X-Real-IP {header.CF-Connecting-IP}
+		header_up X-Forwarded-Proto https
+
+		health_uri /api/health
+		health_interval 30s
+		health_timeout 5s
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}
