@@ -89,3 +89,36 @@ export async function solicitarProntuarioAcao(_estado: EstadoAcao, formData: For
   }
   redirect(`/painel/prontuario/solicitacao/${id}`);
 }
+
+export async function ativarMeuProntuarioTrialAcao(profissionalId: string) {
+  return executarAcao(async () => {
+    const ctx = await obterContextoTenant();
+    const { ativarLicencaProntuario } = await import("@/src/server/assinatura");
+    await ativarLicencaProntuario(ctx, profissionalId);
+    return "Prontuário ativado: 15 dias grátis na primeira ativação.";
+  });
+}
+
+export async function gerarCobrancaProntuarioAcao(profissionalId?: string) {
+  return executarAcao(async () => {
+    const ctx = await obterContextoTenant();
+    const { gerarCobrancaProntuarioProfissional } = await import("@/src/server/assinatura");
+    const { invoiceUrl } = await gerarCobrancaProntuarioProfissional(ctx, profissionalId);
+    return invoiceUrl
+      ? "Cobrança gerada: pague por Pix ou cartão no link e depois toque em \"Já paguei\"."
+      : "Cobrança gerada.";
+  }, { liberadaNaSuspensao: true });
+}
+
+export async function confirmarPagamentoProntuarioAcao(profissionalId?: string) {
+  return executarAcao(async () => {
+    const ctx = await obterContextoTenant();
+    const { confirmarPagamentoProntuario } = await import("@/src/server/assinatura");
+    const resultado = await confirmarPagamentoProntuario(ctx, profissionalId);
+    if (!resultado.confirmado) {
+      return { erro: resultado.mensagem, sucesso: null };
+    }
+    return resultado.mensagem;
+  }, { liberadaNaSuspensao: true });
+}
+

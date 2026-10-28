@@ -18,7 +18,7 @@ const nextConfig: NextConfig = {
     "127.0.0.1",
     ...(process.env.ALLOWED_DEV_ORIGINS
       ? process.env.ALLOWED_DEV_ORIGINS.split(",").map((s) => s.trim())
-      : ["192.168.0.6"]),
+      : []),
   ],
   turbopack: {
     rules: {

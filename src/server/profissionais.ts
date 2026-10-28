@@ -1,10 +1,11 @@
+import { estadoLicencaProntuario, type EstadoLicencaProntuario, type ResponsavelLicenca } from "../domain/cobranca";
 import { createHash, randomBytes } from "node:crypto";
 import { and, asc, desc, eq, gt, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { registrarAuditoria } from "../db/audit";
 import { getDb, type Database, type Transaction } from "../db/client";
 import { erroPostgres, PG } from "../db/erros";
-import { convitesProfissional, memberships, profissionais } from "../db/schema";
+import { convitesProfissional, licencasProntuario, memberships, profissionais } from "../db/schema";
 import { type ContextoTenant, withTenant, withUser } from "../db/tenant";
 import { analisarDocumento } from "../domain/documentos";
 import { exigirPermissao } from "../domain/rbac";
@@ -166,10 +167,20 @@ export async function listarProfissionais(ctx: ContextoTenant, agora = new Date(
       for (const c of pendentes) {
         if (!convitePorProfissional.has(c.profissionalId)) convitePorProfissional.set(c.profissionalId, c.expiraEm);
       }
+
+      const licencas = await tx.select().from(licencasProntuario);
+      type ResumoLicenca = { ativo: boolean; emTrial: boolean; estado: EstadoLicencaProntuario; responsavel: ResponsavelLicenca | null };
+      const licencaPorProfissional = new Map<string, ResumoLicenca>();
+      for (const l of licencas) {
+        const estado = estadoLicencaProntuario(l, agora);
+        licencaPorProfissional.set(l.profissionalId, { ativo: l.ativo, emTrial: estado === "teste", estado, responsavel: l.responsavel });
+      }
+
       return lista.map((p) => {
         const conviteExpiraEm = convitePorProfissional.get(p.id) ?? null;
         const situacao: SituacaoAcesso = p.membershipId ? "ativo" : conviteExpiraEm ? "convite_pendente" : "sem_acesso";
-        return { ...p, situacao, conviteExpiraEm };
+        const prontuario: ResumoLicenca = licencaPorProfissional.get(p.id) ?? { ativo: false, emTrial: false, estado: "inativa", responsavel: null };
+        return { ...p, situacao, conviteExpiraEm, prontuario };
       });
     },
     database,

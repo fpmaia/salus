@@ -3,15 +3,11 @@
 import { useActionState, useState } from "react";
 import {
   AlertTriangle,
-  Building2,
   CheckCircle2,
   Edit2,
-  Lock,
   PauseCircle,
   PlayCircle,
   Search,
-  Shield,
-  Users,
 } from "lucide-react";
 import type { ClinicaPlataforma } from "@/src/server/plataforma";
 import {
@@ -151,6 +147,12 @@ export function TabelaClinicasPlataforma({ clinicas, planos }: Props) {
 
                 {/* Ações Administrativas */}
                 <div className="flex items-center gap-2 self-end sm:self-center">
+                  <a
+                    href={`/plataforma/clinicas/${c.id}`}
+                    className="inline-flex items-center gap-1 rounded-lg border border-primary/20 bg-primary/5 text-primary hover:bg-primary/10 px-3 py-1.5 text-xs font-semibold transition-colors"
+                  >
+                    Ver Ficha
+                  </a>
                   <button
                     onClick={() => setClinicaParaTrocarPlano(c)}
                     className="inline-flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted transition-colors"

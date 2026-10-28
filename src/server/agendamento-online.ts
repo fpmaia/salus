@@ -14,7 +14,7 @@ import { exigirPermissao, pode } from "../domain/rbac";
 import { partesLocais } from "../domain/tempo";
 import { espacoSuspensoPorAtraso } from "./assinatura";
 import { ErroNegocio } from "./erros";
-import { moduloAtivoNoTenant } from "./modulos";
+import { exigirModulo, moduloAtivoNoTenant } from "./modulos";
 import { linkDoAgendamento } from "./links";
 import { vincularPaciente } from "./pacientes";
 import { profissionalDoUsuario } from "./profissionais";
@@ -85,6 +85,7 @@ export async function configurarAgendamentoOnline(
   return withTenant(
     ctx,
     async (tx) => {
+      await exigirModulo(tx, "agendaOnline");
       const id = await alvoDaConfiguracao(tx, ctx, dados.profissionalId);
       const [atual] = await tx.select().from(profissionais).where(eq(profissionais.id, id));
       if (!atual) throw new ErroNegocio("Profissional não encontrado");

@@ -16,6 +16,7 @@ import { mensagemDeErro } from "@/src/server/erros";
 import { formatarDataBr } from "@/src/server/reservas";
 import { encerrarContratoAcao } from "../actions";
 import { COR_SITUACAO, ROTULO_SITUACAO } from "../situacao";
+import { ModalEditarContrato } from "./modal-editar-contrato";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -60,23 +61,41 @@ export default async function ContratoPage({ params, searchParams }: PageProps<"
             <Link href={`/painel/contratos/${contrato.id}/imprimir`}>Imprimir / PDF</Link>
           </Button>
           {gerencia && aberto && (
-            <Button asChild>
-              <Link href={`/painel/contratos/novo?profissional=${profissional.id}`}>Reajustar (nova versão)</Link>
-            </Button>
+            <>
+              <ModalEditarContrato contrato={contrato} />
+              <Button asChild>
+                <Link href={`/painel/contratos/novo?profissional=${profissional.id}`}>Reajustar (nova versão)</Link>
+              </Button>
+            </>
           )}
         </div>
       </div>
 
       {q.criado && (
-        <p className="rounded-md border border-success/30 bg-success/10 p-3 text-sm">
-          Contrato criado{q.reservas ? `: ${q.reservas} data(s) da grade fixa reservada(s)` : ""}.
-          {conflitos.length > 0 && (
-            <span className="mt-1 block text-warning">
-              Atenção: a sala já estava ocupada em {conflitos.length} data(s) da grade ({conflitos.slice(0, 5).join("; ")}
-              {conflitos.length > 5 ? "…" : ""}). Essas datas não foram reservadas; resolva na agenda.
-            </span>
-          )}
-        </p>
+        <div className="rounded-xl border border-success/40 bg-success/10 p-4 text-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-success">✓ Contrato criado com sucesso{q.reservas ? ` (${q.reservas} data(s) fixas reservadas)` : ""}!</span>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Próximos passos recomendados: envie o convite de acesso ao profissional ou abra a agenda para visualizar os horários.
+            </p>
+            {conflitos.length > 0 && (
+              <span className="mt-2 block text-xs font-medium text-warning">
+                Atenção: a sala já estava ocupada em {conflitos.length} data(s) da grade ({conflitos.slice(0, 5).join("; ")}
+                {conflitos.length > 5 ? "…" : ""}). Essas datas não foram reservadas; ajuste na agenda.
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2 shrink-0 pt-2 sm:pt-0">
+            <Button asChild size="sm" variant="outline">
+              <Link href="/painel/agenda">Ver na Agenda →</Link>
+            </Button>
+            <Button asChild size="sm" className="bg-primary text-primary-foreground font-semibold">
+              <Link href="/painel/profissionais">Convidar Profissional →</Link>
+            </Button>
+          </div>
+        </div>
       )}
 
       <Card>

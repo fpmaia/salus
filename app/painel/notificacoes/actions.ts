@@ -1,6 +1,6 @@
 "use server";
 
-import { obterContextoTenant } from "@/src/auth/sessao";
+import { exigirEspacoEmDia, obterContextoTenant } from "@/src/auth/sessao";
 import { executarAcao } from "@/src/server/acao";
 import { revalidatePath } from "next/cache";
 import { unstable_rethrow } from "next/navigation";
@@ -32,6 +32,7 @@ async function comMensagem<T>(fn: () => Promise<T>): Promise<Resultado<T>> {
 
 export async function conectarWhatsappAcao(aceitoRisco: boolean) {
   return comMensagem(async () => {
+    await exigirEspacoEmDia();
     const ctx = await obterContextoTenant();
     return conectarWhatsapp(ctx, { aceitoRisco });
   });

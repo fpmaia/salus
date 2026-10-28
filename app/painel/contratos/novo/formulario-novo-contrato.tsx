@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { FormAcao } from "@/components/form-acao";
 import { GradeHorariosEditor } from "@/components/grade-horarios-editor";
 import { TermosContratoEditor } from "@/components/termos-contrato-editor";
+import { InputMascara } from "@/components/input-mascara";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
@@ -53,8 +54,20 @@ export function FormularioNovoContrato({
 }) {
   const router = useRouter();
   const v = atual?.valores;
+  const modalidadeInicial =
+    v && v.modelo === "mensalidade"
+      ? v.horasIncluidas !== null
+        ? "pacote"
+        : v.valorConsultaCentavos
+          ? "fixa_consulta"
+          : v.percentualBp
+            ? "fixa_percentual"
+            : "fixa"
+      : "fixa";
+
   const [f, setF] = useState({
     modelo: (v?.modelo === "sala_fixa" ? "mensalidade" : v?.modelo) ?? "hora",
+    modalidadeMensal: modalidadeInicial,
     variante: v && v.modelo === "mensalidade" && v.horasIncluidas !== null ? "pacote" : "turno",
     valorHora: reais(v?.modelo === "hora" ? v.valorHoraCentavos : null),
     valorHoraExtra: reais(v?.modelo === "mensalidade" ? v.valorHoraCentavos : null),
@@ -79,6 +92,14 @@ export function FormularioNovoContrato({
     atual?.grade.map((g) => ({ diaSemana: g.diaSemana, horaInicio: g.horaInicio, horaFim: g.horaFim })) ?? [],
   );
   const muda = (campo: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setF({ ...f, [campo]: e.target.value });
+
+  const mudaModalidadeMensal = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const mod = e.target.value;
+    const variante = mod === "pacote" ? "pacote" : "turno";
+    const porAtendimento = mod === "fixa_consulta" ? "consulta" : mod === "fixa_percentual" ? "percentual" : "nenhuma";
+    setF({ ...f, modalidadeMensal: mod, variante, porAtendimento });
+  };
+
   const profissional = profissionais.find((p) => p.id === profissionalInicial) ?? profissionais[0];
   const comGradeNova = f.gradeAcao === "criar" || f.gradeAcao === "trocar";
   const comGrade = comGradeNova || f.gradeAcao === "manter";
@@ -115,9 +136,88 @@ export function FormularioNovoContrato({
     });
   }, [f, grade, comGrade, comGradeNova, profissional, espaco, salas, atual]);
 
+  const explicacaoHumana = useMemo(() => {
+    const nome = profissional?.nome || "O profissional";
+    const modelo = f.modelo;
+    const mensal = modelo === "mensalidade";
+    const fluxo =
+      f.fluxo === "centralizado"
+        ? "A clínica centraliza os pagamentos dos pacientes e repassa o líquido ao profissional."
+        : "O próprio profissional recebe o valor diretamente do paciente.";
+    const cancelamento =
+      Number(f.prazo) > 0
+        ? `Cancelamentos sem custo com até ${f.prazo}h de antecedência.`
+        : "Sem prazo de cancelamento antecipado.";
+
+    let principal = "";
+    if (modelo === "hora") {
+      principal = `${nome} pagará R$ ${f.valorHora || "0,00"} por hora de sala reservada.`;
+      if (comGrade && grade.length > 0) {
+        principal += ` Com grade fixa reservada toda semana.`;
+      }
+    } else if (modelo === "consulta") {
+      principal = `${nome} pagará R$ ${f.valorConsulta || "0,00"} para a clínica a cada consulta/atendimento realizado.`;
+    } else if (modelo === "percentual") {
+      principal = `A clínica receberá ${f.percentual || "0"}% sobre o valor cobrado de cada atendimento realizado por ${nome}.`;
+    } else if (mensal) {
+      if (f.modalidadeMensal === "fixa") {
+        principal = `${nome} pagará uma mensalidade fixa de R$ ${f.mensalidade || "0,00"} por mês.`;
+        if (f.valorHoraExtra) {
+          principal += ` Horas reservadas fora da grade fixa custarão R$ ${f.valorHoraExtra}/hora.`;
+        }
+      } else if (f.modalidadeMensal === "fixa_percentual") {
+        principal = `${nome} pagará R$ ${f.mensalidade || "0,00"} por mês MAIS ${f.percentualPorAtendimento || "0"}% de taxa sobre cada consulta realizada.`;
+        if (f.valorHoraExtra) {
+          principal += ` Horas avulsas fora da grade: R$ ${f.valorHoraExtra}/h.`;
+        }
+      } else if (f.modalidadeMensal === "fixa_consulta") {
+        principal = `${nome} pagará R$ ${f.mensalidade || "0,00"} por mês MAIS R$ ${f.valorPorAtendimento || "0,00"} por cada consulta realizada.`;
+        if (f.valorHoraExtra) {
+          principal += ` Horas avulsas fora da grade: R$ ${f.valorHoraExtra}/h.`;
+        }
+      } else if (f.modalidadeMensal === "pacote") {
+        principal = `${nome} terá um pacote mensal de R$ ${f.mensalidade || "0,00"} com franquia de ${f.horasIncluidas || "0"} horas incluídas.`;
+        if (f.valorHoraExtra) {
+          principal += ` Horas adicionais excedentes ao pacote: R$ ${f.valorHoraExtra}/hora.`;
+        }
+      }
+    }
+
+    let falta = "";
+    if (f.regraFalta === "isenta") {
+      falta = "Em caso de falta do paciente, o profissional fica isento da taxa do espaço.";
+    } else if (f.regraFalta === "integral") {
+      falta = "Em caso de falta do paciente, a taxa do espaço é cobrada integralmente.";
+    } else if (f.regraFalta === "percentual") {
+      falta = `Em caso de falta do paciente, cobra-se ${f.faltaPercentual || "0"}% do valor do espaço.`;
+    }
+
+    return { principal, fluxo, cancelamento, falta };
+  }, [f, profissional, comGrade, grade]);
+
   return (
     <FormAcao acao={criarContratoAcao} textoBotao={atual ? "Salvar nova versão" : "Criar contrato"} textoPendente="Salvando…" className="flex flex-col gap-6">
-      <section className="grid gap-4 rounded-lg border p-4 sm:grid-cols-3">
+      <input type="hidden" name="varianteMensalidade" value={f.variante} />
+      <input type="hidden" name="cobrancaPorAtendimento" value={f.porAtendimento} />
+      <input type="hidden" name="modelo" value={f.modelo} />
+
+      {/* Caixa de Simulação em Linguagem Humana em Tempo Real */}
+      <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 text-sm shadow-xs transition-all">
+        <div className="flex items-center gap-2 font-semibold text-primary">
+          <span className="flex size-5 items-center justify-center rounded-full bg-primary/20 text-xs font-bold">💡</span>
+          <span>Como este contrato funcionará na prática</span>
+        </div>
+        <p className="mt-2 font-medium text-foreground text-sm sm:text-base leading-relaxed">
+          {explicacaoHumana.principal}
+        </p>
+        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted-foreground border-t border-primary/15 pt-2.5">
+          <span>• {explicacaoHumana.fluxo}</span>
+          <span>• {explicacaoHumana.cancelamento}</span>
+          <span>• {explicacaoHumana.falta}</span>
+        </div>
+      </div>
+
+      <section className="grid gap-4 rounded-xl border p-4 sm:grid-cols-3 bg-card shadow-2xs">
         <Campo id="profissionalId" rotulo="Profissional">
           <NativeSelect
             id="profissionalId"
@@ -140,82 +240,129 @@ export function FormularioNovoContrato({
         </Campo>
       </section>
 
-      <section className="grid gap-4 rounded-lg border p-4 sm:grid-cols-3">
-        <Campo id="modelo" rotulo="Como cobra a sala">
-          <NativeSelect id="modelo" name="modelo" value={f.modelo} onChange={muda("modelo")}>
-            <option value="hora">Por hora reservada</option>
-            <option value="consulta">Valor fixo por consulta</option>
-            <option value="percentual">Percentual do atendimento</option>
-            <option value="mensalidade">Mensalidade (pacote de horas ou turno fixo)</option>
-          </NativeSelect>
-        </Campo>
-        {f.modelo === "hora" && (
-          <Campo id="valorHora" rotulo="Valor da hora (R$)">
-            <Input id="valorHora" name="valorHora" inputMode="decimal" required placeholder="45,00" value={f.valorHora} onChange={muda("valorHora")} />
-          </Campo>
-        )}
-        {f.modelo === "consulta" && (
-          <Campo id="valorConsulta" rotulo="Valor por consulta (R$)">
-            <Input id="valorConsulta" name="valorConsulta" inputMode="decimal" required placeholder="30,00" value={f.valorConsulta} onChange={muda("valorConsulta")} />
-          </Campo>
-        )}
-        {f.modelo === "percentual" && (
-          <Campo id="percentual" rotulo="Percentual (%)" dica="Sobre o valor de cada atendimento realizado.">
-            <Input id="percentual" name="percentual" inputMode="decimal" required placeholder="30" value={f.percentual} onChange={muda("percentual")} />
-          </Campo>
-        )}
-        {f.modelo === "mensalidade" && (
-          <>
-            <Campo id="mensalidade" rotulo="Mensalidade (R$)">
-              <Input id="mensalidade" name="mensalidade" inputMode="decimal" required placeholder="1.800,00" value={f.mensalidade} onChange={muda("mensalidade")} />
+      {/* Seleção Visual de Modelo de Cobrança com Cards */}
+      <section className="flex flex-col gap-3 rounded-xl border p-4 bg-card shadow-2xs">
+        <div>
+          <Label className="text-sm font-semibold">Escolha o Modelo de Cobrança</Label>
+          <p className="text-xs text-muted-foreground">Clique na opção que melhor descreve a relação comercial com este profissional:</p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 pt-1">
+          {[
+            {
+              id: "hora" as const,
+              titulo: "Por Hora Avulsa",
+              desc: "Paga apenas pelo tempo de sala reservado na agenda.",
+              emoji: "🕒",
+            },
+            {
+              id: "consulta" as const,
+              titulo: "Fixo por Consulta",
+              desc: "Paga um valor tabelado a cada atendimento feito.",
+              emoji: "🩺",
+            },
+            {
+              id: "percentual" as const,
+              titulo: "Percentual (%)",
+              desc: "Repassa % sobre o valor cobrado do paciente.",
+              emoji: "📊",
+            },
+            {
+              id: "mensalidade" as const,
+              titulo: "Plano Mensal",
+              desc: "Mensalidade fixa, pacote de horas ou plano misto.",
+              emoji: "🏢",
+            },
+          ].map((m) => {
+            const ativo = f.modelo === m.id;
+            return (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => setF({ ...f, modelo: m.id })}
+                className={`flex flex-col items-start rounded-xl border p-3.5 text-left transition-all ${
+                  ativo
+                    ? "border-primary bg-primary/10 shadow-xs ring-2 ring-primary/30"
+                    : "border-border/70 hover:border-border hover:bg-muted/40"
+                }`}
+              >
+                <div className="flex items-center justify-between w-full">
+                  <span className="text-xl">{m.emoji}</span>
+                  {ativo && <span className="text-[10px] font-bold rounded-full bg-primary text-primary-foreground px-2 py-0.5">Ativo</span>}
+                </div>
+                <span className="mt-2 font-semibold text-sm text-foreground">{m.titulo}</span>
+                <span className="mt-1 text-xs text-muted-foreground leading-snug">{m.desc}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Campos específicos do Modelo Escolhido */}
+        <div className="mt-3 pt-3 border-t grid gap-4 sm:grid-cols-3">
+          {f.modelo === "hora" && (
+            <Campo id="valorHora" rotulo="Valor da hora (R$)" dica="Cobrado a cada hora de sala alugada.">
+              <InputMascara id="valorHora" name="valorHora" mascara="moeda" required placeholder="45,00" value={f.valorHora} onChange={muda("valorHora")} />
             </Campo>
-            <Campo id="varianteMensalidade" rotulo="O que a mensalidade cobre">
-              <NativeSelect id="varianteMensalidade" name="varianteMensalidade" value={f.variante} onChange={muda("variante")}>
-                <option value="turno">Turno fixo / sala dedicada (sem limite de horas)</option>
-                <option value="pacote">Pacote de horas no mês</option>
-              </NativeSelect>
+          )}
+          {f.modelo === "consulta" && (
+            <Campo id="valorConsulta" rotulo="Valor por consulta (R$)" dica="Cobrado a cada consulta atendida.">
+              <InputMascara id="valorConsulta" name="valorConsulta" mascara="moeda" required placeholder="30,00" value={f.valorConsulta} onChange={muda("valorConsulta")} />
             </Campo>
-            {f.variante === "pacote" ? (
-              <>
-                <Campo id="horasIncluidas" rotulo="Horas incluídas no mês">
-                  <Input id="horasIncluidas" name="horasIncluidas" type="number" min={0} required value={f.horasIncluidas} onChange={muda("horasIncluidas")} />
-                </Campo>
-                <Campo id="valorHoraExtra" rotulo="Hora além do pacote (R$)">
-                  <Input id="valorHoraExtra" name="valorHoraExtra" inputMode="decimal" placeholder="40,00" value={f.valorHoraExtra} onChange={muda("valorHoraExtra")} />
-                </Campo>
-              </>
-            ) : (
-              <>
-                <Campo id="valorHoraExtra" rotulo="Hora fora do turno fixo (R$)" dica="Reservas avulsas fora da grade. Vazio: não cobra.">
-                  <Input id="valorHoraExtra" name="valorHoraExtra" inputMode="decimal" placeholder="40,00" value={f.valorHoraExtra} onChange={muda("valorHoraExtra")} />
-                </Campo>
-                <Campo id="cobrancaPorAtendimento" rotulo="Cobrar também por atendimento">
-                  <NativeSelect id="cobrancaPorAtendimento" name="cobrancaPorAtendimento" value={f.porAtendimento} onChange={muda("porAtendimento")}>
-                    <option value="nenhuma">Não</option>
-                    <option value="consulta">Valor fixo por consulta</option>
-                    <option value="percentual">Percentual do atendimento</option>
-                  </NativeSelect>
-                </Campo>
-                {f.porAtendimento === "consulta" && (
-                  <Campo id="valorPorAtendimento" rotulo="Valor por consulta (R$)">
-                    <Input id="valorPorAtendimento" name="valorPorAtendimento" inputMode="decimal" required value={f.valorPorAtendimento} onChange={muda("valorPorAtendimento")} />
+          )}
+          {f.modelo === "percentual" && (
+            <Campo id="percentual" rotulo="Percentual (%)" dica="Sobre o valor de cada atendimento realizado.">
+              <Input id="percentual" name="percentual" inputMode="decimal" required placeholder="30" value={f.percentual} onChange={muda("percentual")} />
+            </Campo>
+          )}
+          {f.modelo === "mensalidade" && (
+            <>
+              <Campo id="modalidadeMensal" rotulo="Tipo do plano mensal">
+                <NativeSelect id="modalidadeMensal" value={f.modalidadeMensal} onChange={mudaModalidadeMensal}>
+                  <option value="fixa">Apenas mensalidade fixa</option>
+                  <option value="fixa_percentual">Mensalidade + Percentual por consulta</option>
+                  <option value="fixa_consulta">Mensalidade + Valor fixo por consulta</option>
+                  <option value="pacote">Mensalidade com pacote de horas</option>
+                </NativeSelect>
+              </Campo>
+
+              <Campo id="mensalidade" rotulo="Valor da mensalidade (R$)">
+                <InputMascara id="mensalidade" name="mensalidade" mascara="moeda" required placeholder="1.800,00" value={f.mensalidade} onChange={muda("mensalidade")} />
+              </Campo>
+
+              {f.modalidadeMensal === "pacote" ? (
+                <>
+                  <Campo id="horasIncluidas" rotulo="Horas incluídas no mês">
+                    <Input id="horasIncluidas" name="horasIncluidas" type="number" min={0} required value={f.horasIncluidas} onChange={muda("horasIncluidas")} />
                   </Campo>
-                )}
-                {f.porAtendimento === "percentual" && (
-                  <Campo id="percentualPorAtendimento" rotulo="Percentual por atendimento (%)">
-                    <Input id="percentualPorAtendimento" name="percentualPorAtendimento" inputMode="decimal" required value={f.percentualPorAtendimento} onChange={muda("percentualPorAtendimento")} />
+                  <Campo id="valorHoraExtra" rotulo="Hora além do pacote (R$)">
+                    <InputMascara id="valorHoraExtra" name="valorHoraExtra" mascara="moeda" placeholder="40,00" value={f.valorHoraExtra} onChange={muda("valorHoraExtra")} />
                   </Campo>
-                )}
-              </>
-            )}
-          </>
-        )}
-        <Campo id="fluxoRecebimento" rotulo="Quem recebe do paciente">
-          <NativeSelect id="fluxoRecebimento" name="fluxoRecebimento" value={f.fluxo} onChange={muda("fluxo")}>
-            <option value="direto">O próprio profissional</option>
-            <option value="centralizado">O espaço (e repassa ao profissional)</option>
-          </NativeSelect>
-        </Campo>
+                </>
+              ) : (
+                <>
+                  {f.modalidadeMensal === "fixa_consulta" && (
+                    <Campo id="valorPorAtendimento" rotulo="Valor por consulta realizada (R$)">
+                      <InputMascara id="valorPorAtendimento" name="valorPorAtendimento" mascara="moeda" required value={f.valorPorAtendimento} onChange={muda("valorPorAtendimento")} />
+                    </Campo>
+                  )}
+                  {f.modalidadeMensal === "fixa_percentual" && (
+                    <Campo id="percentualPorAtendimento" rotulo="Percentual por atendimento (%)">
+                      <Input id="percentualPorAtendimento" name="percentualPorAtendimento" inputMode="decimal" required placeholder="20" value={f.percentualPorAtendimento} onChange={muda("percentualPorAtendimento")} />
+                    </Campo>
+                  )}
+                  <Campo id="valorHoraExtra" rotulo="Hora fora da grade/turno (R$)" dica="Reservas avulsas fora dos horários fixos. Vazio: não cobra hora extra.">
+                    <InputMascara id="valorHoraExtra" name="valorHoraExtra" mascara="moeda" placeholder="40,00" value={f.valorHoraExtra} onChange={muda("valorHoraExtra")} />
+                  </Campo>
+                </>
+              )}
+            </>
+          )}
+          <Campo id="fluxoRecebimento" rotulo="Quem recebe do paciente">
+            <NativeSelect id="fluxoRecebimento" name="fluxoRecebimento" value={f.fluxo} onChange={muda("fluxo")}>
+              <option value="direto">O próprio profissional</option>
+              <option value="centralizado">O espaço (e repassa ao profissional)</option>
+            </NativeSelect>
+          </Campo>
+        </div>
       </section>
 
       <section className="grid gap-4 rounded-lg border p-4 sm:grid-cols-3">

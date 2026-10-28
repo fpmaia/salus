@@ -17,6 +17,7 @@ import { descricaoDaNota, montarDps, pendenciasDaConfiguracao, type ConfigFiscal
 import { exigirPermissao, pode } from "../domain/rbac";
 import { cifrar, decifrar } from "./cripto";
 import { ErroNegocio } from "./erros";
+import { exigirModulo } from "./modulos";
 import { competenciaSchema, TIPOS_RECEITA } from "./financeiro";
 import {
   EmissorFocusNfe,
@@ -136,6 +137,7 @@ export async function salvarConfiguracaoFiscal(
   await withTenant(
     ctx,
     async (tx) => {
+      await exigirModulo(tx, "fiscal");
       const tokenCifrado = token === "-" ? null : token ? cifrar(token) : undefined;
       const conjunto = { ...valores, ...(tokenCifrado === undefined ? {} : { tokenCifrado }) };
       await tx
@@ -330,7 +332,14 @@ export async function emitirNota(
   exigirPermissao(ctx.role, "fiscal.emitir");
   const c = competenciaSchema.parse(competencia);
   const database = opcoes.database ?? getDb();
-  const { id } = await withTenant(ctx, (tx) => prepararNota(tx, profissionalId, c), database);
+  const { id } = await withTenant(
+    ctx,
+    async (tx) => {
+      await exigirModulo(tx, "fiscal");
+      return prepararNota(tx, profissionalId, c);
+    },
+    database,
+  );
   const status = await sincronizarNota(ctx.tenantId, id, opcoes.fabrica ?? emissorDaConfiguracao, opcoes.agora ?? new Date(), database);
   return { id, status };
 }
@@ -419,6 +428,7 @@ export async function cancelarNota(
   const { nota, linha } = await withTenant(
     ctx,
     async (tx) => {
+      await exigirModulo(tx, "fiscal");
       const [n] = await tx.select().from(notasFiscais).where(eq(notasFiscais.id, notaId));
       return { nota: n, linha: (await carregarConfig(tx)).linha };
     },

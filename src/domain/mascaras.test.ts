@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mascaraCep, mascaraCpf, mascaraCpfCnpj, mascaraTelefone, normalizarMoeda } from "./mascaras";
+import { mascaraCep, mascaraCpf, mascaraCpfCnpj, mascaraMoeda, mascaraTelefone, normalizarMoeda } from "./mascaras";
 
 describe("máscaras", () => {
   it("CPF e CNPJ progressivos", () => {
@@ -23,4 +23,13 @@ describe("máscaras", () => {
     expect(normalizarMoeda("45")).toBe("45,00");
     expect(normalizarMoeda("abc")).toBe("abc");
   });
+
+  it("moeda em tempo real", () => {
+    expect(mascaraMoeda("")).toBe("");
+    expect(mascaraMoeda("5")).toBe("0,05");
+    expect(mascaraMoeda("50")).toBe("0,50");
+    expect(mascaraMoeda("5000")).toBe("50,00");
+    expect(mascaraMoeda("180000")).toBe("1.800,00");
+  });
 });
+

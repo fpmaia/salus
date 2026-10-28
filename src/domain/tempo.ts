@@ -122,3 +122,20 @@ export function partesLocais(instante: Date, timezone: string): PartesLocais {
 export function hojeNoFuso(timezone: string, agora: Date = new Date()): DataLocal {
   return partesLocais(agora, timezone).data;
 }
+
+export function formatarDataBr(data: DataLocal): string {
+  const [a, m, d] = data.split("-");
+  return `${d}/${m}/${a}`;
+}
+
+export function horarioLocal(instante: Date, timezone = "America/Sao_Paulo"): string {
+  return instante.toLocaleString("pt-BR", {
+    timeZone: timezone,
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+

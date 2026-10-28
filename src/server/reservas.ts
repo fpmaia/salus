@@ -8,10 +8,19 @@ import { agendamentos, acordosFinanceiros, datasNaoReservadas, pacientes, profis
 import { type ContextoTenant, withTenant } from "../db/tenant";
 import { exigirPermissao, pode } from "../domain/rbac";
 import { datasDaRecorrencia, FREQUENCIAS, limiteDaJanela, semanaDoMesDe } from "../domain/recorrencia";
-import { calcularHorariosVagos, ErroReserva, validarJanela, type ConfigUnidade, type HorarioVago, type JanelaLocal } from "../domain/reservas";
+import {
+  calcularHorariosVagos,
+  ErroReserva,
+  validarJanela,
+  type ConfigUnidade,
+  type JanelaLocal,
+  type ReservaNaAgenda,
+  type AtendimentoNaReserva,
+} from "../domain/reservas";
 import {
   dataValida,
   diaSemana,
+  formatarDataBr,
   hojeNoFuso,
   horaValida,
   instanteLocal,
@@ -524,33 +533,7 @@ export async function concluirReservasPassadas(tx: Transaction, agora = new Date
 // Leitura da agenda
 // ---------------------------------------------------------------------------
 
-export type AtendimentoNaReserva = {
-  id: string;
-  pacienteNome: string;
-  horaInicio: string;
-  horaFim: string;
-  status: string;
-};
-
-export type ReservaNaAgenda = {
-  id: string;
-  salaId: string;
-  data: DataLocal;
-  horaInicio: string;
-  horaFim: string;
-  status: "ativa" | "concluida" | "cancelada";
-  /** null quando o usuário (profissional) não pode ver de quem é a reserva. */
-  profissionalNome: string | null;
-  propria: boolean;
-  recorrenciaId: string | null;
-  ehSalaFixa: boolean;
-  contratoCodigo: string | null;
-  contratoId: string | null;
-  /** Pacientes com agendamento ativo/realizado na reserva (só para quem vê a reserva). */
-  pacientes: number;
-  pacientesNomes: string[];
-  atendimentos: AtendimentoNaReserva[];
-};
+export type { AtendimentoNaReserva, ReservaNaAgenda } from "../domain/reservas";
 
 /** Reservas não canceladas das salas no período; para profissionais, as de terceiros vêm anônimas. */
 async function reservasNoPeriodo(
@@ -659,6 +642,7 @@ async function reservasNoPeriodo(
       horaFim: fimLocal.data === ini.data ? fimLocal.hora : "24:00",
       status: r.status,
       profissionalNome: podeVerDetalhes ? r.profissionalNome : null,
+      profissionalId: podeVerDetalhes ? r.profissionalId : null,
       propria,
       recorrenciaId: podeVerDetalhes ? r.recorrenciaId : null,
       ehSalaFixa: Boolean(r.contratoId),
@@ -844,10 +828,7 @@ export async function listarProfissionaisParaReserva(ctx: ContextoTenant, databa
   );
 }
 
-export function formatarDataBr(data: DataLocal): string {
-  const [a, m, d] = data.split("-");
-  return `${d}/${m}/${a}`;
-}
+export { formatarDataBr } from "../domain/tempo";
 
 export type SalaPanorama = {
   id: string;

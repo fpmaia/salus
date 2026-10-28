@@ -1,4 +1,4 @@
-import { Activity, Shield } from "lucide-react";
+import { Activity } from "lucide-react";
 import { exigirUsuario } from "@/src/auth/sessao";
 import { listarAuditoriaPlataforma } from "@/src/server/plataforma";
 

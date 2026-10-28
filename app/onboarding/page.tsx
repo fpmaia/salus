@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { Building2 } from "lucide-react";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { exigirUsuario } from "@/src/auth/sessao";
-import { listarMembershipsDoUsuario } from "@/src/server/memberships";
+import { listarMembershipsDoUsuario, usuarioTemEspacoBloqueado } from "@/src/server/memberships";
 import { SalusLogo } from "@/components/brand/salus-logo";
 import { LSCodeBadge } from "@/components/brand/ls-code";
 import { FormularioOnboarding } from "./formulario";
@@ -11,6 +11,7 @@ export default async function OnboardingPage() {
   const usuario = await exigirUsuario();
   const memberships = await listarMembershipsDoUsuario(usuario.id);
   if (memberships.length > 0) redirect("/painel");
+  if (await usuarioTemEspacoBloqueado(usuario.id)) redirect("/conta-suspensa");
 
   return (
     <main className="relative flex min-h-screen flex-1 flex-col items-center justify-center px-4 py-12 selection:bg-primary/20 selection:text-primary">

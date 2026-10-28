@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { AlertTriangle, Clock, Sparkles } from "lucide-react";
 import { FormAcao } from "@/components/form-acao";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -7,6 +8,8 @@ import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { exigirModuloNaPagina, exigirPermissaoNaPagina } from "@/src/auth/permissao";
 import { obterContextoTenant } from "@/src/auth/sessao";
+import { AcoesLicencaProntuario } from "@/components/acoes-licenca-prontuario";
+import { obterStatusLicencaProntuarioProfissional } from "@/src/server/assinatura";
 import { ErroNegocio } from "@/src/server/erros";
 import { horarioLocal, obterProntuario, type RegistroLido } from "@/src/server/prontuario";
 import { formatarDataBr } from "@/src/server/reservas";
@@ -20,6 +23,7 @@ import {
 } from "../actions";
 import { AnexoUpload } from "../anexo-upload";
 import { ConteudoRegistro } from "../registros";
+import { EditorRegistroComModelos } from "../editor-registro-com-modelos";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const textarea =
@@ -31,6 +35,7 @@ export default async function ProntuarioPacientePage({ params }: PageProps<"/pai
   await exigirModuloNaPagina(ctx, "prontuario");
   exigirPermissaoNaPagina(ctx.role, "prontuario.proprio");
   if (!UUID.test(pacienteId)) notFound();
+  const statusLicenca = await obterStatusLicencaProntuarioProfissional(ctx);
   const dados = await obterProntuario(ctx, pacienteId).catch((erro) => {
     if (erro instanceof ErroNegocio) notFound();
     throw erro;
@@ -42,6 +47,32 @@ export default async function ProntuarioPacientePage({ params }: PageProps<"/pai
 
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-8 sm:px-6">
+      {statusLicenca.possuiPerfilProfissional && statusLicenca.emTrial && (
+        <div className="flex items-center justify-between gap-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3.5 text-xs font-medium text-emerald-800 dark:text-emerald-300">
+          <div className="flex items-center gap-2">
+            <Sparkles className="size-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            <span>
+              <strong>Degustação Gratuita:</strong> Restam {statusLicenca.diasRestantes} dias de teste grátis do Prontuário Eletrônico
+              {statusLicenca.trialFimEm ? ` (até ${formatarDataBr(statusLicenca.trialFimEm.toISOString().slice(0, 10))})` : ""}.
+            </span>
+          </div>
+          <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-emerald-500/20 px-2 py-0.5 text-[11px] font-bold">
+            <Clock className="size-3" /> Teste Grátis
+          </span>
+        </div>
+      )}
+
+      {statusLicenca.possuiPerfilProfissional && !statusLicenca.podeEscrever && (
+        <div className="flex flex-col gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-xs font-medium text-amber-800 dark:text-amber-300 sm:flex-row sm:items-center sm:justify-between">
+          <span className="flex items-center gap-2">
+            <AlertTriangle className="size-4 shrink-0 text-amber-600" />
+            {statusLicenca.estado === "aguardando_pagamento"
+              ? "O pagamento do seu prontuário venceu. Você pode consultar o histórico, mas novas evoluções, adendos e anexos aguardam o pagamento."
+              : "Seu prontuário eletrônico não está ativo. Você pode consultar o histórico, mas novas evoluções exigem ativar a licença."}
+          </span>
+          <AcoesLicencaProntuario status={statusLicenca} />
+        </div>
+      )}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <Link href="/painel/prontuario" className="text-sm text-muted-foreground hover:underline">
@@ -55,15 +86,19 @@ export default async function ProntuarioPacientePage({ params }: PageProps<"/pai
         </Link>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Nova evolução</CardTitle>
-          <CardDescription>Salva como rascunho; ao finalizar, o registro fica imutável (correções por adendo).</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <FormularioRegistro acao={salvarRascunhoAcao.bind(null, pacienteId, undefined)} atendimentos={atendimentos} />
-        </CardContent>
-      </Card>
+      {(!statusLicenca.possuiPerfilProfissional || statusLicenca.podeEscrever) && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Nova evolução ou relatório clínico</CardTitle>
+            <CardDescription>
+              Anotação livre ou modelos com 1 clique (CFP nº 06/2019, Escolar, Encaminhamento). Salva como rascunho.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <EditorRegistroComModelos acao={salvarRascunhoAcao.bind(null, pacienteId, undefined)} atendimentos={atendimentos} />
+          </CardContent>
+        </Card>
+      )}
 
       {rascunhosDeAdendo.map((r) => (
         <Card key={r.id} className="border-warning/40">
@@ -93,6 +128,16 @@ export default async function ProntuarioPacientePage({ params }: PageProps<"/pai
                         <ConteudoRegistro registro={a} />
                       </div>
                     ))}
+                  <div className="flex items-center justify-between gap-2 pt-2 border-t text-xs">
+                    <span className="text-muted-foreground text-[11px]">Registro com assinatura eletrônica</span>
+                    <Link
+                      href={`/painel/prontuario/${pacienteId}/imprimir/${r.id}`}
+                      target="_blank"
+                      className="inline-flex items-center gap-1 font-semibold text-primary underline-offset-4 hover:underline"
+                    >
+                      📄 Imprimir este Relatório / Laudo →
+                    </Link>
+                  </div>
                   {r.proprio && (
                     <details>
                       <summary className="cursor-pointer text-xs text-muted-foreground">Incluir adendo (correção ou complemento)</summary>
@@ -178,42 +223,6 @@ export default async function ProntuarioPacientePage({ params }: PageProps<"/pai
 
 type Atendimento = { id: string; status: string; inicio: Date };
 
-function FormularioRegistro({
-  acao,
-  atendimentos,
-  registro,
-}: {
-  acao: Parameters<typeof FormAcao>[0]["acao"];
-  atendimentos: Atendimento[];
-  registro?: RegistroLido;
-}) {
-  return (
-    <FormAcao key={registro?.id ?? "novo"} acao={acao} textoBotao={registro ? "Salvar rascunho" : "Criar rascunho"}>
-      {atendimentos.length > 0 && (
-        <div className="flex flex-col gap-2">
-          <Label htmlFor={`at-${registro?.id ?? "novo"}`}>Atendimento</Label>
-          <NativeSelect id={`at-${registro?.id ?? "novo"}`} name="agendamentoId" defaultValue={registro?.agendamentoId ?? atendimentos[0]?.id ?? ""}>
-            <option value="">Sem vínculo com atendimento</option>
-            {atendimentos.map((a) => (
-              <option key={a.id} value={a.id}>
-                {horarioLocal(a.inicio)} · {a.status}
-              </option>
-            ))}
-          </NativeSelect>
-        </div>
-      )}
-      <div className="flex flex-col gap-2">
-        <Label htmlFor={`an-${registro?.id ?? "novo"}`}>Evolução / anotações clínicas</Label>
-        <textarea id={`an-${registro?.id ?? "novo"}`} name="anotacoes" className={textarea} defaultValue={registro?.conteudo.anotacoes} />
-      </div>
-      <div className="flex flex-col gap-2">
-        <Label htmlFor={`pr-${registro?.id ?? "novo"}`}>Prescrição / orientações (texto livre)</Label>
-        <textarea id={`pr-${registro?.id ?? "novo"}`} name="prescricao" className={textarea} defaultValue={registro?.conteudo.prescricao} />
-      </div>
-    </FormAcao>
-  );
-}
-
 function AcoesRascunho({ registro, pacienteId, atendimentos }: { registro: RegistroLido; pacienteId: string; atendimentos: Atendimento[] }) {
   return (
     <div className="flex flex-col gap-3">
@@ -223,7 +232,7 @@ function AcoesRascunho({ registro, pacienteId, atendimentos }: { registro: Regis
       {registro.tipo === "adendo" ? (
         <ConteudoRegistro registro={registro} />
       ) : (
-        <FormularioRegistro acao={salvarRascunhoAcao.bind(null, pacienteId, registro.id)} atendimentos={atendimentos} registro={registro} />
+        <EditorRegistroComModelos acao={salvarRascunhoAcao.bind(null, pacienteId, registro.id)} atendimentos={atendimentos} registro={registro} />
       )}
       {registro.tipo !== "adendo" && registro.anexos.length > 0 && <ConteudoAnexos registro={registro} />}
       <AnexoUpload registroId={registro.id} />

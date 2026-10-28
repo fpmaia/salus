@@ -2,14 +2,10 @@
 
 import { useActionState, useState } from "react";
 import {
-  AlertTriangle,
   Ban,
-  CheckCircle2,
   Search,
   Shield,
-  ShieldAlert,
   UserCheck,
-  Users,
 } from "lucide-react";
 import type { UsuarioPlataforma } from "@/src/server/plataforma";
 import { banirUsuarioPlataformaAcao, desbanirUsuarioPlataformaAcao } from "../actions";

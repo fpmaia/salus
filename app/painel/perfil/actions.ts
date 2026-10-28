@@ -108,10 +108,7 @@ export async function revogarSessaoAcao(
   return { sucesso: true, mensagem: "Sessão encerrada com sucesso." };
 }
 
-export async function revogarOutrasSessoesAcao(
-  _anterior: unknown,
-  _formData: FormData,
-) {
+export async function revogarOutrasSessoesAcao() {
   const ctx = await obterContextoTenant();
   const { obterSessao } = await import("@/src/auth/sessao");
   const sessao = await obterSessao();

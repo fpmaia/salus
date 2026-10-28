@@ -27,6 +27,11 @@ async function ler(tx: Transaction): Promise<ModulosAtivos> {
   return { fiscal: s?.fiscal ?? false, agendaOnline: s?.agendaOnline ?? false, prontuario: s?.prontuario ?? false };
 }
 
+/** Recusa a ação se o módulo estiver desligado (na transação da própria ação). */
+export async function exigirModulo(tx: Transaction, modulo: Modulo): Promise<void> {
+  if (!(await ler(tx))[modulo]) throw new ErroNegocio(`O módulo "${ROTULOS_MODULO[modulo].nome}" está desligado neste espaço`);
+}
+
 export async function modulosDoEspaco(ctx: ContextoTenant, database?: Database): Promise<ModulosAtivos> {
   return withTenant(ctx, ler, database);
 }

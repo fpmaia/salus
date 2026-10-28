@@ -87,3 +87,41 @@ export function validarTransicao(
 export function cancelamentoTardio(inicio: Date, agora: Date, antecedenciaHoras: number): boolean {
   return inicio.getTime() - agora.getTime() < antecedenciaHoras * 3_600_000;
 }
+
+/** Prazo para desfazer uma mudança de status feita por engano. */
+export const DESFAZER_STATUS_HORAS = 24;
+
+/** O status pode ser desfeito agora? (equipe, até 24h depois da mudança). */
+export function podeDesfazerStatus(
+  agendamento: { statusAnterior: StatusAgendamento | null; statusAtualizadoEm: Date },
+  agora = new Date(),
+): boolean {
+  return (
+    agendamento.statusAnterior !== null &&
+    agora.getTime() - agendamento.statusAtualizadoEm.getTime() <= DESFAZER_STATUS_HORAS * 3_600_000
+  );
+}
+
+export type AtendimentoDoDia = {
+  id: string;
+  reservaId: string;
+  horaInicio: string;
+  horaFim: string;
+  inicio: Date;
+  fim: Date;
+  status: StatusAgendamento;
+  statusAnterior: StatusAgendamento | null;
+  statusAtualizadoEm: Date;
+  remarcadoEm: Date | null;
+  cancelamentoTardio: boolean;
+  valorCentavos: number | null;
+  origem: "equipe" | "online";
+  observacao: string | null;
+  pacienteId: string;
+  pacienteNome: string;
+  pacienteTelefone: string | null;
+  profissionalId: string;
+  profissionalNome: string;
+  salaId: string;
+  salaNome: string;
+};

@@ -2,6 +2,7 @@ import { DecisaoReservas } from "@/components/decisao-reservas";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { FormAcao } from "@/components/form-acao";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -177,6 +178,17 @@ export default async function UnidadePage({ params, searchParams }: PageProps<"/
               </FormAcao>
             </div>
           ))}
+          {salas.length > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/20 bg-primary/5 p-3 text-xs">
+              <div>
+                <span className="font-semibold text-foreground">Salas configuradas!</span>
+                <span className="ml-1 text-muted-foreground">Próximo passo recomendado: cadastre os profissionais que irão atender nestas salas.</span>
+              </div>
+              <Button asChild size="sm" className="h-7 text-xs font-semibold">
+                <Link href="/painel/profissionais">Cadastrar Profissionais →</Link>
+              </Button>
+            </div>
+          )}
           <div className="rounded-lg border border-dashed p-3">
             <p className="mb-3 text-sm font-medium">Nova sala</p>
             <FormAcao acao={criarSalaAcao.bind(null, unidade.id)} textoBotao="Criar sala">

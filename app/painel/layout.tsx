@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, BookOpen, Shield } from "lucide-react";
 import { obterContextoTenant, situacaoDaAssinaturaAtual } from "@/src/auth/sessao";
 import { pode, type Permissao } from "@/src/domain/rbac";
 import { formatarDataBr } from "@/src/server/reservas";
@@ -7,14 +7,18 @@ import { SalusLogo } from "@/components/brand/salus-logo";
 import { RodapeLegal } from "@/components/rodape-legal";
 import { PainelNav, PainelNavMobile, type ItemNavegacao } from "@/components/painel-nav";
 import { modulosDoEspaco, type Modulo } from "@/src/server/modulos";
+import { ehSuperadmin } from "@/src/server/plataforma";
 import { ProvedorAvisos } from "@/components/avisos";
+import { BannerPrimeirosPassos } from "@/components/banner-primeiros-passos";
+import { BannerProntuarioProfissional } from "@/components/banner-prontuario-profissional";
+import { primeirosPassos } from "@/src/server/primeiros-passos";
+import { obterStatusLicencaProntuarioProfissional } from "@/src/server/assinatura";
 import { BotaoSair } from "./botao-sair";
 import { SeletorClinica } from "@/components/seletor-clinica";
 
 const NAVEGACAO: (ItemNavegacao & { permissao?: Permissao; modulo?: Modulo })[] = [
   { href: "/painel", rotulo: "Início", grupo: "operacao" },
-  { href: "/painel/atendimentos", rotulo: "Consultas", grupo: "operacao", permissao: "agenda.propria" },
-  { href: "/painel/agenda", rotulo: "Agenda de salas", grupo: "operacao", permissao: "agenda.ver" },
+  { href: "/painel/agenda", rotulo: "Agenda", grupo: "operacao", permissao: "agenda.ver" },
   { href: "/painel/pacientes", rotulo: "Pacientes", grupo: "operacao", permissao: "pacientes.ver" },
   { href: "/painel/espera", rotulo: "Lista de espera", grupo: "operacao", permissao: "agenda.gerenciar" },
   { href: "/painel/prontuario", rotulo: "Prontuário", grupo: "operacao", permissao: "prontuario.menu", modulo: "prontuario" },
@@ -48,6 +52,12 @@ export default async function PainelLayout({ children }: LayoutProps<"/painel">)
   // Atraso: só quem paga vê o aviso. Suspensão: todos (as ações recusam para todos).
   const situacao = await situacaoDaAssinaturaAtual();
   const pagaAssinatura = pode(ctx.role, "assinatura.ver");
+  const superadmin = await ehSuperadmin(ctx.userId);
+  const etapas = pode(ctx.role, "tenant.configurar") ? await primeirosPassos(ctx).catch(() => []) : [];
+  const statusProntuarioProfissional =
+    ctx.role === "profissional" && modulos.prontuario
+      ? await obterStatusLicencaProntuarioProfissional(ctx).catch(() => null)
+      : null;
 
   return (
     <ProvedorAvisos>
@@ -61,12 +71,29 @@ export default async function PainelLayout({ children }: LayoutProps<"/painel">)
             <PainelNavMobile
               itens={itens}
               rodape={
-                <div className="flex items-center justify-between gap-2 px-3">
-                  <span className="min-w-0 text-xs">
-                    <span className="block truncate font-medium">{ctx.usuario.nome}</span>
-                    <span className="block truncate text-muted-foreground">{ctx.usuario.email}</span>
-                  </span>
-                  <BotaoSair />
+                <div className="flex flex-col gap-2 px-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="min-w-0 text-xs">
+                      <span className="block truncate font-medium">{ctx.usuario.nome}</span>
+                      <span className="block truncate text-muted-foreground">{ctx.usuario.email}</span>
+                    </span>
+                    <BotaoSair />
+                  </div>
+                  <div className="flex items-center gap-2 pt-2 border-t border-border/40 text-xs">
+                    {superadmin && (
+                      <Link href="/plataforma" className="font-bold text-primary flex items-center gap-1 hover:underline">
+                        <Shield className="size-3" /> Plataforma
+                      </Link>
+                    )}
+                    <Link
+                      href="/manual"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-muted-foreground flex items-center gap-1 hover:underline ml-auto"
+                    >
+                      <BookOpen className="size-3" /> Manual
+                    </Link>
+                  </div>
                 </div>
               }
             />
@@ -90,6 +117,28 @@ export default async function PainelLayout({ children }: LayoutProps<"/painel">)
 
           {/* Ações do Topo (no celular, ficam no rodapé do menu) */}
           <div className="hidden items-center gap-2 md:flex">
+            {superadmin && (
+              <Link
+                href="/plataforma"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-primary/40 bg-primary/10 px-2.5 py-1.5 text-xs font-bold text-primary hover:bg-primary/20 transition-all mr-1 shadow-2xs"
+                title="Acessar o Painel Central da Plataforma Salus (Superadmin)"
+              >
+                <Shield className="size-3.5" />
+                <span>Plataforma</span>
+              </Link>
+            )}
+
+            <Link
+              href="/manual"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-border/70 bg-card/60 px-2.5 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-muted hover:text-foreground transition-all mr-1 shadow-2xs"
+              title="Abrir Manual de Utilização da plataforma em nova aba"
+            >
+              <BookOpen className="size-3.5 text-primary" />
+              <span>Manual</span>
+            </Link>
+
             <div className="hidden flex-col items-end sm:flex mr-1">
               <span className="text-xs font-medium text-foreground">{ctx.usuario.nome}</span>
               <span className="text-[10px] text-muted-foreground">{ctx.usuario.email}</span>
@@ -103,6 +152,14 @@ export default async function PainelLayout({ children }: LayoutProps<"/painel">)
           <PainelNav itens={itens} />
         </div>
       </header>
+
+      {/* Banner de Primeiros Passos Contextual */}
+      {etapas.length > 0 && <BannerPrimeirosPassos etapas={etapas} />}
+
+      {/* Banner de Prontuário para Profissional Convidado */}
+      {statusProntuarioProfissional?.possuiPerfilProfissional && (
+        <BannerProntuarioProfissional status={statusProntuarioProfissional} />
+      )}
 
       {/* Fatura do Salus em atraso (carência) ou espaço suspenso (só consulta) */}
       {situacao.estado !== "em_dia" && (situacao.estado === "suspensa" || pagaAssinatura) && (
@@ -142,7 +199,17 @@ export default async function PainelLayout({ children }: LayoutProps<"/painel">)
             <span>Salus • Gestão de Saúde</span>
           </div>
 
-          <RodapeLegal className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1" />
+          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
+            <Link
+              href="/manual"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-foreground hover:underline font-medium"
+            >
+              Manual do Usuário
+            </Link>
+            <RodapeLegal className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1" />
+          </div>
         </div>
       </footer>
     </div>

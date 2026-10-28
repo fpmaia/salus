@@ -74,6 +74,11 @@ export const planosSaas = pgTable("planos_saas", {
   nome: text("nome").notNull(),
   precoMensalCentavos: integer("preco_mensal_centavos").notNull(),
   limites: jsonb("limites").$type<Record<string, number>>().notNull().default({}),
+  precoSalaExtraCentavos: integer("preco_sala_extra_centavos").notNull().default(3990),
+  precoProfissionalExtraCentavos: integer("preco_profissional_extra_centavos").notNull().default(1990),
+  precoUnidadeExtraCentavos: integer("preco_unidade_extra_centavos").notNull().default(14900),
+  precoProntuarioCentavos: integer("preco_prontuario_centavos").notNull().default(4990),
+  permiteUnidadeExtra: boolean("permite_unidade_extra").notNull().default(false),
   ativo: boolean("ativo").notNull().default(true),
   criadoEm: criadoEm(),
   atualizadoEm: atualizadoEm(),
@@ -433,6 +438,37 @@ export const profissionais = pgTable(
     uniqueIndex("profissionais_slug_publico_key").on(t.slugPublico),
     check("profissionais_duracao_check", sql`${t.duracaoConsultaMin} between 15 and 480`),
     check("profissionais_janela_check", sql`${t.janelaDias} between 1 and 180 and ${t.antecedenciaMinHoras} between 0 and 168`),
+  ],
+);
+
+// Licença individual do prontuário por profissional (EHR Add-on).
+// Rastreia trial de 15 dias grátis e status de ativação para cobrança mensal.
+export const licencasProntuario = pgTable(
+  "licencas_prontuario",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: tenantIdDoContexto(),
+    profissionalId: uuid("profissional_id").notNull(),
+    ativo: boolean("ativo").notNull().default(false),
+    trialInicioEm: timestamp("trial_inicio_em", { withTimezone: true }),
+    trialFimEm: timestamp("trial_fim_em", { withTimezone: true }),
+    ativadoEm: timestamp("ativado_em", { withTimezone: true }),
+    statusPagamento: text("status_pagamento").notNull().default("nenhum"),
+    asaasPaymentId: text("asaas_payment_id"),
+    invoiceUrl: text("invoice_url"),
+    valorCentavos: integer("valor_centavos").notNull().default(4990),
+    pagoEm: timestamp("pago_em", { withTimezone: true }),
+    // Quem paga depois do teste: "espaco" (entra na fatura mensal do Salus) ou "profissional"
+    // (cobrança própria por PIX/cartão, 30 dias por pagamento, até pagoAte).
+    responsavel: text("responsavel", { enum: ["espaco", "profissional"] }).notNull().default("espaco"),
+    pagoAte: timestamp("pago_ate", { withTimezone: true }),
+    asaasCustomerId: text("asaas_customer_id"),
+    criadoEm: criadoEm(),
+    atualizadoEm: atualizadoEm(),
+  },
+  (t) => [
+    foreignKey({ columns: [t.tenantId, t.profissionalId], foreignColumns: [profissionais.tenantId, profissionais.id] }).onDelete("cascade"),
+    uniqueIndex("licencas_prontuario_profissional_key").on(t.tenantId, t.profissionalId),
   ],
 );
 
@@ -1072,6 +1108,37 @@ export const faturasSaas = pgTable(
     uniqueIndex("faturas_saas_competencia_key").on(t.tenantId, t.competencia),
     uniqueIndex("faturas_saas_asaas_key").on(t.asaasPaymentId),
     check("faturas_saas_valor_check", sql`${t.valorCentavos} > 0`),
+  ],
+);
+
+export const tipoItemFaturaSaas = pgEnum("tipo_item_fatura_saas", [
+  "base",
+  "sala_extra",
+  "profissional_extra",
+  "unidade_extra",
+  "prontuario_licenca",
+]);
+
+// Detalhamento item a item da fatura do SaaS (valor base + overages de salas/profs/unidades + prontuário).
+export const faturasSaasItens = pgTable(
+  "faturas_saas_itens",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: tenantIdDoContexto(),
+    faturaId: uuid("fatura_id")
+      .notNull()
+      .references(() => faturasSaas.id, { onDelete: "cascade" }),
+    tipo: tipoItemFaturaSaas("tipo").notNull(),
+    descricao: text("descricao").notNull(),
+    quantidade: integer("quantidade").notNull().default(1),
+    valorUnitarioCentavos: integer("valor_unitario_centavos").notNull(),
+    valorTotalCentavos: integer("valor_total_centavos").notNull(),
+    criadoEm: criadoEm(),
+  },
+  (t) => [
+    index("faturas_saas_itens_fatura_idx").on(t.faturaId),
+    check("faturas_saas_itens_qtd_check", sql`${t.quantidade} > 0`),
+    check("faturas_saas_itens_valor_check", sql`${t.valorTotalCentavos} >= 0`),
   ],
 );
 

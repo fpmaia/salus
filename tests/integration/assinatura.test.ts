@@ -48,7 +48,7 @@ afterAll(async () => {
 describe("limites do plano", () => {
   it("o Básico permite 1 unidade; o upgrade libera a segunda", async () => {
     const { id: unidade } = await criarUnidade(admin, { nome: "Centro" }, db);
-    await expect(criarUnidade(admin, { nome: "Norte" }, db)).rejects.toThrow("plano Básico permite até 1");
+    await expect(criarUnidade(admin, { nome: "Norte" }, db)).rejects.toThrow("plano Básico permite apenas 1 unidade");
     await trocarPlano(admin, "pro", db);
     await criarUnidade(admin, { nome: "Norte" }, db);
     for (let i = 1; i <= 6; i++) await criarSala(admin, unidade, { nome: `Sala ${i}` }, db);
@@ -56,7 +56,7 @@ describe("limites do plano", () => {
   });
 
   it("downgrade é recusado quando o uso não cabe", async () => {
-    await expect(trocarPlano(admin, "basico", db)).rejects.toThrow(/unidades, salas/);
+    await expect(trocarPlano(admin, "basico", db)).rejects.toThrow(/permite apenas 1 unidade/);
   });
 
   it("reativar profissional conta no limite", async () => {

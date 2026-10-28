@@ -2,7 +2,7 @@
 
 import { use, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { CheckCircle2, KeyRound, Lock } from "lucide-react";
 import { authClient } from "@/src/auth/client";
 import { Button } from "@/components/ui/button";

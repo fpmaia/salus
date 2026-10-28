@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import type { Database } from "../../src/db/client";
-import { memberships, users } from "../../src/db/schema";
+import { users } from "../../src/db/schema";
 import type { ContextoTenant } from "../../src/db/tenant";
 import {
   aceitarConviteMembro,
@@ -14,7 +14,7 @@ import {
   reativarMembro,
   revogarConvite,
 } from "../../src/server/equipe";
-import { ErroNegocio } from "../../src/server/erros";
+
 import { criarTenantComAdmin } from "../../src/server/onboarding";
 import { criarDbApp, criarUsuario } from "./helpers";
 

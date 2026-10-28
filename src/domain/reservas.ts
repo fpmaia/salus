@@ -269,3 +269,33 @@ export function segmentarReserva(
   return segmentos;
 }
 
+export type AtendimentoNaReserva = {
+  id: string;
+  pacienteNome: string;
+  horaInicio: string;
+  horaFim: string;
+  status: string;
+};
+
+export type ReservaNaAgenda = {
+  id: string;
+  salaId: string;
+  data: DataLocal;
+  horaInicio: string;
+  horaFim: string;
+  status: "ativa" | "concluida" | "cancelada";
+  /** null quando o usuário (profissional) não pode ver de quem é a reserva. */
+  profissionalNome: string | null;
+  profissionalId: string | null;
+  propria: boolean;
+  recorrenciaId: string | null;
+  ehSalaFixa: boolean;
+  contratoCodigo: string | null;
+  contratoId: string | null;
+  /** Pacientes com agendamento ativo/realizado na reserva (só para quem vê a reserva). */
+  pacientes: number;
+  pacientesNomes: string[];
+  atendimentos: AtendimentoNaReserva[];
+};
+
+

@@ -21,7 +21,9 @@ import { exigirPermissao } from "../domain/rbac";
 import { partesLocais } from "../domain/tempo";
 import { armazenamentoDoAmbiente, type ArmazenamentoObjetos } from "./armazenamento";
 import { chaveDoTenant, cifrarBytes, cifrarTexto, decifrarBytes, decifrarTexto, sha256 } from "./chave-tenant";
+import { exigirLicencaProntuario } from "./assinatura";
 import { ErroNegocio } from "./erros";
+import { exigirModulo } from "./modulos";
 import { pacienteVisivel, vincularPaciente } from "./pacientes";
 import { profissionalDoUsuario } from "./profissionais";
 
@@ -45,15 +47,26 @@ function traduzir(erro: unknown): never {
 
 /**
  * Executa como o profissional logado (RLS clínica por app.profissional_id). Só profissionais
- * com cadastro ativo usam o prontuário; admin e recepção não leem conteúdo clínico.
+ * com cadastro ativo usam o prontuário; admin e recepção não leem conteúdo clínico. Com o
+ * módulo desligado nada funciona; `escrita` exige ainda a licença válida (teste ou paga).
  */
 async function comoProfissional<T>(
   ctx: ContextoTenant,
   fn: (tx: Transaction, profissionalId: string) => Promise<T>,
   database?: Database,
+  escrita?: { agora?: Date },
 ): Promise<T> {
   exigirPermissao(ctx.role, "prontuario.proprio");
-  const proprio = await withTenant(ctx, (tx) => profissionalDoUsuario(tx, ctx.userId), database);
+  const proprio = await withTenant(
+    ctx,
+    async (tx) => {
+      await exigirModulo(tx, "prontuario");
+      const p = await profissionalDoUsuario(tx, ctx.userId);
+      if (p?.ativo && escrita) await exigirLicencaProntuario(tx, p.id, escrita.agora);
+      return p;
+    },
+    database,
+  );
   if (!proprio?.ativo) throw new ErroNegocio("Seu cadastro de profissional não está ativo");
   return withProntuario(ctx, proprio.id, (tx) => fn(tx, proprio.id), { database });
 }
@@ -121,6 +134,7 @@ export async function salvarRascunho(ctx: ContextoTenant, dados: z.input<typeof 
       return r;
     },
     opcoes.database,
+    { agora: opcoes.agora },
   );
 }
 
@@ -148,6 +162,7 @@ export async function criarAdendo(ctx: ContextoTenant, registroId: string, conte
       return r;
     },
     opcoes.database,
+    { agora: opcoes.agora },
   );
 }
 
@@ -185,6 +200,7 @@ export async function finalizarRegistro(ctx: ContextoTenant, registroId: string,
       return { hash };
     },
     opcoes.database,
+    { agora: opcoes.agora },
   );
 }
 
@@ -244,6 +260,7 @@ export async function anexarArquivo(
       return anexo;
     },
     opcoes.database,
+    { agora: opcoes.agora },
   );
 }
 
@@ -438,6 +455,30 @@ export async function exportarProntuario(ctx: ContextoTenant, pacienteId: string
       const registros = (await lerRegistros(tx, pacienteId, profissionalId)).filter((r) => r.status === "finalizado");
       await registrarAuditoria(tx, { acao: "prontuario.exportado", entidade: "pacientes", entidadeId: pacienteId, dados: { registros: registros.length } });
       return { paciente, registros, solicitacao: null as null | { justificativa: string; profissionalNome: string } };
+    },
+    opcoes.database,
+  );
+}
+
+/** Versão para impressão/PDF de um único relatório ou laudo clínico individual. */
+export async function exportarRegistroIndividual(ctx: ContextoTenant, pacienteId: string, registroId: string, opcoes: Opcoes = {}) {
+  return comoProfissional(
+    ctx,
+    async (tx, profissionalId) => {
+      await exigirPacienteDoProfissional(tx, profissionalId, pacienteId);
+      const [paciente] = await tx.select().from(pacientes).where(eq(pacientes.id, pacienteId));
+      const [autor] = await tx.select().from(profissionais).where(eq(profissionais.id, profissionalId));
+      const todos = await lerRegistros(tx, pacienteId, profissionalId);
+      const registro = todos.find((r) => r.id === registroId);
+      if (!registro) throw new ErroNegocio("Registro não encontrado");
+      const adendos = todos.filter((r) => r.adendoDe === registroId && r.status === "finalizado");
+      await registrarAuditoria(tx, {
+        acao: "prontuario.exportado_individual",
+        entidade: "registros_clinicos",
+        entidadeId: registroId,
+        dados: { pacienteId },
+      });
+      return { paciente, registro, adendos, autor };
     },
     opcoes.database,
   );

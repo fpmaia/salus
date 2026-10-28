@@ -5,7 +5,7 @@ import type { ContextoTenant } from "../db/tenant";
 import { aceiteVigente } from "../server/aceites";
 import { exigirAssinaturaEmDia, situacaoDaAssinaturaDoEspaco } from "../server/assinatura";
 import { precisaConfigurar2FA, ROTA_CONFIGURAR_2FA } from "./dois-fatores";
-import { listarMembershipsDoUsuario } from "../server/memberships";
+import { listarMembershipsDoUsuario, usuarioTemEspacoBloqueado } from "../server/memberships";
 import { getAuth } from "./server";
 
 export const obterSessao = cache(async () => {
@@ -32,11 +32,14 @@ export type ContextoUsuario = ContextoTenant & {
   todasClinicas: Array<{ tenantId: string; tenantNome: string; role: ContextoTenant["role"] }>;
 };
 
-/** Usuário logado + tenant ativo (respeita cookie salus_tenant_id ou usa a primeira). Sem tenant → onboarding. */
+/**
+ * Usuário logado + tenant ativo (respeita cookie salus_tenant_id ou usa a primeira). Sem tenant →
+ * onboarding; com o espaço suspenso pela plataforma → aviso de conta suspensa.
+ */
 export const obterContextoTenant = cache(async (): Promise<ContextoUsuario> => {
   const usuario = await exigirUsuario();
   const memberships = await listarMembershipsDoUsuario(usuario.id);
-  if (memberships.length === 0) redirect("/onboarding");
+  if (memberships.length === 0) redirect((await usuarioTemEspacoBloqueado(usuario.id)) ? "/conta-suspensa" : "/onboarding");
 
   const cookieStore = await cookies();
   const tenantIdCookie = cookieStore.get("salus_tenant_id")?.value;

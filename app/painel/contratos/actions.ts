@@ -1,11 +1,12 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { obterContextoTenant } from "@/src/auth/sessao";
 import { lerMoeda, lerPercentualBp } from "@/src/domain/dinheiro";
 import type { ItemGrade } from "@/src/domain/contratos";
 import { type EstadoAcao, executarAcao, texto, textoOuUndefined } from "@/src/server/acao";
-import { criarContrato, encerrarContrato, type GradeContrato } from "@/src/server/contratos";
+import { criarContrato, editarContrato, encerrarContrato, type GradeContrato } from "@/src/server/contratos";
 import { ErroNegocio } from "@/src/server/erros";
 
 const moeda = (formData: FormData, campo: string) => {
@@ -72,10 +73,36 @@ export async function criarContratoAcao(_estado: EstadoAcao, formData: FormData)
   return resultado;
 }
 
+export async function editarContratoAcao(contratoId: string, _estado: EstadoAcao, formData: FormData): Promise<EstadoAcao> {
+  return executarAcao(async () => {
+    const ctx = await obterContextoTenant();
+    const prazo = textoOuUndefined(formData, "prazoCancelamentoHoras");
+    await editarContrato(ctx, contratoId, {
+      valorHoraCentavos: moeda(formData, "valorHoraCentavos"),
+      valorConsultaCentavos: moeda(formData, "valorConsultaCentavos"),
+      percentualBp: pct(formData, "percentualBp"),
+      mensalidadeCentavos: moeda(formData, "mensalidadeCentavos"),
+      horasIncluidas: textoOuUndefined(formData, "horasIncluidas") ? Number(texto(formData, "horasIncluidas")) : null,
+      regraFalta: (textoOuUndefined(formData, "regraFalta") || "isenta") as "isenta" | "integral" | "percentual",
+      faltaPercentualBp: pct(formData, "faltaPercentualBp"),
+      prazoCancelamentoHoras: prazo ? Number(prazo) : undefined,
+      multaCancelamentoReservaBp: pct(formData, "multaCancelamentoReservaBp"),
+      termos: textoOuUndefined(formData, "termos") ?? null,
+      observacoes: textoOuUndefined(formData, "observacoes") ?? null,
+      vigenteAte: textoOuUndefined(formData, "vigenteAte") ?? null,
+    });
+    revalidatePath("/painel/contratos");
+    revalidatePath(`/painel/contratos/${contratoId}`);
+    return "Contrato atualizado com sucesso";
+  });
+}
+
 export async function encerrarContratoAcao(contratoId: string, _estado: EstadoAcao, formData: FormData): Promise<EstadoAcao> {
   return executarAcao(async () => {
     const ctx = await obterContextoTenant();
     const r = await encerrarContrato(ctx, contratoId, texto(formData, "ultimoDia"));
+    revalidatePath("/painel/contratos");
+    revalidatePath(`/painel/contratos/${contratoId}`);
     return r.reservasComPacientes
       ? `Contrato encerrado. ${r.reservasLiberadas} data(s) da grade liberada(s); ${r.reservasComPacientes} com pacientes continuam até os atendimentos serem resolvidos.`
       : `Contrato encerrado. ${r.reservasLiberadas} data(s) da grade liberada(s).`;

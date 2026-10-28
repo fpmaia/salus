@@ -3,6 +3,7 @@ import { asc, eq } from "drizzle-orm";
 import { exigirPermissaoNaPagina } from "@/src/auth/permissao";
 import { obterContextoTenant } from "@/src/auth/sessao";
 import { hojeNoEspaco } from "@/src/server/fuso";
+import { somarDias } from "@/src/domain/tempo";
 import { profissionais, tenants, tenantSettings } from "@/src/db/schema";
 import { withTenant } from "@/src/db/tenant";
 
@@ -40,6 +41,9 @@ export default async function NovoContratoPage({ searchParams }: PageProps<"/pai
     }
   }
 
+  const hoje = await hojeNoEspaco(ctx);
+  const dataInicial = atual && atual.valores.vigenteDe >= hoje ? somarDias(atual.valores.vigenteDe, 1) : hoje;
+
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-8 sm:px-6">
       <div>
@@ -67,7 +71,7 @@ export default async function NovoContratoPage({ searchParams }: PageProps<"/pai
           profissionalInicial={selecionado ?? lista[0].id}
           atual={atual}
           prazoPadrao={prazoPadrao}
-          hoje={await hojeNoEspaco(ctx)}
+          hoje={dataInicial}
           espaco={{ nome: espaco?.nome ?? ctx.tenantNome, documento: espaco?.documento ?? null }}
         />
       )}

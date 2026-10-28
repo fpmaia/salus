@@ -8,6 +8,8 @@ export const authClient = createAuthClient({
     // Login com 2FA ativo: senha certa leva à tela do código.
     twoFactorClient({
       onTwoFactorRedirect() {
+        // Callback fora de componente (sem useRouter): navegação completa intencional.
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination
         window.location.href = "/entrar/dois-fatores";
       },
     }),

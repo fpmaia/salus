@@ -1,6 +1,6 @@
 "use server";
 
-import { obterContextoTenant } from "@/src/auth/sessao";
+import { exigirEspacoEmDia, obterContextoTenant } from "@/src/auth/sessao";
 import { unstable_rethrow } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { type EstadoAcao, executarAcao, texto, textoOuUndefined } from "@/src/server/acao";
@@ -64,6 +64,7 @@ export async function remarcarArrastandoAcao(
   destino: { data: string; horaInicio: string; horaFim: string; salaId: string },
 ): Promise<{ ok: true; mensagem: string } | { ok: false; erro: string }> {
   try {
+    await exigirEspacoEmDia();
     const ctx = await obterContextoTenant();
     const { reservaCriada } = await remarcarAgendamento(ctx, agendamentoId, destino);
     revalidatePath("/painel", "layout");

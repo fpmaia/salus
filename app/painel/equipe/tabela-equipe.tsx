@@ -5,10 +5,7 @@ import {
   Check,
   Copy,
   Mail,
-  MoreVertical,
   Plus,
-  Shield,
-  ShieldAlert,
   ShieldCheck,
   Trash2,
   UserCheck,
@@ -41,8 +38,8 @@ export function TabelaEquipe({ membros, convites, usuarioAtualId }: Props) {
   const [estadoConvite, acaoConvite, pendenteConvite] = useActionState(convidarMembroAction, null);
   const [estadoAlterar, acaoAlterar, pendenteAlterar] = useActionState(alterarPapelAction, null);
   const [estadoDesativar, acaoDesativar, pendenteDesativar] = useActionState(desativarMembroAction, null);
-  const [estadoReativar, acaoReativar, pendenteReativar] = useActionState(reativarMembroAction, null);
-  const [estadoRevogar, acaoRevogar, pendenteRevogar] = useActionState(revogarConviteAction, null);
+  const [, acaoReativar, pendenteReativar] = useActionState(reativarMembroAction, null);
+  const [, acaoRevogar, pendenteRevogar] = useActionState(revogarConviteAction, null);
 
   const copiarLink = (texto: string, id: string) => {
     const urlCompleta = `${window.location.origin}${texto}`;

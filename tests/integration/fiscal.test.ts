@@ -18,6 +18,7 @@ import {
   type FabricaEmissor,
 } from "../../src/server/fiscal";
 import { ErroComunicacaoFiscal, type EmissorNfse, type SituacaoNota } from "../../src/server/fiscal-provider";
+import { definirModulos } from "../../src/server/modulos";
 import { criarTenantComAdmin } from "../../src/server/onboarding";
 import { atualizarProfissional, criarProfissional } from "../../src/server/profissionais";
 import { concluirReservasPassadas, criarReserva } from "../../src/server/reservas";
@@ -84,6 +85,7 @@ beforeAll(async () => {
   const { tenantId } = await criarTenantComAdmin(adminId, { nomeTenant: "Coworking Fiscal", documento: "11.222.333/0001-81" }, db);
   admin = { tenantId, userId: adminId, role: "admin" };
   recepcao = { tenantId, userId: adminId, role: "recepcao" };
+  await definirModulos(admin, { fiscal: true, agendaOnline: false, prontuario: false }, db);
 
   const { id: unidade } = await criarUnidade(admin, { nome: "Centro" }, db);
   const { id: sala } = await criarSala(admin, unidade, { nome: "Sala 1" }, db);

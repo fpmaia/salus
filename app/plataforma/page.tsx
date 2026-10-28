@@ -1,12 +1,8 @@
 import Link from "next/link";
 import {
-  Activity,
   ArrowRight,
   Building2,
   DollarSign,
-  ShieldAlert,
-  ShieldCheck,
-  TrendingUp,
   UserCheck,
   Users,
 } from "lucide-react";

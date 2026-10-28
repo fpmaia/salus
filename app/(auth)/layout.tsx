@@ -1,4 +1,4 @@
-import Link from "next/link";
+
 import { SalusLogo } from "@/components/brand/salus-logo";
 import { LSCodeBadge } from "@/components/brand/ls-code";
 import { RodapeLegal } from "@/components/rodape-legal";

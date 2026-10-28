@@ -5,6 +5,8 @@ import { createDb, type Database } from "../../src/db/client";
 import { auditLog, memberships, profissionais, registrosClinicos } from "../../src/db/schema";
 import { type ContextoTenant, withProntuario, withTenant } from "../../src/db/tenant";
 import { ArmazenamentoMemoria } from "../../src/server/armazenamento";
+import { ativarLicencaProntuario } from "../../src/server/assinatura";
+import { definirModulos } from "../../src/server/modulos";
 import { chaveDoTenant, cifrarTexto } from "../../src/server/chave-tenant";
 import { ErroNegocio } from "../../src/server/erros";
 import { criarTenantComAdmin } from "../../src/server/onboarding";
@@ -63,8 +65,11 @@ beforeAll(async () => {
   const { tenantId } = await criarTenantComAdmin(adminId, { nomeTenant: "Coworking Clínico", documento: "11.222.333/0001-81" }, db);
   admin = { tenantId, userId: adminId, role: "admin" };
   recepcao = { tenantId, userId: adminId, role: "recepcao" };
+  await definirModulos(admin, { fiscal: false, agendaOnline: false, prontuario: true }, db);
   await vincularUsuario("ana");
   await vincularUsuario("beto");
+  // Licença paga pelo espaço: sempre ativa (as regras da licença estão em licenca-prontuario.test.ts).
+  for (const nome of ["ana", "beto"] as const) await ativarLicencaProntuario(admin, prof[nome], new Date(), db);
   ({ id: paciente } = await criarPaciente(ctx.ana, { nome: "Paciente Sigiloso" }, AGORA, db));
 });
 

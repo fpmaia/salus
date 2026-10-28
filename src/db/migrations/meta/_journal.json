@@ -281,6 +281,27 @@
       "when": 1792633335103,
       "tag": "0039_inadimplencia_saas",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1793111185751,
+      "tag": "0040_aspiring_sumo",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1793130000000,
+      "tag": "0041_licenca_prontuario_pagamento",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1793183334556,
+      "tag": "0042_licenca_responsavel_e_plataforma",
+      "breakpoints": true
     }
   ]
 }

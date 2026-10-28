@@ -38,6 +38,15 @@ export function mascaraCep(v: string): string {
   return aplicar(digitos(v, 8), "00000-000");
 }
 
+/** Ao digitar: formata dígitos como moeda brasileira em tempo real ("15000" → "150,00"). */
+export function mascaraMoeda(v: string): string {
+  const d = v.replace(/\D/g, "");
+  if (!d) return "";
+  const num = parseInt(d, 10);
+  if (isNaN(num)) return "";
+  return (num / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 /** Ao sair do campo: "1234.5" / "1.234,5" → "1.234,50". Texto inválido fica como está (o servidor avisa). */
 export function normalizarMoeda(v: string): string {
   const centavos = lerMoeda(v);
@@ -45,5 +54,5 @@ export function normalizarMoeda(v: string): string {
   return (centavos / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-export const MASCARAS = { cpf: mascaraCpf, cpfCnpj: mascaraCpfCnpj, telefone: mascaraTelefone, cep: mascaraCep } as const;
-export type TipoMascara = keyof typeof MASCARAS | "moeda";
+export const MASCARAS = { cpf: mascaraCpf, cpfCnpj: mascaraCpfCnpj, telefone: mascaraTelefone, cep: mascaraCep, moeda: mascaraMoeda } as const;
+export type TipoMascara = keyof typeof MASCARAS;

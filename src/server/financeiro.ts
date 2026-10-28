@@ -117,7 +117,14 @@ export async function inserirVersaoDoContrato(
 ): Promise<{ id: string; codigo: string; anteriorId: string | null }> {
   await tx.execute(sql`select pg_advisory_xact_lock(hashtext('contratos:' || app_current_tenant_id()::text))`);
   const anteriores = await carregarAcordos(tx, a.profissionalId);
-  const aberto = anteriores.find((x) => x.vigenteAte === null && x.vigenteDe < a.vigenteDe);
+  // A versão anterior (em aberto, ou com término dentro do período novo) é cortada na véspera
+  // só se a nova cobre até o fim dela; senão sobraria uma lacuna sem contrato, e o banco recusa.
+  const aberto = anteriores.find(
+    (x) =>
+      x.vigenteDe < a.vigenteDe &&
+      (x.vigenteAte === null || x.vigenteAte >= a.vigenteDe) &&
+      (a.vigenteAte === null || (x.vigenteAte !== null && a.vigenteAte >= x.vigenteAte)),
+  );
   if (aberto) {
     await tx.update(acordosFinanceiros).set({ vigenteAte: somarDias(a.vigenteDe, -1) }).where(eq(acordosFinanceiros.id, aberto.id));
   }

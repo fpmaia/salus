@@ -5,8 +5,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { cn } from "cn";
-import { ROTULOS_STATUS, transicoesPossiveis, type StatusAgendamento } from "@/src/domain/agendamentos";
-import { podeDesfazerStatus, type AtendimentoDoDia } from "@/src/server/agendamentos";
+import {
+  ROTULOS_STATUS,
+  transicoesPossiveis,
+  podeDesfazerStatus,
+  type StatusAgendamento,
+  type AtendimentoDoDia,
+} from "@/src/domain/agendamentos";
 import { formatarMoeda } from "@/src/domain/dinheiro";
 import { definirValorAcao } from "../financeiro/actions";
 import { alterarStatusAcao, criarAgendamentoAcao, desfazerStatusAcao, remarcarAcao } from "./actions";

@@ -1,7 +1,22 @@
-import { desc, eq, sql } from "drizzle-orm";
+import { asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { z } from "zod";
 import { getDb, type Database } from "../db/client";
-import { auditPlataforma, planosSaas, users } from "../db/schema";
-import { withUser } from "../db/tenant";
+import {
+  auditPlataforma,
+  faturasSaas,
+  faturasSaasItens,
+  licencasProntuario,
+  memberships,
+  planosSaas,
+  profissionais,
+  salas,
+  tenants,
+  unidades,
+  users,
+} from "../db/schema";
+import { erroPostgres } from "../db/erros";
+import { withSistema, withUser } from "../db/tenant";
+import { estadoLicencaProntuario } from "../domain/cobranca";
 import { ErroNegocio } from "./erros";
 
 export type MetricasPlataforma = {
@@ -272,4 +287,227 @@ export async function listarAuditoriaPlataforma(
     .leftJoin(users, eq(users.id, auditPlataforma.userId))
     .orderBy(desc(auditPlataforma.criadoEm))
     .limit(limite);
+}
+
+export async function listarPlanosCompletosPlataforma(userId: string, database: Database = getDb()) {
+  await exigirSuperadmin(userId, database);
+  return database.select().from(planosSaas).orderBy(asc(planosSaas.precoMensalCentavos));
+}
+
+const centavosPlano = (rotulo: string) => z.number({ error: `Valor inválido em "${rotulo}"` }).int().min(0, `"${rotulo}" não pode ser negativo`).max(100_000_000);
+const limitePlano = (rotulo: string) => z.number({ error: `Limite inválido em "${rotulo}"` }).int().min(1, `O plano precisa de ao menos 1 em "${rotulo}"`).max(100_000);
+
+export const configuracaoPlanoSchema = z
+  .object({
+    nome: z.string().trim().min(2, "Informe o nome do plano").max(60),
+    precoMensalCentavos: centavosPlano("Mensalidade"),
+    precoSalaExtraCentavos: centavosPlano("Sala extra"),
+    precoProfissionalExtraCentavos: centavosPlano("Profissional extra"),
+    precoUnidadeExtraCentavos: centavosPlano("Unidade extra"),
+    precoProntuarioCentavos: centavosPlano("Prontuário"),
+    permiteUnidadeExtra: z.boolean(),
+    limites: z.object({ unidades: limitePlano("Unidades"), salas: limitePlano("Salas"), profissionais: limitePlano("Profissionais") }),
+  })
+  .partial();
+
+/** Edita preço, excedentes e limites de um plano (função SECURITY DEFINER; auditado no banco). */
+export async function atualizarConfiguracaoPlano(
+  userId: string,
+  planoId: string,
+  dados: z.input<typeof configuracaoPlanoSchema>,
+  database?: Database,
+) {
+  await exigirSuperadmin(userId, database);
+  const id = z.uuid().parse(planoId);
+  const valores = configuracaoPlanoSchema.parse(dados);
+  await withUser(
+    userId,
+    async (tx) => {
+      try {
+        await tx.execute(sql`select app_plataforma_atualizar_plano(${id}::uuid, ${JSON.stringify(valores)}::jsonb)`);
+      } catch (erro) {
+        if (erroPostgres(erro)?.message === "plano.nao_encontrado") throw new ErroNegocio("Plano não encontrado.");
+        throw erro;
+      }
+    },
+    database,
+  );
+}
+
+type ItemFaturaPlataforma = {
+  id: string;
+  tipo: string;
+  descricao: string;
+  quantidade: number;
+  valorUnitarioCentavos: number;
+  valorTotalCentavos: number;
+};
+
+/** Faturas do SaaS de todos os espaços (função SECURITY DEFINER: as tabelas têm RLS por tenant). */
+export async function obterFaturamentoPlataforma(userId: string, database?: Database) {
+  await exigirSuperadmin(userId, database);
+
+  const linhas = await withUser(
+    userId,
+    async (tx) =>
+      (
+        await tx.execute<{
+          id: string;
+          tenant_id: string;
+          tenant_nome: string;
+          competencia: string;
+          vencimento: string;
+          valor_centavos: number;
+          status: string;
+          invoice_url: string | null;
+          asaas_payment_id: string | null;
+          ultimo_erro: string | null;
+          criado_em: Date | string;
+          itens: ItemFaturaPlataforma[];
+        }>(sql`select * from app_plataforma_faturas(500)`)
+      ).rows,
+    database,
+  );
+
+  const faturas = linhas.map((f) => ({
+    id: f.id,
+    tenantId: f.tenant_id,
+    tenantNome: f.tenant_nome,
+    competencia: String(f.competencia).slice(0, 10),
+    vencimento: String(f.vencimento).slice(0, 10),
+    valorCentavos: Number(f.valor_centavos),
+    status: f.status,
+    invoiceUrl: f.invoice_url,
+    asaasPaymentId: f.asaas_payment_id,
+    ultimoErro: f.ultimo_erro,
+    criadoEm: new Date(f.criado_em),
+  }));
+  const itens = linhas.flatMap((f) => f.itens.map((item) => ({ ...item, faturaId: f.id })));
+  const itensPorFatura = Object.fromEntries(linhas.map((f) => [f.id, f.itens])) as Record<string, ItemFaturaPlataforma[]>;
+
+  let totalRecebidoCentavos = 0;
+  let totalPendenteCentavos = 0;
+  let totalVencidoCentavos = 0;
+
+  const breakdownCentavos: Record<string, number> = {
+    base: 0,
+    sala_extra: 0,
+    profissional_extra: 0,
+    unidade_extra: 0,
+    prontuario_licenca: 0,
+  };
+
+  for (const f of faturas) {
+    if (f.status === "paga") totalRecebidoCentavos += f.valorCentavos;
+    else if (f.status === "pendente") totalPendenteCentavos += f.valorCentavos;
+    else if (f.status === "vencida") totalVencidoCentavos += f.valorCentavos;
+  }
+
+  for (const it of itens) {
+    if (breakdownCentavos[it.tipo] !== undefined) {
+      breakdownCentavos[it.tipo] += it.valorTotalCentavos;
+    }
+  }
+
+  return {
+    faturas,
+    itensPorFatura,
+    metricas: {
+      totalRecebidoCentavos,
+      totalPendenteCentavos,
+      totalVencidoCentavos,
+      totalFaturadoCentavos: totalRecebidoCentavos + totalPendenteCentavos + totalVencidoCentavos,
+      breakdownCentavos,
+    },
+  };
+}
+
+/** Detalhe de um espaço para o superadmin: lido no contexto de sistema do próprio tenant (RLS). */
+export async function obterDetalhesClinicaPlataforma(userId: string, tenantId: string, database?: Database, agora = new Date()) {
+  await exigirSuperadmin(userId, database);
+  const id = z.uuid().parse(tenantId);
+
+  return withSistema(
+    id,
+    async (tx) => {
+      const [tenant] = await tx
+        .select({
+          id: tenants.id,
+          nome: tenants.nome,
+          documento: tenants.documento,
+          status: tenants.status,
+          criadoEm: tenants.criadoEm,
+          planoId: tenants.planoId,
+          planoNome: planosSaas.nome,
+          planoCodigo: planosSaas.codigo,
+          planoPrecoMensalCentavos: planosSaas.precoMensalCentavos,
+          limites: planosSaas.limites,
+          precoSalaExtraCentavos: planosSaas.precoSalaExtraCentavos,
+          precoProfissionalExtraCentavos: planosSaas.precoProfissionalExtraCentavos,
+          precoUnidadeExtraCentavos: planosSaas.precoUnidadeExtraCentavos,
+          precoProntuarioCentavos: planosSaas.precoProntuarioCentavos,
+          permiteUnidadeExtra: planosSaas.permiteUnidadeExtra,
+        })
+        .from(tenants)
+        .innerJoin(planosSaas, eq(planosSaas.id, tenants.planoId))
+        .where(eq(tenants.id, id));
+      if (!tenant) throw new ErroNegocio("Clínica não encontrada.");
+
+      const listaUnidades = await tx.select().from(unidades).orderBy(asc(unidades.nome));
+      const listaSalas = await tx.select().from(salas).orderBy(asc(salas.nome));
+      const listaProfissionais = await tx.select().from(profissionais).orderBy(asc(profissionais.nome));
+      const licencas = await tx.select().from(licencasProntuario);
+      const mapaLicencas = new Map(licencas.map((l) => [l.profissionalId, l]));
+
+      const profissionaisComProntuario = listaProfissionais.map((p) => {
+        const lic = mapaLicencas.get(p.id);
+        const estado = estadoLicencaProntuario(lic, agora);
+        return {
+          ...p,
+          licencaProntuario: {
+            ativo: lic?.ativo ?? false,
+            estado,
+            emTrial: estado === "teste",
+            trialFimEm: lic?.trialFimEm ?? null,
+            responsavel: lic?.responsavel ?? null,
+            pagoAte: lic?.pagoAte ?? null,
+          },
+        };
+      });
+
+      const membros = await tx
+        .select({
+          id: memberships.id,
+          role: memberships.role,
+          ativo: memberships.ativo,
+          criadoEm: memberships.criadoEm,
+          userName: users.name,
+          userEmail: users.email,
+          userBanned: users.banned,
+        })
+        .from(memberships)
+        .innerJoin(users, eq(users.id, memberships.userId))
+        .orderBy(asc(users.name));
+
+      const faturas = await tx.select().from(faturasSaas).orderBy(desc(faturasSaas.competencia));
+      const faturasIds = faturas.map((f) => f.id);
+      const itensFaturas = faturasIds.length > 0 ? await tx.select().from(faturasSaasItens).where(inArray(faturasSaasItens.faturaId, faturasIds)) : [];
+      const itensPorFatura = itensFaturas.reduce(
+        (acc, item) => {
+          (acc[item.faturaId] ??= []).push(item);
+          return acc;
+        },
+        {} as Record<string, typeof itensFaturas>,
+      );
+
+      return {
+        tenant,
+        recursos: { unidades: listaUnidades, salas: listaSalas, profissionais: profissionaisComProntuario },
+        membros,
+        faturas,
+        itensPorFatura,
+      };
+    },
+    database,
+  );
 }

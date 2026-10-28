@@ -12,7 +12,11 @@ import {
   STATUS_ATIVOS,
   validarTransicao,
   type StatusAgendamento,
+  type AtendimentoDoDia,
+  DESFAZER_STATUS_HORAS,
+  podeDesfazerStatus,
 } from "../domain/agendamentos";
+export { type AtendimentoDoDia, DESFAZER_STATUS_HORAS, podeDesfazerStatus };
 import { exigirPermissao, pode } from "../domain/rbac";
 import { ErroReserva, validarJanela } from "../domain/reservas";
 import { dataValida, horaValida, instanteLocal, partesLocais, somarDias, type DataLocal } from "../domain/tempo";
@@ -428,20 +432,6 @@ export async function remarcarAgendamento(
   );
 }
 
-/** Prazo para desfazer uma mudança de status feita por engano. */
-export const DESFAZER_STATUS_HORAS = 24;
-
-/** O status pode ser desfeito agora? (equipe, até 24h depois da mudança). */
-export function podeDesfazerStatus(
-  agendamento: { statusAnterior: StatusAgendamento | null; statusAtualizadoEm: Date },
-  agora = new Date(),
-): boolean {
-  return (
-    agendamento.statusAnterior !== null &&
-    agora.getTime() - agendamento.statusAtualizadoEm.getTime() <= DESFAZER_STATUS_HORAS * 3_600_000
-  );
-}
-
 /**
  * Desfaz a última mudança de status (clique errado): volta ao status anterior, limpa os dados
  * do cancelamento, reativa a reserva liberada e reconcilia o financeiro. Só a equipe, até 24h.
@@ -515,29 +505,6 @@ export async function desfazerStatus(
 // Leitura
 // ---------------------------------------------------------------------------
 
-export type AtendimentoDoDia = {
-  id: string;
-  reservaId: string;
-  horaInicio: string;
-  horaFim: string;
-  inicio: Date;
-  fim: Date;
-  status: StatusAgendamento;
-  statusAnterior: StatusAgendamento | null;
-  statusAtualizadoEm: Date;
-  remarcadoEm: Date | null;
-  cancelamentoTardio: boolean;
-  valorCentavos: number | null;
-  origem: "equipe" | "online";
-  observacao: string | null;
-  pacienteId: string;
-  pacienteNome: string;
-  pacienteTelefone: string | null;
-  profissionalId: string;
-  profissionalNome: string;
-  salaId: string;
-  salaNome: string;
-};
 
 async function listarAtendimentos(
   tx: Transaction,

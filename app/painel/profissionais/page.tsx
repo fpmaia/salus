@@ -1,13 +1,18 @@
+import Link from "next/link";
 import { InputMascara } from "@/components/input-mascara";
 import { pode } from "@/src/domain/rbac";
 import { DecisaoReservas } from "@/components/decisao-reservas";
 import { FormAcao } from "@/components/form-acao";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { obterContextoTenant } from "@/src/auth/sessao";
 import { exigirPermissaoNaPagina } from "@/src/auth/permissao";
+import { formatarMoeda } from "@/src/domain/dinheiro";
+import type { EstadoLicencaProntuario } from "@/src/domain/cobranca";
+import { precoProntuarioDoPlano } from "@/src/server/assinatura";
 import { CONSELHOS, listarProfissionais, type SituacaoAcesso } from "@/src/server/profissionais";
 import { atualizarProfissionalAcao, criarProfissionalAcao, gerarConviteAcao } from "./actions";
 import { BotaoConvite } from "./botao-convite";
@@ -18,10 +23,17 @@ const ROTULO_SITUACAO: Record<SituacaoAcesso, string> = {
   sem_acesso: "Sem acesso",
 };
 
+const ROTULO_LICENCA: Record<EstadoLicencaProntuario, string> = {
+  inativa: "Prontuário: não ativo",
+  teste: "Prontuário: 15 dias grátis",
+  ativa: "Prontuário ativo",
+  aguardando_pagamento: "Prontuário: pagamento vencido",
+};
+
 export default async function ProfissionaisPage() {
   const ctx = await obterContextoTenant();
   exigirPermissaoNaPagina(ctx.role, "profissionais.gerenciar");
-  const profissionais = await listarProfissionais(ctx);
+  const [profissionais, precoProntuario] = await Promise.all([listarProfissionais(ctx), precoProntuarioDoPlano(ctx)]);
   const podeDesativar = pode(ctx.role, "profissionais.desativar");
 
   return (
@@ -48,9 +60,49 @@ export default async function ProfissionaisPage() {
                       .join(" · ")}
                   </span>
                 </span>
-                <span className="text-xs text-muted-foreground">{ROTULO_SITUACAO[p.situacao]}</span>
+                <div className="flex flex-col items-end gap-1">
+                  <span className="text-xs text-muted-foreground">{ROTULO_SITUACAO[p.situacao]}</span>
+                  {p.prontuario.estado !== "inativa" ? (
+                    <span className="rounded-md bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+                      {ROTULO_LICENCA[p.prontuario.estado]}
+                    </span>
+                  ) : (
+                    <span className="text-[11px] text-muted-foreground/80">
+                      Prontuário: não ativo
+                    </span>
+                  )}
+                </div>
               </summary>
               <div className="mt-4 flex flex-col gap-4">
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-muted/20 p-2.5 text-xs text-muted-foreground">
+                  <span>
+                    Módulo Prontuário EHR:{" "}
+                    <strong className="text-foreground">
+                      {ROTULO_LICENCA[p.prontuario.estado]}
+                      {p.prontuario.estado !== "inativa" && p.prontuario.responsavel === "espaco" && " · paga pelo espaço"}
+                      {p.prontuario.estado !== "inativa" && p.prontuario.responsavel === "profissional" && " · paga pelo profissional"}
+                      {p.prontuario.estado === "inativa" && ` · ${formatarMoeda(precoProntuario)}/mês depois de 15 dias grátis`}
+                    </strong>
+                  </span>
+                  <Link href="/painel/assinatura" className="font-medium text-primary hover:underline">
+                    Gerenciar licenças na Assinatura →
+                  </Link>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-primary/20 bg-primary/5 p-3 text-xs">
+                  <div>
+                    <span className="font-semibold text-foreground">Ações Rápidas:</span>
+                    <span className="ml-1 text-muted-foreground">Configure os valores de locação de sala ou libere acesso ao sistema.</span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button asChild size="sm" variant="outline" className="h-7 text-xs font-semibold">
+                      <Link href={`/painel/contratos/novo?profissional=${p.id}`}>
+                        Contrato & Valores de Sala →
+                      </Link>
+                    </Button>
+                  </div>
+                </div>
+
                 <FormAcao acao={atualizarProfissionalAcao.bind(null, p.id)} textoBotao="Salvar">
                   <CamposProfissional valores={p} prefixo={p.id} emailBloqueado={p.situacao === "ativo"} />
                   {podeDesativar ? (
@@ -66,7 +118,7 @@ export default async function ProfissionaisPage() {
                   )}
                 </FormAcao>
                 {p.situacao !== "ativo" && p.ativo && (
-                  <BotaoConvite acao={gerarConviteAcao.bind(null, p.id)} pendente={p.situacao === "convite_pendente"} />
+                  <BotaoConvite acao={gerarConviteAcao.bind(null, p.id)} pendente={p.situacao === "convite_pendente"} nomeProfissional={p.nome} />
                 )}
               </div>
             </details>

@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { ZodError } from "zod";
 import { exigirUsuario } from "@/src/auth/sessao";
+import { usuarioTemEspacoBloqueado } from "@/src/server/memberships";
 import { criarTenantComAdmin, ErroOnboarding } from "@/src/server/onboarding";
 
 export type EstadoOnboarding = {
@@ -19,6 +20,7 @@ export async function criarEspaco(
     nomeTenant: String(formData.get("nomeTenant") ?? ""),
     documento: String(formData.get("documento") ?? ""),
   };
+  if (await usuarioTemEspacoBloqueado(usuario.id)) redirect("/conta-suspensa");
   try {
     await criarTenantComAdmin(usuario.id, valores);
   } catch (erro) {

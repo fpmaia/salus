@@ -1,6 +1,6 @@
 "use server";
 
-import { obterContextoTenant } from "@/src/auth/sessao";
+import { exigirEspacoEmDia, obterContextoTenant } from "@/src/auth/sessao";
 import { type EstadoAcao, executarAcao, texto } from "@/src/server/acao";
 import { unstable_rethrow } from "next/navigation";
 import { mensagemDeErro } from "@/src/server/erros";
@@ -68,6 +68,7 @@ export async function cadastroRapidoPacienteAcao(
   telefone: string,
 ): Promise<{ ok: true; paciente: PacienteEncontrado } | { ok: false; erro: string }> {
   try {
+    await exigirEspacoEmDia();
     const ctx = await obterContextoTenant();
     const { id } = await criarPaciente(ctx, { nome, telefone });
     return { ok: true, paciente: { id, nome: nome.trim(), detalhe: telefone.trim() } };

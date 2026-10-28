@@ -34,3 +34,15 @@ export async function listarMembershipsDoUsuario(
     database,
   );
 }
+
+/** O usuário participa de algum espaço suspenso ou cancelado pela plataforma? */
+export async function usuarioTemEspacoBloqueado(userId: string, database?: Database): Promise<boolean> {
+  return withUser(
+    userId,
+    async (tx) => {
+      const { rows } = await tx.execute<{ bloqueado: boolean }>(sql`select app_usuario_tem_espaco_bloqueado() as bloqueado`);
+      return Boolean(rows[0]?.bloqueado);
+    },
+    database,
+  );
+}

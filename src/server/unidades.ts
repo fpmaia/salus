@@ -91,6 +91,10 @@ export async function atualizarUnidade(
   await withTenant(
     ctx,
     async (tx) => {
+      const [atual] = await tx.select({ ativo: unidades.ativo }).from(unidades).where(eq(unidades.id, unidadeId)).for("update");
+      if (!atual) throw new ErroNegocio("Unidade não encontrada");
+      // Reativar conta como criar: respeita o limite de unidades do plano.
+      if (!atual.ativo && valores.ativo === true) await exigirLimite(tx, "unidades");
       const alteradas = await tx.update(unidades).set(valores).where(eq(unidades.id, unidadeId)).returning({ id: unidades.id });
       if (alteradas.length === 0) throw new ErroNegocio("Unidade não encontrada");
       await registrarAuditoria(tx, { acao: "unidade.atualizada", entidade: "unidades", entidadeId: unidadeId, dados: valores });

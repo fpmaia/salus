@@ -25,6 +25,7 @@ export type SituacaoContrato = "vigente" | "futuro" | "encerrado";
 
 function situacao(c: { vigenteDe: DataLocal; vigenteAte: DataLocal | null }, hoje: DataLocal): SituacaoContrato {
   if (c.vigenteDe > hoje) return "futuro";
+  // O último dia (vigenteAte) ainda é dia de contrato.
   if (c.vigenteAte !== null && c.vigenteAte < hoje) return "encerrado";
   return "vigente";
 }
@@ -212,8 +213,8 @@ export async function encerrarContrato(
       const [c] = await tx.select().from(acordosFinanceiros).where(eq(acordosFinanceiros.id, id)).for("update");
       if (!c) throw new ErroNegocio("Contrato não encontrado");
       if (ultimoDia < c.vigenteDe) throw new ErroNegocio("O último dia não pode ser antes do início do contrato");
-      if (c.vigenteAte !== null && c.vigenteAte <= ultimoDia) throw new ErroNegocio("Este contrato já termina nessa data ou antes");
-      await tx.update(acordosFinanceiros).set({ vigenteAte: ultimoDia }).where(eq(acordosFinanceiros.id, id));
+      if (c.vigenteAte !== null && c.vigenteAte < ultimoDia) throw new ErroNegocio("Este contrato já termina antes dessa data");
+      await tx.update(acordosFinanceiros).set({ vigenteAte: ultimoDia, atualizadoEm: agora }).where(eq(acordosFinanceiros.id, id));
       let liberadas = 0;
       let mantidas = 0;
       for (const regra of await tx
@@ -231,6 +232,68 @@ export async function encerrarContrato(
         dados: { ultimoDia, reservasLiberadas: liberadas, reservasComPacientes: mantidas },
       });
       return { reservasLiberadas: liberadas, reservasComPacientes: mantidas };
+    },
+    database,
+  );
+}
+
+const numNulo = z.number().int().nonnegative().nullable().optional();
+const bpNulo = z.number().int().min(1).max(10_000).nullable().optional();
+
+export const editarContratoSchema = z.object({
+  valorHoraCentavos: numNulo,
+  valorConsultaCentavos: numNulo,
+  percentualBp: bpNulo,
+  mensalidadeCentavos: numNulo,
+  horasIncluidas: numNulo,
+  regraFalta: z.enum(["isenta", "integral", "percentual"]).optional(),
+  faltaPercentualBp: bpNulo,
+  prazoCancelamentoHoras: z.number().int().min(0).max(720).optional(),
+  multaCancelamentoReservaBp: bpNulo,
+  termos: z.string().trim().max(50_000).nullable().optional(),
+  observacoes: z.string().trim().max(1000).nullable().optional(),
+  vigenteAte: z.string().refine(dataValida, "Data de término inválida").nullable().optional(),
+});
+
+/** Edita condições e termos de um contrato existente. */
+export async function editarContrato(
+  ctx: ContextoTenant,
+  contratoId: string,
+  dados: z.input<typeof editarContratoSchema>,
+  database?: Database,
+) {
+  exigirPermissao(ctx.role, "contratos.gerenciar");
+  const id = z.uuid().parse(contratoId);
+  const patch = editarContratoSchema.parse(dados);
+
+  return withTenant(
+    ctx,
+    async (tx) => {
+      const [c] = await tx.select().from(acordosFinanceiros).where(eq(acordosFinanceiros.id, id)).for("update");
+      if (!c) throw new ErroNegocio("Contrato não encontrado");
+
+      if (patch.vigenteAte !== undefined && patch.vigenteAte !== null) {
+        if (patch.vigenteAte < c.vigenteDe) {
+          throw new ErroNegocio("A data de término não pode ser antes do início do contrato");
+        }
+      }
+
+      await tx
+        .update(acordosFinanceiros)
+        .set({
+          ...patch,
+          atualizadoEm: new Date(),
+        })
+        .where(eq(acordosFinanceiros.id, id));
+
+      await registrarAuditoria(tx, {
+        acao: "contrato.editado",
+        entidade: "acordos_financeiros",
+        entidadeId: id,
+        dados: { ...patch, termos: patch.termos ? "(editado)" : undefined },
+      });
+
+      return { id: c.id, codigo: c.codigo };
     },
     database,
   );

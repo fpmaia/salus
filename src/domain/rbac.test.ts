@@ -28,4 +28,13 @@ describe("rbac", () => {
     expect(() => exigirPermissao("recepcao", "membros.gerenciar")).toThrow(ErroPermissao);
     expect(() => exigirPermissao("admin", "membros.gerenciar")).not.toThrow();
   });
+
+  // Tabela-verdade completa: qualquer mudança de permissão aparece no diff do snapshot
+  // (e deve ser refletida na tabela de papéis do manual, components/manual).
+  it("tabela-verdade de papéis × permissões", () => {
+    const tabela = Object.fromEntries(
+      (Object.keys(PERMISSOES) as (keyof typeof PERMISSOES)[]).map((p) => [p, ROLES.filter((r) => pode(r, p)).join(", ")]),
+    );
+    expect(tabela).toMatchSnapshot();
+  });
 });
