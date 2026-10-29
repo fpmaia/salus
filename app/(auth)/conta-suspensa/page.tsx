@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { exigirUsuario } from "@/src/auth/sessao";
 import { listarMembershipsDoUsuario, usuarioTemEspacoBloqueado } from "@/src/server/memberships";
 import { BotaoSair } from "@/app/painel/botao-sair";
+import { motivoDoBloqueio } from "@/src/server/plataforma-clinica";
 
 // Espaço suspenso ou cancelado pela plataforma (não é o atraso de fatura, que deixa o painel só leitura).
 export default async function ContaSuspensaPage() {
@@ -10,17 +11,24 @@ export default async function ContaSuspensaPage() {
   if ((await listarMembershipsDoUsuario(usuario.id)).length > 0) redirect("/painel");
   if (!(await usuarioTemEspacoBloqueado(usuario.id))) redirect("/onboarding");
   const numero = (process.env.SALUS_WHATSAPP_COMERCIAL ?? "").replace(/\D/g, "");
+  const bloqueio = await motivoDoBloqueio(usuario.id);
+  const cancelado = bloqueio?.status === "cancelado";
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Acesso ao espaço suspenso</CardTitle>
+        <CardTitle>{cancelado ? "Conta do espaço cancelada" : "Acesso ao espaço suspenso"}</CardTitle>
         <CardDescription>
-          O espaço do qual você participa foi suspenso pela equipe Salus. Os dados continuam guardados com segurança; o acesso volta assim
-          que a situação for resolvida.
+          O espaço do qual você participa foi {cancelado ? "cancelado" : "suspenso"} pela equipe Salus. Os dados continuam guardados com
+          segurança{cancelado ? "." : "; o acesso volta assim que a situação for resolvida."}
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3 text-sm">
+        {bloqueio?.motivo && (
+          <p className="rounded-lg bg-muted p-3">
+            <strong>Motivo:</strong> {bloqueio.motivo}
+          </p>
+        )}
         <p>Se você administra o espaço, fale com o suporte para entender o motivo e reativar.</p>
         {numero && (
           <a

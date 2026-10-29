@@ -5,6 +5,9 @@ describe("permissões da equipe da plataforma", () => {
   it("tabela-verdade (mudança aqui precisa mudar app_plataforma_pode também)", () => {
     expect(PERMISSOES_PLATAFORMA).toMatchInlineSnapshot(`
       {
+        "clinicas.cancelar": [
+          "dono",
+        ],
         "clinicas.gerenciar": [
           "dono",
           "suporte",

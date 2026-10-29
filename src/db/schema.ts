@@ -231,6 +231,8 @@ export const tenants = pgTable("tenants", {
   asaasCustomerId: text("asaas_customer_id"),
   // Período de teste grátis (convite da plataforma): sem fatura até o mês em que termina.
   testeAte: date("teste_ate", { mode: "string" }),
+  // Motivo da suspensão/cancelamento pela plataforma (aparece em /conta-suspensa).
+  motivoSuspensao: text("motivo_suspensao"),
   criadoEm: criadoEm(),
   atualizadoEm: atualizadoEm(),
 });
@@ -334,6 +336,21 @@ export const auditPlataforma = pgTable(
     criadoEm: criadoEm(),
   },
   (t) => [index("audit_plataforma_criado_em_idx").on(t.criadoEm)],
+);
+
+// Notas internas da equipe Salus sobre uma clínica (a clínica não vê). Só pelas funções (0050).
+export const notasClinica = pgTable(
+  "notas_clinica",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    texto: text("texto").notNull(),
+    autorId: uuid("autor_id").references(() => users.id, { onDelete: "set null" }),
+    criadoEm: criadoEm(),
+  },
+  (t) => [index("notas_clinica_tenant_idx").on(t.tenantId, t.criadoEm)],
 );
 
 // Equipe Salus: quem tem users.role = 'superadmin' está na equipe; o papel aqui limita o que

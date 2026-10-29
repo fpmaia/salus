@@ -26,6 +26,8 @@ import { acessoPlataforma } from "@/app/plataforma/acesso";
 import { obterCobrancaDaClinica } from "@/src/server/plataforma-financeiro";
 import { SecaoCobranca } from "./secao-cobranca";
 import { SecaoAcordos } from "./secao-acordos";
+import { AcoesAcesso, SecaoConta, SecaoHistorico, SecaoNotas } from "./secoes-conta";
+import { historicoDaClinica, listarNotasClinica, previaPorPlano } from "@/src/server/plataforma-clinica";
 import { listarAcordosDaClinica } from "@/src/server/plataforma-acordos";
 import { AcoesFatura } from "@/app/plataforma/faturas/acoes-fatura";
 import { FormFaturaAvulsa } from "@/app/plataforma/faturas/form-fatura-avulsa";
@@ -39,24 +41,42 @@ const STATUS_FATURA: Record<string, { bg: string; text: string; label: string }>
   erro: { bg: "bg-rose-500/10 border-rose-500/20", text: "text-rose-600 dark:text-rose-400", label: "Erro de envio" },
 };
 
+const ABAS = [
+  { id: "resumo", rotulo: "Resumo" },
+  { id: "cobranca", rotulo: "Cobrança" },
+  { id: "acordos", rotulo: "Acordos" },
+  { id: "acessos", rotulo: "Acessos" },
+  { id: "notas", rotulo: "Notas" },
+  { id: "historico", rotulo: "Histórico" },
+] as const;
+type Aba = (typeof ABAS)[number]["id"];
+
 export default async function DetalhesClinicaPlataformaPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ aba?: string }>;
 }) {
   const { id: tenantId } = await params;
+  const { aba: abaPedida } = await searchParams;
+  const aba: Aba = ABAS.some((a) => a.id === abaPedida) ? (abaPedida as Aba) : "resumo";
   const { usuario, pode } = await acessoPlataforma();
 
-  let dados, cobranca, acordos;
+  let dados;
   try {
-    [dados, cobranca, acordos] = await Promise.all([
-      obterDetalhesClinicaPlataforma(usuario.id, tenantId),
-      obterCobrancaDaClinica(usuario.id, tenantId),
-      listarAcordosDaClinica(usuario.id, tenantId),
-    ]);
+    dados = await obterDetalhesClinicaPlataforma(usuario.id, tenantId);
   } catch {
     notFound();
   }
+  // Cada aba carrega só o que mostra.
+  const [cobranca, acordos, notas, historico, precosPorPlano] = await Promise.all([
+    aba === "cobranca" ? obterCobrancaDaClinica(usuario.id, tenantId) : null,
+    aba === "acordos" || aba === "cobranca" ? listarAcordosDaClinica(usuario.id, tenantId) : [],
+    aba === "notas" ? listarNotasClinica(usuario.id, tenantId) : [],
+    aba === "historico" ? historicoDaClinica(usuario.id, tenantId) : [],
+    aba === "resumo" ? previaPorPlano(usuario.id, tenantId) : [],
+  ]);
 
   const { tenant, recursos, membros, faturas, itensPorFatura } = dados;
   const podeFinanceiro = pode("financeiro.gerenciar");
@@ -104,15 +124,39 @@ export default async function DetalhesClinicaPlataformaPage({
                 }`}
               >
                 {tenant.status === "ativo" ? <CheckCircle2 className="size-3" /> : <AlertTriangle className="size-3" />}
-                {tenant.status === "ativo" ? "Ativa" : "Suspensa"}
+                {tenant.status === "ativo" ? "Ativa" : tenant.status === "cancelado" ? "Cancelada" : "Suspensa"}
               </span>
             </div>
             <p className="text-xs text-muted-foreground">
               Documento: <strong>{tenant.documento}</strong> · Cadastrada em {formatarDataBr(tenant.criadoEm.toISOString().slice(0, 10))}
+              {tenant.motivoSuspensao ? ` · Motivo: ${tenant.motivoSuspensao}` : ""}
             </p>
           </div>
         </div>
       </div>
+
+      <nav className="-mx-1 flex gap-1 overflow-x-auto border-b px-1" aria-label="Seções da clínica">
+        {ABAS.map((a) => (
+          <Link
+            key={a.id}
+            href={`/plataforma/clinicas/${tenant.id}${a.id === "resumo" ? "" : `?aba=${a.id}`}`}
+            aria-current={aba === a.id ? "page" : undefined}
+            className={`whitespace-nowrap border-b-2 px-3 py-2 text-xs font-semibold transition-colors ${
+              aba === a.id ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {a.rotulo}
+          </Link>
+        ))}
+      </nav>
+
+      {aba === "resumo" && (
+        <>
+          <SecaoConta
+            tenant={{ id: tenant.id, nome: tenant.nome, status: tenant.status, planoId: tenant.planoId, motivoSuspensao: tenant.motivoSuspensao }}
+            precosPorPlano={precosPorPlano}
+            pode={{ gerenciar: pode("clinicas.gerenciar"), financeiro: podeFinanceiro, cancelar: pode("clinicas.cancelar") }}
+          />
 
       {/* Grid de Informações: Plano e Resumo de Uso */}
       <div className="grid gap-6 md:grid-cols-3">
@@ -287,6 +331,11 @@ export default async function DetalhesClinicaPlataformaPage({
         )}
       </div>
 
+        </>
+      )}
+
+      {aba === "acessos" && (
+      <>
       {/* Membros / Acessos à Clínica */}
       <div className="rounded-2xl border border-border/80 bg-card p-6 shadow-sm space-y-4">
         <div>
@@ -311,14 +360,22 @@ export default async function DetalhesClinicaPlataformaPage({
                 </div>
                 <span className="text-xs text-muted-foreground block">{m.userEmail}</span>
               </div>
-              <span className="text-xs text-muted-foreground">
+              <span className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                 Membro desde {formatarDataBr(m.criadoEm.toISOString().slice(0, 10))}
+                {pode("clinicas.gerenciar") && <AcoesAcesso tenantId={tenant.id} usuario={{ id: m.userId, nome: m.userName, banido: Boolean(m.userBanned) }} podeBanir={pode("usuarios.banir")} />}
               </span>
             </div>
           ))}
         </div>
       </div>
+      </>
+      )}
 
+      {aba === "notas" && <SecaoNotas tenantId={tenant.id} notas={notas} />}
+      {aba === "historico" && <SecaoHistorico eventos={historico} />}
+
+      {aba === "cobranca" && cobranca && (
+      <>
       {/* Cobrança: condições negociadas, descontos, créditos e prévia */}
       <SecaoCobranca
         tenantId={tenant.id}
@@ -333,16 +390,21 @@ export default async function DetalhesClinicaPlataformaPage({
         }}
       />
 
+      </>
+      )}
+
       {/* Renegociação em parcelas */}
-      <SecaoAcordos
+      {aba === "acordos" && <SecaoAcordos
         tenantId={tenant.id}
         acordos={acordos}
         podeEditar={podeFinanceiro}
         abertas={faturas.filter(
           (f) => ["pendente", "vencida", "erro"].includes(f.status) && !acordos.some((a) => a.id === f.acordoId && a.status === "ativo"),
         )}
-      />
+      />}
 
+      {aba === "cobranca" && (
+      <>
       {/* Histórico Financeiro da Clínica */}
       <div className="rounded-2xl border border-border/80 bg-card p-6 shadow-sm space-y-4">
         <div>
@@ -421,6 +483,8 @@ export default async function DetalhesClinicaPlataformaPage({
           </div>
         )}
       </div>
+      </>
+      )}
     </main>
   );
 }

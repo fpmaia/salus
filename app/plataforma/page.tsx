@@ -1,5 +1,6 @@
 import Link from "next/link";
 import {
+  AlertTriangle,
   ArrowRight,
   Building2,
   DollarSign,
@@ -12,14 +13,17 @@ import {
   listarClinicasPlataforma,
   obterMetricasPlataforma,
 } from "@/src/server/plataforma";
+import { alertasPlataforma } from "@/src/server/plataforma-painel";
 
 export default async function PlataformaVisaoGeralPage() {
   const usuario = await exigirUsuario();
-  const [metricas, clinicas, auditoria] = await Promise.all([
+  const [metricas, clinicas, auditoria, alertas] = await Promise.all([
     obterMetricasPlataforma(usuario.id),
     listarClinicasPlataforma(usuario.id),
     listarAuditoriaPlataforma(usuario.id, 8),
+    alertasPlataforma(usuario.id),
   ]);
+  const totalAlertas = alertas.faturasComErro.length + alertas.parcelasAtrasadas.length + alertas.testesTerminando.length;
 
   const formatarMoeda = (centavos: number) =>
     (centavos / 100).toLocaleString("pt-BR", {
@@ -46,13 +50,48 @@ export default async function PlataformaVisaoGeralPage() {
         </div>
       </div>
 
+      {/* O que precisa de alguém hoje */}
+      {totalAlertas > 0 && (
+        <div className="space-y-3 rounded-2xl border border-warning/40 bg-warning/5 p-5">
+          <h2 className="flex items-center gap-2 text-sm font-bold">
+            <AlertTriangle className="size-4 text-warning" /> Precisa de atenção ({totalAlertas})
+          </h2>
+          <ul className="space-y-1.5 text-xs">
+            {alertas.faturasComErro.map((f) => (
+              <li key={f.id}>
+                <Link href={`/plataforma/clinicas/${f.tenantId}?aba=cobranca`} className="font-semibold text-primary hover:underline">
+                  {f.tenantNome}
+                </Link>{" "}
+                · fatura não chegou ao Asaas{f.ultimoErro ? ` (${f.ultimoErro})` : ""}
+              </li>
+            ))}
+            {alertas.parcelasAtrasadas.map((f) => (
+              <li key={f.id}>
+                <Link href={`/plataforma/clinicas/${f.tenantId}?aba=acordos`} className="font-semibold text-primary hover:underline">
+                  {f.tenantNome}
+                </Link>{" "}
+                · parcela de acordo vencida em {f.vencimento.split("-").reverse().join("/")}
+              </li>
+            ))}
+            {alertas.testesTerminando.map((c) => (
+              <li key={c.id}>
+                <Link href={`/plataforma/clinicas/${c.id}`} className="font-semibold text-primary hover:underline">
+                  {c.nome}
+                </Link>{" "}
+                · teste grátis termina em {c.testeAte?.split("-").reverse().join("/")}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {/* Cards de Métricas Principais */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {/* Card MRR */}
         <div className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/10 via-card to-card p-5 shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              MRR SaaS Estimado
+              MRR pelo preço do plano
             </span>
             <div className="flex size-8 items-center justify-center rounded-xl bg-primary/15 text-primary">
               <DollarSign className="size-4" />

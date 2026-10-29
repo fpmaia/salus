@@ -11,7 +11,7 @@ export const ROTULOS_PAPEL_PLATAFORMA: Record<PapelPlataforma, string> = {
 };
 
 export const DESCRICOES_PAPEL_PLATAFORMA: Record<PapelPlataforma, string> = {
-  dono: "Tudo, inclusive planos, equipe e banimento de usuários.",
+  dono: "Tudo, inclusive planos, equipe, cancelamento de contas e banimento de usuários.",
   financeiro: "Cobrança: plano da clínica, teste grátis, descontos, faturas, acordos, cupons e convites.",
   suporte: "Atendimento: vê tudo, suspende e reativa clínicas, notas e sessões. Não mexe em valores.",
 };
@@ -19,6 +19,7 @@ export const DESCRICOES_PAPEL_PLATAFORMA: Record<PapelPlataforma, string> = {
 export const PERMISSOES_PLATAFORMA = {
   ver: ["dono", "financeiro", "suporte"],
   "clinicas.gerenciar": ["dono", "suporte"],
+  "clinicas.cancelar": ["dono"],
   "convites.gerenciar": ["dono", "financeiro"],
   "financeiro.gerenciar": ["dono", "financeiro"],
   "usuarios.banir": ["dono"],

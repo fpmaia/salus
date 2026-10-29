@@ -25,6 +25,7 @@ interface Props {
 
 export function TabelaClinicasPlataforma({ clinicas, planos, podeGerenciar, podeFinanceiro }: Props) {
   const [busca, setBusca] = useState("");
+  const hoje = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
   const [filtroStatus, setFiltroStatus] = useState<"todos" | "ativo" | "suspenso">("todos");
   const [clinicaParaSuspender, setClinicaParaSuspender] = useState<ClinicaPlataforma | null>(null);
   const [clinicaParaTrocarPlano, setClinicaParaTrocarPlano] = useState<ClinicaPlataforma | null>(null);
@@ -130,8 +131,12 @@ export function TabelaClinicasPlataforma({ clinicas, planos, podeGerenciar, pode
                       }`}
                     >
                       {c.status === "ativo" ? <CheckCircle2 className="size-3" /> : <AlertTriangle className="size-3" />}
-                      {c.status === "ativo" ? "Ativa" : "Suspensa"}
+                      {c.status === "ativo" ? "Ativa" : c.status === "cancelado" ? "Cancelada" : "Suspensa"}
                     </span>
+                    {c.testeAte && c.testeAte >= hoje && (
+                      <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">Teste até {c.testeAte.split("-").reverse().join("/")}</span>
+                    )}
+                    {c.negociada && <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">Condição negociada</span>}
                   </div>
 
                   <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">

@@ -17,7 +17,8 @@ import { convidarEquipeAcao, definirPapelEquipeAcao, removerDaEquipeAcao, revoga
 
 const ROTULOS_PERMISSAO: Record<PermissaoPlataforma, string> = {
   ver: "Ver clínicas, faturas, usuários e auditoria",
-  "clinicas.gerenciar": "Suspender e reativar clínicas, notas e sessões",
+  "clinicas.gerenciar": "Suspender e reativar clínicas, encerrar sessões",
+  "clinicas.cancelar": "Cancelar a conta de uma clínica",
   "convites.gerenciar": "Convites de teste grátis",
   "financeiro.gerenciar": "Plano da clínica, descontos, faturas, acordos e cupons",
   "usuarios.banir": "Banir usuários",

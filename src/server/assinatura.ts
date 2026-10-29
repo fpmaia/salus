@@ -216,6 +216,11 @@ export async function situacaoDaAssinaturaDoEspaco(ctx: ContextoTenant, agora = 
   return withTenant(ctx, (tx) => situacaoNaTransacao(tx, agora), database);
 }
 
+/** Situação de uma clínica pelo id (painel financeiro da plataforma). */
+export async function situacaoDaClinica(tenantId: string, agora = new Date(), database?: Database): Promise<SituacaoAssinatura> {
+  return withSistema(tenantId, (tx) => situacaoNaTransacao(tx, agora), database);
+}
+
 /** Para quem não tem sessão (agendamento online): o espaço está suspenso por atraso? */
 export async function espacoSuspensoPorAtraso(tenantId: string, agora = new Date(), database?: Database): Promise<boolean> {
   return (await withSistema(tenantId, (tx) => situacaoNaTransacao(tx, agora), database)).estado === "suspensa";
@@ -336,8 +341,9 @@ async function condicoesNaTransacao(tx: Transaction): Promise<CondicoesComerciai
  * Fatura da competência como sairia agora: plano com os preços negociados, uso, licenças do
  * prontuário, descontos vigentes e créditos com saldo. Usada para gerar e para a prévia.
  */
-async function calcularFaturaNaTransacao(tx: Transaction, competencia: string, agora: Date) {
-  const plano = await planoDoTenant(tx);
+async function calcularFaturaNaTransacao(tx: Transaction, competencia: string, agora: Date, planoId?: string) {
+  // Com planoId: como ficaria a fatura se a clínica estivesse nesse plano (prévia da troca).
+  const plano = planoId ? ((await tx.select().from(planosSaas).where(eq(planosSaas.id, planoId)))[0] ?? null) : await planoDoTenant(tx);
   if (!plano) return null;
   const condicoes = await condicoesNaTransacao(tx);
   const precos = precosEfetivos(plano, condicoes);
@@ -380,8 +386,8 @@ async function calcularFaturaNaTransacao(tx: Transaction, competencia: string, a
 }
 
 /** Prévia da fatura da competência (sem gravar): tela da plataforma e troca de plano. */
-export async function previaDaFatura(tenantId: string, competencia: string, agora = new Date(), database?: Database) {
-  return withSistema(tenantId, (tx) => calcularFaturaNaTransacao(tx, competencia, agora), database);
+export async function previaDaFatura(tenantId: string, competencia: string, agora = new Date(), database?: Database, planoId?: string) {
+  return withSistema(tenantId, (tx) => calcularFaturaNaTransacao(tx, competencia, agora, planoId), database);
 }
 
 /** Gera e envia a fatura do mês corrente (idempotente: uma por competência). */

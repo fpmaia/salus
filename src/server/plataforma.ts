@@ -43,6 +43,9 @@ export type ClinicaPlataforma = {
   salasCount: number;
   profissionaisCount: number;
   criadoEm: Date;
+  testeAte: string | null;
+  motivoSuspensao: string | null;
+  negociada: boolean;
 };
 
 export type UsuarioPlataforma = {
@@ -150,6 +153,9 @@ export async function listarClinicasPlataforma(
         salas_count: string;
         profissionais_count: string;
         criado_em: string;
+        teste_ate: string | null;
+        motivo_suspensao: string | null;
+        negociada: boolean;
       }>(sql`select * from app_plataforma_clinicas()`);
 
       return rows.map((r) => ({
@@ -164,6 +170,9 @@ export async function listarClinicasPlataforma(
         salasCount: Number(r.salas_count),
         profissionaisCount: Number(r.profissionais_count),
         criadoEm: new Date(r.criado_em),
+        testeAte: r.teste_ate ? String(r.teste_ate).slice(0, 10) : null,
+        motivoSuspensao: r.motivo_suspensao,
+        negociada: Boolean(r.negociada),
       }));
     },
     database,
@@ -493,6 +502,7 @@ export async function obterDetalhesClinicaPlataforma(userId: string, tenantId: s
           status: tenants.status,
           criadoEm: tenants.criadoEm,
           testeAte: tenants.testeAte,
+          motivoSuspensao: tenants.motivoSuspensao,
           planoId: tenants.planoId,
           planoNome: planosSaas.nome,
           planoCodigo: planosSaas.codigo,
@@ -537,6 +547,7 @@ export async function obterDetalhesClinicaPlataforma(userId: string, tenantId: s
           role: memberships.role,
           ativo: memberships.ativo,
           criadoEm: memberships.criadoEm,
+          userId: memberships.userId,
           userName: users.name,
           userEmail: users.email,
           userBanned: users.banned,
