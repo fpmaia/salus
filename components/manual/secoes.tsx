@@ -654,13 +654,14 @@ export const SECOES: Secao[] = [
       <>Em {b("Assinatura")}, veja o plano atual, o uso e a estimativa da próxima fatura.</>,
       <>Para mudar, clique em {b("Fazer upgrade")} ou {b("Mudar para este")} e confirme. Os limites mudam na hora; a próxima fatura já usa o novo plano.</>,
       <>Para voltar ao {basico.nome}, as unidades ativas precisam caber no limite (salas e profissionais a mais viram excedente).</>,
+      <>Tem um cupom? Digite em {b("Descontos e cupom")} e clique em {b("Aplicar cupom")}. O desconto entra a partir da próxima fatura; descontos e créditos combinados com a equipe Salus aparecem no mesmo quadro.</>,
     ],
     midias: [
       { tipo: "animacao", nome: "trocar-plano", legenda: "Mudando de plano" },
       { tipo: "print", nome: "60-assinatura", legenda: "Assinatura: plano, uso, próxima fatura e faturas" },
       { tipo: "print", nome: "62-planos", legenda: "Planos disponíveis" },
     ],
-    termos: ["plano", "básico", "pro", "enterprise", "excedente", "fatura", "upgrade", "downgrade", "preço"],
+    termos: ["plano", "básico", "pro", "enterprise", "excedente", "fatura", "upgrade", "downgrade", "preço", "cupom", "desconto"],
   },
   {
     id: "licencas",
@@ -687,7 +688,7 @@ export const SECOES: Secao[] = [
     perfis: ["admin", "recepcao", "profissional"],
     conteudo: (
       <ol className="list-decimal space-y-1 pl-5">
-        <li>Venceu: o administrador vê o aviso no painel. Há {b("15 dias de carência")}.</li>
+        <li>Venceu: o administrador vê o aviso no painel. Há {b("15 dias de carência")} (ou o prazo combinado com a equipe Salus).</li>
         <li>5 dias antes do fim da carência, o administrador recebe um e-mail.</li>
         <li>
           Passou a carência: o espaço fica {b("só para consulta")} para todos. Dá para ver tudo, mas não marcar nem alterar. A página de agendamento
@@ -699,7 +700,8 @@ export const SECOES: Secao[] = [
     midias: [{ tipo: "print", nome: "65-espaco-suspenso", legenda: "Aviso de espaço só para consulta" }],
     problemas: [
       { sintoma: `"Este espaço está só para consulta…"`, solucao: <>Peça ao administrador para pagar a fatura em {b("Assinatura")} (botão {b("Pagar a fatura")} no aviso).</> },
-      { sintoma: `"Acesso ao espaço suspenso"`, solucao: <>O espaço foi suspenso pela equipe Salus: o administrador deve falar com o suporte.</> },
+      { sintoma: `"Acesso ao espaço suspenso"`, solucao: <>O espaço foi suspenso pela equipe Salus; o motivo aparece na tela. O administrador deve falar com o suporte.</> },
+      { sintoma: "Não consigo pagar tudo de uma vez", solucao: <>Fale com a equipe Salus: dá para mudar o vencimento ou fazer um acordo em parcelas, que aparece em {b("Assinatura")} com o link de cada parcela.</> },
     ],
     termos: ["atraso", "suspenso", "carência", "só consulta", "inadimplência", "bloqueado"],
   },
@@ -754,21 +756,129 @@ export const SECOES: Secao[] = [
     onde: "/plataforma",
     link: "/plataforma",
     passos: [
-      <>{b("Visão Geral")}: espaços ativos e suspensos, usuários e receita estimada.</>,
-      <>{b("Clínicas")}: abra um espaço para ver recursos, equipe, licenças e faturas; suspenda, reative ou troque o plano.</>,
-      <>{b("Planos")}: altere preço, limites e preços de excedente e do prontuário. Vale para as próximas faturas.</>,
-      <>{b("Financeiro")}: faturas de todos os espaços, com o que está pago, em aberto e em atraso.</>,
-      <>{b("Usuários")} e {b("Auditoria")}: bloquear acesso e ver quem fez cada alteração.</>,
-      <>{b("Convites")}: libere um teste grátis para uma clínica nova (veja a próxima seção).</>,
+      <>{b("Visão Geral")}: espaços, usuários e o quadro {b("Precisa de atenção")} (fatura que não chegou ao Asaas, parcela de acordo vencida, teste grátis acabando).</>,
+      <>{b("Clínicas")}: abra uma clínica. A ficha tem as abas {b("Resumo")}, {b("Cobrança")}, {b("Acordos")}, {b("Acessos")}, {b("Notas")} e {b("Histórico")}.</>,
+      <>{b("Resumo")}: troque o plano vendo quanto sairia a próxima fatura em cada um; suspenda com um motivo (a clínica vê ao entrar), reative ou cancele a conta.</>,
+      <>{b("Acessos")}: encerre as sessões de um usuário ou bloqueie o acesso dele. {b("Notas")}: registre combinados com a clínica (ela não vê). {b("Histórico")}: tudo o que a equipe Salus e a própria clínica fizeram.</>,
+      <>{b("Planos")}: preço, limites e excedentes de cada plano, para todas as clínicas.</>,
+      <>{b("Usuários")} e {b("Auditoria")}: bloquear acesso e ver quem fez cada alteração, com filtros e exportação em CSV.</>,
     ],
     midias: [
       { tipo: "print", nome: "80-plataforma", legenda: "Visão geral da plataforma" },
       { tipo: "print", nome: "81-plataforma-clinicas", legenda: "Espaços cadastrados" },
+      { tipo: "print", nome: "89-clinica-resumo", legenda: "Ficha da clínica: trocar plano, suspender e cancelar" },
+      { tipo: "print", nome: "93-clinica-notas", legenda: "Notas internas da equipe" },
       { tipo: "print", nome: "82-plataforma-planos", legenda: "Edição dos planos" },
-      { tipo: "print", nome: "83-plataforma-financeiro", legenda: "Faturamento do SaaS" },
     ],
-    dicas: [<>A área exige a verificação em duas etapas. Toda ação fica na auditoria da plataforma.</>],
-    termos: ["superadmin", "plataforma", "clínicas", "planos", "faturamento"],
+    dicas: [
+      <>A área exige a verificação em duas etapas. Toda ação fica na auditoria da plataforma.</>,
+      <>Cancelar a conta é só do Dono e pede para digitar o nome da clínica. As faturas em aberto são canceladas também no Asaas; os dados ficam guardados e a conta pode ser reaberta.</>,
+    ],
+    termos: ["superadmin", "plataforma", "clínicas", "planos", "suspender", "cancelar conta", "sessões", "notas"],
+  },
+  {
+    id: "equipe-plataforma",
+    grupo: "plataforma",
+    titulo: "Equipe da plataforma e papéis",
+    resumo: "Quem administra o Salus e o que cada papel pode fazer.",
+    perfis: ["plataforma"],
+    onde: "/plataforma/equipe",
+    link: "/plataforma/equipe",
+    passos: [
+      <>Em {b("Equipe")}, informe o e-mail da pessoa e o papel: {b("Dono")}, {b("Financeiro")} ou {b("Suporte")}. Clique em {b("Enviar convite")}.</>,
+      <>A pessoa entra (ou cria a conta) com aquele e-mail, abre {b("/plataforma")} e clica em {b("Aceitar convite")}. Em seguida configura a verificação em duas etapas.</>,
+      <>Para mudar o papel ou tirar alguém da equipe, use {b("Mudar papel")} ou {b("Remover")} na lista. A conta continua existindo, só sem acesso à plataforma.</>,
+    ],
+    midias: [{ tipo: "print", nome: "87-plataforma-equipe", legenda: "Equipe, convites pendentes e o que cada papel pode fazer" }],
+    conteudo: (
+      <ul className="list-disc space-y-1 pl-5">
+        <li>{b("Dono")}: tudo, inclusive planos, equipe, cancelamento de contas e banimento de usuários.</li>
+        <li>{b("Financeiro")}: plano da clínica, teste grátis, condições, descontos, créditos, cupons, faturas e acordos.</li>
+        <li>{b("Suporte")}: vê tudo, suspende e reativa clínicas, encerra sessões e escreve notas. Não mexe em valores.</li>
+      </ul>
+    ),
+    dicas: [<>A equipe nunca fica sem Dono: o último não pode ser removido nem rebaixado.</>],
+    termos: ["equipe", "papéis", "dono", "financeiro", "suporte", "convidar", "permissões"],
+  },
+  {
+    id: "cobranca-clinica",
+    grupo: "plataforma",
+    titulo: "Preço negociado, descontos, créditos e cupons",
+    resumo: "Condições comerciais de cada clínica e cupons de desconto.",
+    perfis: ["plataforma"],
+    onde: "/plataforma/clinicas › aba Cobrança",
+    link: "/plataforma/cupons",
+    passos: [
+      <>Abra a clínica e a aba {b("Cobrança")}. No alto, a {b("Próxima fatura (prévia)")} mostra como ela sairia hoje.</>,
+      <>Em {b("Condições negociadas")}, preencha só o que muda: mensalidade, preços de excedente, {b("Dia de vencimento")} (1 a 28) e {b("Carência até suspender")}. Vazio segue o plano.</>,
+      <>Em {b("Descontos")}, escolha percentual ou valor fixo por mês, a partir de qual mês e até quando (vazio = sem fim).</>,
+      <>Em {b("Créditos")}, lance um abatimento avulso (ex.: compensação). Ele sai das próximas faturas até o saldo acabar.</>,
+      <>Em {b("Cupons")} (menu da plataforma), crie códigos com valor, duração em meses, validade, limite de usos e planos. A clínica digita o cupom no cadastro ou na tela Assinatura, ou ele vem no convite de teste grátis.</>,
+    ],
+    midias: [
+      { tipo: "print", nome: "90-clinica-cobranca", legenda: "Aba Cobrança: prévia, condições, descontos, créditos e faturas" },
+      { tipo: "print", nome: "88-plataforma-cupons", legenda: "Cupons de desconto" },
+    ],
+    conteudo: (
+      <ul className="list-disc space-y-1 pl-5">
+        <li>Tudo vale a partir da próxima fatura; faturas já emitidas não mudam (para elas, use as operações da fatura).</li>
+        <li>Ordem do cálculo: preço negociado, desconto percentual, desconto em valor e créditos. A fatura nunca fica negativa.</li>
+        <li>Fatura que fica em zero nasce quitada como {b("isenta")} e não vai ao Asaas.</li>
+        <li>Um cupom por clínica de cada vez; o mesmo cupom não se usa duas vezes na mesma clínica.</li>
+      </ul>
+    ),
+    termos: ["desconto", "cupom", "crédito", "preço negociado", "condição comercial", "dia de vencimento", "carência"],
+  },
+  {
+    id: "faturas-plataforma",
+    grupo: "plataforma",
+    titulo: "Financeiro e operações na fatura",
+    resumo: "Receita, inadimplência e o que fazer com uma fatura em aberto.",
+    perfis: ["plataforma"],
+    onde: "/plataforma/financeiro",
+    link: "/plataforma/financeiro",
+    passos: [
+      <>Em {b("Financeiro")}, veja o {b("MRR estimado")} (a fatura do mês de cada clínica pagante, com condições e descontos), o recebido e o a receber no mês, a inadimplência por faixa e as clínicas em atraso com a data da suspensão.</>,
+      <>Filtre por clínica, situação e vencimento; {b("CSV")} exporta o que está filtrado.</>,
+      <>Em cada fatura em aberto: {b("Mudar vencimento")}, {b("Desconto ou acréscimo")}, {b("Baixa manual (pago fora)")}, {b("Cancelar fatura")} ou {b("Reenviar")}. Todas pedem motivo e ficam na auditoria da plataforma e da clínica.</>,
+      <>Na aba {b("Cobrança")} da clínica, {b("Nova fatura avulsa")} cobra algo fora da mensalidade (implantação, treinamento…).</>,
+    ],
+    midias: [
+      { tipo: "print", nome: "83-plataforma-financeiro", legenda: "Financeiro da plataforma" },
+      { tipo: "print", nome: "91-fatura-acoes", legenda: "Operações numa fatura em aberto" },
+    ],
+    conteudo: (
+      <ul className="list-disc space-y-1 pl-5">
+        <li>O Asaas é atualizado primeiro (novo valor, nova data ou cancelamento); depois o Salus.</li>
+        <li>Mudar o vencimento tira a clínica do atraso na hora, se a nova data ainda não passou.</li>
+        <li>Na baixa manual a cobrança do Asaas é cancelada, para a clínica não pagar duas vezes. Se ela pagar mesmo assim, o pagamento fica registrado no histórico para devolução.</li>
+        <li>{b("Reenviar")}: fatura com erro de envio volta para o Asaas; as outras vão por e-mail aos administradores da clínica.</li>
+      </ul>
+    ),
+    termos: ["financeiro", "MRR", "inadimplência", "vencimento", "baixa manual", "cancelar fatura", "fatura avulsa", "reenviar"],
+  },
+  {
+    id: "renegociacao",
+    grupo: "plataforma",
+    titulo: "Renegociar faturas em atraso",
+    resumo: "Acordo em parcelas, com desconto opcional.",
+    perfis: ["plataforma", "admin"],
+    onde: "/plataforma/clinicas › aba Acordos",
+    passos: [
+      <>Abra a clínica, aba {b("Acordos")}, e clique em {b("Renegociar faturas em aberto")}.</>,
+      <>Marque as faturas que entram, o desconto (percentual ou valor), o número de parcelas e o vencimento da primeira.</>,
+      <>Confira a prévia: dá para mudar a data e o valor de cada parcela, desde que a soma feche com o total.</>,
+      <>Informe o motivo e clique em {b("Confirmar acordo")}. As faturas originais são canceladas e cada parcela vira uma fatura enviada ao Asaas.</>,
+    ],
+    midias: [{ tipo: "print", nome: "92-clinica-acordos", legenda: "Acordo em 3 parcelas com desconto" }],
+    conteudo: (
+      <ul className="list-disc space-y-1 pl-5">
+        <li>A clínica sai do atraso assim que o acordo é criado e vê as parcelas, com o link de pagamento, na tela Assinatura.</li>
+        <li>Parcela em atraso segue a carência normal até suspender.</li>
+        <li>Pagas todas as parcelas, o acordo fica {b("Quitado")} sozinho. Cancelar o acordo cancela as parcelas em aberto; as faturas originais não voltam.</li>
+      </ul>
+    ),
+    termos: ["renegociar", "acordo", "parcelas", "parcelamento", "atraso", "inadimplência"],
   },
   {
     id: "teste-gratis",
@@ -824,7 +934,8 @@ export const SECOES: Secao[] = [
           ["Competência", "O mês a que um valor se refere."],
           ["Fechamento", "Congela o extrato do mês do profissional."],
           ["Excedente", "Sala, profissional ou unidade além do incluído no plano, cobrada à parte."],
-          ["Carência", "Os 15 dias depois do vencimento da fatura antes de o espaço ficar só para consulta."],
+          ["Carência", "Os dias depois do vencimento da fatura (15, ou o combinado com a equipe Salus) antes de o espaço ficar só para consulta."],
+          ["Acordo", "Faturas em atraso renegociadas em parcelas com a equipe Salus."],
           ["Adendo", "Correção de um registro clínico já finalizado."],
         ].map(([termo, definicao]) => (
           <div key={termo} className="rounded-lg border p-3">

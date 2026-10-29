@@ -66,9 +66,21 @@ Legenda: ✅ pode · ⛔ não pode (servidor recusa e a página mostra "Acesso r
 A tabela-verdade completa de `PERMISSOES` fica em snapshot (`src/domain/__snapshots__/rbac.test.ts.snap`): qualquer mudança de
 permissão aparece no diff e deve ser refletida aqui e no manual.
 
-**Superadmin (dono da plataforma, `/plataforma`)**: exige `users.role = superadmin` e 2FA. Métricas, clínicas (suspender,
-reativar, trocar plano, detalhe), usuários (banir), planos (editar preço, limites, excedentes), faturamento e auditoria. Testes:
-`plataforma.test` (integração). Não há E2E porque o seed não cria superadmin com 2FA (ver pendências).
+**Equipe da plataforma (`/plataforma`)**: exige `users.role = superadmin` e 2FA (também nas actions). Cada pessoa tem um papel,
+conferido no servidor e de novo no banco (`app_plataforma_pode`, espelho de `src/domain/permissoes-plataforma.ts`):
+
+| Permissão | Dono | Financeiro | Suporte |
+|---|---|---|---|
+| Ver clínicas, faturas, usuários, auditoria, notas | ✓ | ✓ | ✓ |
+| Suspender/reativar clínica, encerrar sessões | ✓ | — | ✓ |
+| Cancelar a conta de uma clínica, reabrir conta cancelada | ✓ | — | — |
+| Convites de teste grátis | ✓ | ✓ | — |
+| Plano da clínica, teste grátis, condições, descontos, créditos, cupons, faturas, acordos | ✓ | ✓ | — |
+| Banir usuários, editar planos, equipe | ✓ | — | — |
+
+Testes: `permissoes-plataforma.test` (snapshot da matriz), `plataforma-equipe.test` (convite por e-mail verificado, último Dono,
+matriz SQL = TS), `plataforma.test`, `plataforma-financeiro.test`, `plataforma-faturas.test`, `plataforma-acordos.test`,
+`plataforma-conta.test`; E2E `plataforma-financeiro.spec` (Financeiro dá desconto e renegocia; Suporte não vê ações de valores).
 
 **Paciente (sem login)**: link do agendamento (confirmar, cancelar, `.ics`) e página pública de agendamento. Testes: E2E "paciente
 abre o link", `planos-e-modulos.spec` (agenda pela página pública), `notificacoes.test`, `agendamento-online.test`, `limite-taxa.test`.
@@ -98,6 +110,10 @@ Fonte única dos números públicos: `src/domain/planos.ts` (o teste `planos-lim
 | Suspensa por atraso (dia 16 após o vencimento) | painel só leitura para todos; ações recusam; agenda online some; volta sozinho ao pagar | `assinatura.test`, `agendamento-online.test` |
 | Liberado na suspensão | pagar/trocar plano, aceitar convite de equipe, pagar a própria licença, desligar licença, perfil/senha/2FA, solicitação formal de prontuário | `src/server/acao.ts` (`liberadaNaSuspensao`) |
 | Suspensa pela plataforma (superadmin) | o usuário vê "Acesso ao espaço suspenso" e não cai no cadastro de novo espaço | `plataforma.test` |
+| Com condições negociadas | preço próprio, dia de vencimento (1–28) e carência própria; descontos por período, créditos e cupom entram na fatura; fatura zerada nasce paga ("isenta") sem ir ao Asaas | `cobranca-condicoes.test`, `plataforma-financeiro.test` |
+| Fatura em aberto mexida pela equipe | novo vencimento tira do atraso; ajuste de valor; cancelar; baixa manual (cobrança do Asaas cancelada; pagamento posterior vira divergência no histórico); avulsa; reenviar | `plataforma-faturas.test` |
+| Em acordo de renegociação | faturas originais canceladas, parcelas viram faturas, sai do atraso; quita sozinho quando todas pagas; cancelar o acordo cancela as parcelas em aberto | `acordos.test`, `plataforma-acordos.test`, E2E `plataforma-financeiro.spec` |
+| Conta cancelada pela plataforma | "Conta do espaço cancelada" com o motivo; faturas em aberto e acordos cancelados; só o Dono reabre | `plataforma-conta.test` |
 | Em teste grátis (convite da plataforma) | espaço no plano do convite; sem fatura durante o teste nem no mês em que termina; aviso para quem paga; superadmin estende ou encerra | `convite-trial.test`, `cobranca.test`, E2E `teste-gratis.spec` |
 
 ## 4. Módulos opcionais
@@ -153,12 +169,16 @@ contra a cobrança atual; reativar não dá segundo teste; o admin pode assumir 
 | 23 | Convidado pela tela Equipe com papel profissional ficava sem cadastro de profissional (sem licença do prontuário, agenda e extrato) | Cadastro criado ou vinculado pelo e-mail no aceite e na troca de papel | `equipe.test` |
 | 24 | Impressão de registro compartilhado saía com o nome de quem imprimia, e rascunho podia ser impresso | Autor do registro; só finalizado | `prontuario.test` |
 | 25 | Quem criava conta pelo convite da Equipe voltava para a página do convite de profissional ("convite inválido") | Retorno ao convite por tipo (`destino-convite.ts`) | E2E `teste-gratis.spec` (mesmo caminho) |
+| 26 | Actions da plataforma não exigiam 2FA (só o layout) | `exigirAcessoPlataforma` confere o 2FA | `plataforma-equipe.test` |
+| 27 | Trocar o plano de uma clínica aceitava plano inexistente ou inativo | Validação em `app_plataforma_alterar_plano` | `plataforma-equipe.test` |
+| 28 | Datas de cadastro e de "membro desde" na ficha da clínica saíam no dia UTC (um dia a mais à noite) | Data no fuso de São Paulo | captura do manual |
 
 ## 7. Pendências conhecidas (não corrigidas)
 
 - **Downgrade às vésperas da fatura**: a fatura usa o plano vigente no dia em que é gerada; quem desce de plano antes do job paga
   o menor. Corrigir exige histórico de plano por competência (decisão de negócio).
-- **E2E do superadmin**: o seed E2E não cria superadmin com 2FA; a área é coberta só por integração.
+- **Asaas `POST /payments/{id}`** (novo vencimento e ajuste de valor) foi testado com o gateway falso; conferir no sandbox antes
+  de usar em produção (ver checklist).
 - **Cobrança avulsa do profissional exige CPF no cadastro** (o Asaas não cria cliente sem documento): a mensagem orienta a
   preencher em Profissionais.
 - **Animações e prints do manual** são gerados por `npm run manual:telas` (ver `tests/manual/`) e versionados em `public/manual/`.
@@ -171,6 +191,8 @@ Itens que dependem de serviços reais e credenciais; rode em sandbox/homologaç�
 
 - [ ] **Asaas (plataforma)**: gerar fatura do mês, pagar por PIX em sandbox, webhook chega e a fatura vira "paga"; atraso → aviso
   por e-mail → suspensão → pagamento reativa.
+- [ ] **Asaas (gestão da plataforma)**: mudar vencimento e ajustar valor de uma cobrança em aberto (o boleto/PIX novo reflete);
+  baixa manual cancela a cobrança; acordo cancela as originais e cria as parcelas; fatura avulsa.
 - [ ] **Asaas (licença do profissional)**: gerar cobrança, pagar, "Já paguei" ativa; webhook duplicado é ignorado.
 - [ ] **Asaas (espaço → profissional)**: conectar a conta do espaço, cobrança do fechamento, baixa automática, estorno.
 - [ ] **WhatsApp (Evolution)**: conectar por QR, lembrete chega com link, paciente confirma e cancela pelo link.

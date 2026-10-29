@@ -23,6 +23,9 @@ const SECAO_POR_ROTA: [prefixo: string, secao: string][] = [
   ["/painel/assinatura", "planos"],
   ["/painel/perfil", "seguranca"],
   ["/plataforma/convites", "teste-gratis"],
+  ["/plataforma/equipe", "equipe-plataforma"],
+  ["/plataforma/cupons", "cobranca-clinica"],
+  ["/plataforma/financeiro", "faturas-plataforma"],
   ["/plataforma", "plataforma"],
   ["/painel", "comece-aqui"],
 ];

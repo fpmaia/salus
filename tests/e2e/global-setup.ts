@@ -21,7 +21,11 @@ import { criarPaciente } from "../../src/server/pacientes";
 import { criarProfissional, gerarConvite } from "../../src/server/profissionais";
 import { criarReserva } from "../../src/server/reservas";
 import { criarSala, criarUnidade, definirHorarios } from "../../src/server/unidades";
-import { ARQUIVO_DADOS, type DadosE2E, EMAIL_TRIAL, SENHA, usuario } from "./dados";
+import { GatewaySimulado } from "../../src/server/asaas";
+import { gerarFaturaDoMes } from "../../src/server/assinatura";
+import { definirPapelPlataforma } from "../../src/server/equipe-plataforma";
+import { alterarPlanoClinicaPlataforma } from "../../src/server/plataforma";
+import { ARQUIVO_DADOS, type DadosE2E, EMAIL_FINANCEIRO_SALUS, EMAIL_SUPORTE_SALUS, EMAIL_TRIAL, SENHA, usuario } from "./dados";
 
 // Banco limpo + espaço "Coworking E2E", pelos mesmos serviços do app (papel salus_app, com RLS).
 export default async function setup() {
@@ -150,6 +154,23 @@ export default async function setup() {
     const [{ id: planoPro }] = await db.select({ id: planosSaas.id }).from(planosSaas).where(eq(planosSaas.codigo, "pro"));
     const { link: linkTeste } = await criarConviteClinica(superadmin, { email: EMAIL_TRIAL, planoId: planoPro, diasTeste: 30 }, new Date(), db);
 
+    // Equipe da plataforma (Financeiro e Suporte) e uma clínica com duas faturas vencidas.
+    for (const [email, nome, papel] of [
+      [EMAIL_FINANCEIRO_SALUS, "Financeiro Salus E2E", "financeiro"],
+      [EMAIL_SUPORTE_SALUS, "Suporte Salus E2E", "suporte"],
+    ] as const) {
+      const { user } = await auth.api.signUpEmail({ body: { name: nome, email, password: SENHA } });
+      await db.update(users).set({ emailVerified: true, role: "superadmin" }).where(eq(users.id, user.id));
+      await registrarAceite(user.id, "script", {}, db);
+      await definirPapelPlataforma(superadmin, user.id, papel, db);
+    }
+    const [{ id: donoAtrasada }] = await db.insert(users).values({ name: "Dono Atrasada", email: "dono.atrasada@e2e.salus.dev" }).returning({ id: users.id });
+    const { tenantId: tenantAtrasada } = await criarTenantComAdmin(donoAtrasada, { nomeTenant: "Clínica Atrasada E2E", documento: "45.723.174/0001-10" }, db);
+    await alterarPlanoClinicaPlataforma(superadmin, tenantAtrasada, planoPro, db);
+    for (const dias of [62, 31]) {
+      await gerarFaturaDoMes(tenantAtrasada, { agora: new Date(Date.now() - dias * 86_400_000), gateway: new GatewaySimulado(), database: db });
+    }
+
     const dados: DadosE2E = {
       profissionalId,
       reservaAmanha,
@@ -160,6 +181,7 @@ export default async function setup() {
       linkPaciente,
       linkConvite,
       linkTeste,
+      tenantAtrasada,
     };
     writeFileSync(path.resolve(ARQUIVO_DADOS), JSON.stringify(dados, null, 2));
   } finally {

@@ -26,7 +26,9 @@ export function SecaoConta({
       {pode.financeiro && (
         <div className="space-y-3 rounded-2xl border border-border/80 bg-card p-5 shadow-sm">
           <h2 className="text-sm font-bold">Trocar plano</h2>
-          <p className="text-xs text-muted-foreground">Próxima fatura estimada em cada plano, com o uso, as condições e os descontos de hoje.</p>
+          <p className="text-xs text-muted-foreground">
+            Próxima fatura estimada em cada plano, com o uso, as condições e os descontos de hoje. Preço negociado na aba Cobrança vale em qualquer plano.
+          </p>
           <FormAcao acao={trocarPlanoContaAcao.bind(null, tenant.id)} textoBotao="Trocar plano" className="flex flex-col gap-2">
             {precosPorPlano.map((p) => (
               <label key={p.planoId} className="flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-xs">

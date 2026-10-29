@@ -10,9 +10,11 @@ export type Papel = "admin" | "recepcao" | "profissional";
 export const usuario = (papel: Papel) => `${papel}@e2e.salus.dev`;
 /** Conta confirmada, sem espaço, com convite trial da plataforma. */
 export const EMAIL_TRIAL = "dona.trial@e2e.salus.dev";
+export const EMAIL_FINANCEIRO_SALUS = "financeiro.salus@e2e.salus.dev";
+export const EMAIL_SUPORTE_SALUS = "suporte.salus@e2e.salus.dev";
 
 /** Ids criados pelo global-setup. */
-export type DadosE2E = { profissionalId: string; reservaAmanha: string; amanha: string; competenciaAnterior: string; sala1: string; atendimentoPago: string; linkPaciente: string; linkConvite: string; linkTeste: string };
+export type DadosE2E = { profissionalId: string; reservaAmanha: string; amanha: string; competenciaAnterior: string; sala1: string; atendimentoPago: string; linkPaciente: string; linkConvite: string; linkTeste: string; tenantAtrasada: string };
 
 export function dados(): DadosE2E {
   return JSON.parse(readFileSync(path.resolve(ARQUIVO_DADOS), "utf-8"));
@@ -26,6 +28,17 @@ export async function entrar(page: Page, papel: Papel) {
   await page.getByLabel("Senha").fill(SENHA);
   await page.getByRole("button", { name: "Entrar" }).click();
   await expect(page).toHaveURL(/\/painel/);
+}
+
+/** Entra com um usuário da equipe da plataforma e abre /plataforma. */
+export async function entrarNaPlataforma(page: Page, email: string) {
+  await page.goto("/entrar");
+  await page.waitForLoadState("networkidle");
+  await page.getByLabel("E-mail").fill(email);
+  await page.getByLabel("Senha").fill(SENHA);
+  await page.getByRole("button", { name: "Entrar" }).click();
+  await expect(page).not.toHaveURL(/\/entrar/);
+  await page.goto("/plataforma");
 }
 
 /** TOTP (RFC 6238) como o app autenticador: SHA-1, 30 s, 6 dígitos. */

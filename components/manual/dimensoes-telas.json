@@ -17,7 +17,7 @@
   },
   "10-admin-inicio": {
     "largura": 1280,
-    "altura": 1144
+    "altura": 1091
   },
   "11-unidades": {
     "largura": 1280,
@@ -45,7 +45,7 @@
   },
   "20-recepcao-inicio": {
     "largura": 1280,
-    "altura": 828
+    "altura": 820
   },
   "21-agenda-salas": {
     "largura": 1280,
@@ -141,7 +141,7 @@
   },
   "60-assinatura": {
     "largura": 1280,
-    "altura": 1734
+    "altura": 2087
   },
   "61-licencas-prontuario": {
     "largura": 1280,
@@ -165,7 +165,7 @@
   },
   "80-plataforma": {
     "largura": 1280,
-    "altura": 820
+    "altura": 1072
   },
   "81-plataforma-clinicas": {
     "largura": 1280,
@@ -177,7 +177,7 @@
   },
   "83-plataforma-financeiro": {
     "largura": 1280,
-    "altura": 1053
+    "altura": 1744
   },
   "84-plataforma-auditoria": {
     "largura": 1280,
@@ -185,9 +185,37 @@
   },
   "85-plataforma-convites": {
     "largura": 1280,
-    "altura": 892
+    "altura": 962
   },
   "86-teste-gratis-link": {
+    "largura": 1280,
+    "altura": 820
+  },
+  "87-plataforma-equipe": {
+    "largura": 1280,
+    "altura": 1231
+  },
+  "88-plataforma-cupons": {
+    "largura": 1280,
+    "altura": 926
+  },
+  "89-clinica-resumo": {
+    "largura": 1280,
+    "altura": 820
+  },
+  "90-clinica-cobranca": {
+    "largura": 1280,
+    "altura": 1598
+  },
+  "91-fatura-acoes": {
+    "largura": 1280,
+    "altura": 820
+  },
+  "92-clinica-acordos": {
+    "largura": 1280,
+    "altura": 820
+  },
+  "93-clinica-notas": {
     "largura": 1280,
     "altura": 820
   }

@@ -6,7 +6,7 @@ import { Client } from "pg";
 import { opcoesAuth } from "../../src/auth/config";
 import { createDb } from "../../src/db/client";
 import { aplicarMigrations } from "../../src/db/migrator";
-import { memberships, planosSaas, profissionais, users } from "../../src/db/schema";
+import { faturasSaas, memberships, planosSaas, profissionais, users } from "../../src/db/schema";
 import { type ContextoTenant, withSistema, withTenant } from "../../src/db/tenant";
 import { agendarLembretes, processarFila } from "../../src/server/notificacoes";
 import { ConsoleProvider } from "../../src/server/provider";
@@ -29,6 +29,12 @@ import { ativarLicencaProntuario, gerarFaturaDoMes } from "../../src/server/assi
 import { definirModulos } from "../../src/server/modulos";
 import { finalizarRegistro, salvarRascunho } from "../../src/server/prontuario";
 import { criarConviteClinica } from "../../src/server/convites-clinica";
+import { simularAcordo } from "../../src/domain/acordos";
+import { convidarParaEquipePlataforma, definirPapelPlataforma } from "../../src/server/equipe-plataforma";
+import { alterarPlanoClinicaPlataforma } from "../../src/server/plataforma";
+import { criarAcordo as criarAcordoSaas } from "../../src/server/plataforma-acordos";
+import { criarNotaClinica } from "../../src/server/plataforma-clinica";
+import { criarDescontoClinica, lancarCreditoClinica, salvarCondicoesComerciais, salvarCupom } from "../../src/server/plataforma-financeiro";
 
 export const SENHA = "salus-manual-123";
 export const EMAIL = {
@@ -38,6 +44,9 @@ export const EMAIL = {
   // Dono da plataforma (área /plataforma) e o admin de um espaço com a fatura em atraso.
   superadmin: "suporte@salus.app",
   atraso: "rodrigo@clinicabemestar.com.br",
+  // Equipe Salus (Financeiro) e uma clínica com acordo de renegociação.
+  financeiroSalus: "paula@salus.app",
+  acordo: "carlos@clinicavidaplena.com.br",
 };
 
 // Espaço de demonstração do manual do usuário ("Espaço Vida Saúde"), criado pelos serviços do
@@ -67,6 +76,8 @@ export default async function setup() {
       ["profissional", "Dra. Helena Costa"],
       ["superadmin", "Equipe Salus"],
       ["atraso", "Rodrigo Nunes"],
+      ["financeiroSalus", "Paula Ribeiro"],
+      ["acordo", "Carlos Mendes"],
     ] as const) {
       const { user } = await auth.api.signUpEmail({ body: { name: nome, email: EMAIL[role], password: SENHA } });
       await db.update(users).set({ emailVerified: true }).where(eq(users.id, user.id));
@@ -249,7 +260,53 @@ export default async function setup() {
     await criarUnidade(adminAtraso, { nome: "Unidade Centro" }, db);
     await gerarFaturaDoMes(adminAtraso.tenantId, { agora: new Date(agoraReal.getTime() - 45 * 86_400_000), gateway: new GatewaySimulado(), database: db });
 
-    const dados = { pacienteCheckin, carla: pac.carla, slugHelena, helena, rafael, paciente: pac.ana, hoje, amanha, competenciaAnterior: mesAnterior.slice(0, 7), atendimentoPago, linkPaciente, linkConvite: `/convite/${tokenConvite}`, linkTeste, unidade, c2 };
+    // Gestão da plataforma: equipe com papéis, cupons, condições negociadas, crédito e acordo.
+    await db.update(users).set({ role: "superadmin" }).where(eq(users.id, ids.financeiroSalus));
+    await definirPapelPlataforma(ids.superadmin, ids.financeiroSalus, "financeiro", db);
+    await convidarParaEquipePlataforma(ids.superadmin, { email: "atendimento@salus.app", papel: "suporte" }, agoraReal, db);
+    await salvarCupom(ids.superadmin, null, { codigo: "BEMVINDO20", descricao: "Campanha de lançamento", tipo: "percentual", valor: 20, duracaoMeses: 3, validoAte: null, maxUsos: 50 }, db);
+    await salvarCupom(ids.superadmin, null, { codigo: "PARCEIRO50", descricao: "Associação de psicólogos", tipo: "valor", valor: 5000, duracaoMeses: null, validoAte: null, maxUsos: null }, db);
+    await salvarCondicoesComerciais(
+      ids.superadmin,
+      admin.tenantId,
+      {
+        precoMensalCentavos: 17900,
+        precoSalaExtraCentavos: null,
+        precoProfissionalExtraCentavos: null,
+        precoUnidadeExtraCentavos: null,
+        precoProntuarioCentavos: null,
+        diaVencimento: 15,
+        diasCarencia: 20,
+        observacao: "Contrato anual negociado em out/2026",
+      },
+      db,
+    );
+    await criarDescontoClinica(ids.superadmin, admin.tenantId, { tipo: "percentual", valor: 10, inicio: mesAtual, fim: null, motivo: "Parceria com a associação" }, db);
+    await lancarCreditoClinica(ids.superadmin, admin.tenantId, { valorCentavos: 5000, motivo: "Instabilidade no dia 12" }, db);
+
+    await criarTenantComAdmin(ids.acordo, { nomeTenant: "Clínica Vida Plena", documento: "11.444.777/0001-61" }, db);
+    const [mAcordo] = await listarMembershipsDoUsuario(ids.acordo, db);
+    await alterarPlanoClinicaPlataforma(ids.superadmin, mAcordo.tenantId, planoPro, db);
+    for (const dias of [62, 31]) {
+      await gerarFaturaDoMes(mAcordo.tenantId, { agora: new Date(agoraReal.getTime() - dias * 86_400_000), gateway: new GatewaySimulado(), database: db });
+    }
+    const abertasAcordo = await withSistema(mAcordo.tenantId, (tx) => tx.select().from(faturasSaas), db);
+    const totalAcordo = abertasAcordo.reduce((t, f) => t + f.valorCentavos, 0);
+    const descontoAcordo = Math.round(totalAcordo * 0.1);
+    await criarAcordoSaas(
+      ids.superadmin,
+      mAcordo.tenantId,
+      {
+        faturasIds: abertasAcordo.map((f) => f.id),
+        descontoCentavos: descontoAcordo,
+        parcelas: simularAcordo({ valorOriginalCentavos: totalAcordo, descontoCentavos: descontoAcordo, parcelas: 3, primeiroVencimento: amanha }).parcelas,
+        motivo: "Dificuldade de caixa; combinado por telefone",
+      },
+      { gateway: new GatewaySimulado(), database: db },
+    );
+    await criarNotaClinica(ids.superadmin, mAcordo.tenantId, "Carlos pediu para parcelar as duas faturas em atraso. Acordo em 3x com 10% de desconto.", db);
+
+    const dados = { tenantVida: admin.tenantId, tenantAcordo: mAcordo.tenantId, pacienteCheckin, carla: pac.carla, slugHelena, helena, rafael, paciente: pac.ana, hoje, amanha, competenciaAnterior: mesAnterior.slice(0, 7), atendimentoPago, linkPaciente, linkConvite: `/convite/${tokenConvite}`, linkTeste, unidade, c2 };
     writeFileSync(path.resolve("tests/manual/.dados.json"), JSON.stringify(dados, null, 2));
   } finally {
     await db.$client.end();

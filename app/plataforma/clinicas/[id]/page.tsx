@@ -128,7 +128,7 @@ export default async function DetalhesClinicaPlataformaPage({
               </span>
             </div>
             <p className="text-xs text-muted-foreground">
-              Documento: <strong>{tenant.documento}</strong> · Cadastrada em {formatarDataBr(tenant.criadoEm.toISOString().slice(0, 10))}
+              Documento: <strong>{tenant.documento}</strong> · Cadastrada em {tenant.criadoEm.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}
               {tenant.motivoSuspensao ? ` · Motivo: ${tenant.motivoSuspensao}` : ""}
             </p>
           </div>
@@ -312,7 +312,7 @@ export default async function DetalhesClinicaPlataformaPage({
                   {p.licencaProntuario.ativo ? (
                     p.licencaProntuario.emTrial ? (
                       <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                        <Clock className="size-3" /> Degustação Gratuita (até {p.licencaProntuario.trialFimEm ? formatarDataBr(p.licencaProntuario.trialFimEm.toISOString().slice(0, 10)) : ""})
+                        <Clock className="size-3" /> Degustação Gratuita (até {p.licencaProntuario.trialFimEm ? p.licencaProntuario.trialFimEm.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }) : ""})
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary border border-primary/20">
@@ -361,7 +361,7 @@ export default async function DetalhesClinicaPlataformaPage({
                 <span className="text-xs text-muted-foreground block">{m.userEmail}</span>
               </div>
               <span className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                Membro desde {formatarDataBr(m.criadoEm.toISOString().slice(0, 10))}
+                Membro desde {m.criadoEm.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}
                 {pode("clinicas.gerenciar") && <AcoesAcesso tenantId={tenant.id} usuario={{ id: m.userId, nome: m.userName, banido: Boolean(m.userBanned) }} podeBanir={pode("usuarios.banir")} />}
               </span>
             </div>
