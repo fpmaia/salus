@@ -19,9 +19,11 @@ import {
 interface Props {
   clinicas: ClinicaPlataforma[];
   planos: Array<{ id: string; codigo: string; nome: string; precoMensalCentavos: number }>;
+  podeGerenciar: boolean;
+  podeFinanceiro: boolean;
 }
 
-export function TabelaClinicasPlataforma({ clinicas, planos }: Props) {
+export function TabelaClinicasPlataforma({ clinicas, planos, podeGerenciar, podeFinanceiro }: Props) {
   const [busca, setBusca] = useState("");
   const [filtroStatus, setFiltroStatus] = useState<"todos" | "ativo" | "suspenso">("todos");
   const [clinicaParaSuspender, setClinicaParaSuspender] = useState<ClinicaPlataforma | null>(null);
@@ -153,14 +155,14 @@ export function TabelaClinicasPlataforma({ clinicas, planos }: Props) {
                   >
                     Ver Ficha
                   </a>
-                  <button
+                  {podeFinanceiro && <button
                     onClick={() => setClinicaParaTrocarPlano(c)}
                     className="inline-flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted transition-colors"
                   >
                     <Edit2 className="size-3" /> Mudar Plano
-                  </button>
+                  </button>}
 
-                  {c.status === "ativo" ? (
+                  {!podeGerenciar ? null : c.status === "ativo" ? (
                     <button
                       onClick={() => setClinicaParaSuspender(c)}
                       className="inline-flex items-center gap-1 rounded-lg border border-destructive/20 text-destructive hover:bg-destructive/10 px-3 py-1.5 text-xs font-semibold transition-colors"

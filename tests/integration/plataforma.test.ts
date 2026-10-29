@@ -53,7 +53,7 @@ afterAll(async () => {
 describe("área de plataforma do dono do sistema (/plataforma)", () => {
   it("recusa acesso a usuários não-superadmin", async () => {
     await expect(obterMetricasPlataforma(usuarioComumId, db)).rejects.toThrow(
-      "Acesso negado: área restrita ao dono da plataforma Salus.",
+      "Acesso negado: área restrita à equipe da plataforma Salus.",
     );
     await expect(listarClinicasPlataforma(usuarioComumId, db)).rejects.toThrow(
       "Acesso negado",

@@ -1,4 +1,4 @@
-import { exigirUsuario } from "@/src/auth/sessao";
+import { acessoPlataforma } from "../acesso";
 import {
   listarClinicasPlataforma,
   listarPlanosDisponiveis,
@@ -6,7 +6,7 @@ import {
 import { TabelaClinicasPlataforma } from "./tabela-clinicas-plataforma";
 
 export default async function PlataformaClinicasPage() {
-  const usuario = await exigirUsuario();
+  const { usuario, pode } = await acessoPlataforma();
   const [clinicas, planos] = await Promise.all([
     listarClinicasPlataforma(usuario.id),
     listarPlanosDisponiveis(usuario.id),
@@ -22,6 +22,8 @@ export default async function PlataformaClinicasPage() {
           nome: p.nome,
           precoMensalCentavos: p.precoMensalCentavos,
         }))}
+        podeGerenciar={pode("clinicas.gerenciar")}
+        podeFinanceiro={pode("financeiro.gerenciar")}
       />
     </main>
   );

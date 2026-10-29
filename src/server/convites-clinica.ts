@@ -5,7 +5,7 @@ import { getDb, type Database, type Transaction } from "../db/client";
 import { erroPostgres, PG } from "../db/erros";
 import { withUser } from "../db/tenant";
 import { ErroNegocio } from "./erros";
-import { exigirSuperadmin } from "./plataforma";
+import { exigirAcessoPlataforma, exigirSuperadmin } from "./plataforma";
 
 // Convite trial: a equipe Salus libera para uma clínica nova um período de teste grátis num
 // plano. A pessoa convidada cria a conta com o e-mail do convite e cadastra o espaço pelo link;
@@ -52,7 +52,7 @@ export async function criarConviteClinica(
   agora = new Date(),
   database?: Database,
 ): Promise<{ id: string; token: string; link: string; expiraEm: Date }> {
-  await exigirSuperadmin(userId, database);
+  await exigirAcessoPlataforma(userId, "convites.gerenciar", database);
   const d = conviteClinicaSchema.parse(dados);
   const token = randomBytes(32).toString("base64url");
   const expiraEm = new Date(agora.getTime() + d.validadeDias * 86_400_000);
@@ -122,13 +122,13 @@ export async function listarConvitesClinica(userId: string, database?: Database,
 }
 
 export async function revogarConviteClinica(userId: string, conviteId: string, database?: Database): Promise<void> {
-  await exigirSuperadmin(userId, database);
+  await exigirAcessoPlataforma(userId, "convites.gerenciar", database);
   await withUser(userId, (tx) => tx.execute(sql`select app_plataforma_revogar_convite_clinica(${z.uuid().parse(conviteId)})`).catch(traduzir), database);
 }
 
 /** Estende ou encerra o teste de uma clínica (data no passado encerra; null tira o teste). */
 export async function definirFimDoTeste(userId: string, tenantId: string, testeAte: string | null, database?: Database): Promise<void> {
-  await exigirSuperadmin(userId, database);
+  await exigirAcessoPlataforma(userId, "financeiro.gerenciar", database);
   const data = testeAte === null ? null : z.iso.date("Data inválida").parse(testeAte);
   await withUser(userId, (tx) => tx.execute(sql`select app_plataforma_definir_fim_teste(${tenantId}, ${data}::date)`).catch(traduzir), database);
 }

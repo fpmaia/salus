@@ -13,9 +13,10 @@ import { banirUsuarioPlataformaAcao, desbanirUsuarioPlataformaAcao } from "../ac
 interface Props {
   usuarios: UsuarioPlataforma[];
   meuUsuarioId: string;
+  podeBanir: boolean;
 }
 
-export function TabelaUsuariosPlataforma({ usuarios, meuUsuarioId }: Props) {
+export function TabelaUsuariosPlataforma({ usuarios, meuUsuarioId, podeBanir }: Props) {
   const [busca, setBusca] = useState("");
   const [filtroStatus, setFiltroStatus] = useState<"todos" | "ativos" | "banidos">("todos");
   const [usuarioParaBanir, setUsuarioParaBanir] = useState<UsuarioPlataforma | null>(null);
@@ -146,7 +147,7 @@ export function TabelaUsuariosPlataforma({ usuarios, meuUsuarioId }: Props) {
 
                   {/* Ações */}
                   <div className="flex items-center gap-2 self-end sm:self-center">
-                    {!ehEuMesmo && !ehSuperadmin && (
+                    {podeBanir && !ehEuMesmo && !ehSuperadmin && (
                       <>
                         {u.banned ? (
                           <form action={acaoDesbanir}>

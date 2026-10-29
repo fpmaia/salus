@@ -28,7 +28,7 @@ type Plano = {
   ativo: boolean;
 };
 
-export function PainelPlanos({ planos }: { planos: Plano[] }) {
+export function PainelPlanos({ planos, podeEditar }: { planos: Plano[]; podeEditar: boolean }) {
   const [planoEmEdicao, setPlanoEmEdicao] = useState<Plano | null>(null);
   const [estado, acao, pendente] = useActionState(atualizarPlanoPlataformaAcao, null);
 
@@ -129,7 +129,7 @@ export function PainelPlanos({ planos }: { planos: Plano[] }) {
               </div>
             </div>
 
-            <div className="pt-6">
+            {podeEditar && <div className="pt-6">
               <button
                 type="button"
                 onClick={() => setPlanoEmEdicao(p)}
@@ -137,7 +137,7 @@ export function PainelPlanos({ planos }: { planos: Plano[] }) {
               >
                 <Edit3 className="size-3.5 text-primary" /> Configurar Preços e Limites
               </button>
-            </div>
+            </div>}
           </div>
         ))}
       </div>

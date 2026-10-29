@@ -15,7 +15,6 @@ import {
 import { FormAcao } from "@/components/form-acao";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { exigirUsuario } from "@/src/auth/sessao";
 import { primeiraCompetenciaCobrada } from "@/src/domain/cobranca";
 import { hojeNoFuso } from "@/src/domain/tempo";
 import { formatarMoeda } from "@/src/domain/dinheiro";
@@ -23,6 +22,7 @@ import { obterDetalhesClinicaPlataforma } from "@/src/server/plataforma";
 import { formatarDataBr } from "@/src/server/reservas";
 import { rotuloCompetencia } from "@/app/painel/financeiro/componentes";
 import { definirFimDoTesteAcao } from "@/app/plataforma/convites/actions";
+import { acessoPlataforma } from "@/app/plataforma/acesso";
 
 const STATUS_FATURA: Record<string, { bg: string; text: string; label: string }> = {
   paga: { bg: "bg-emerald-500/10 border-emerald-500/20", text: "text-emerald-600 dark:text-emerald-400", label: "Paga" },
@@ -39,7 +39,7 @@ export default async function DetalhesClinicaPlataformaPage({
   params: Promise<{ id: string }>;
 }) {
   const { id: tenantId } = await params;
-  const usuario = await exigirUsuario();
+  const { usuario, pode } = await acessoPlataforma();
 
   let dados;
   try {
@@ -150,7 +150,7 @@ export default async function DetalhesClinicaPlataformaPage({
                 ? `${tenant.testeAte >= hojeNoFuso("America/Sao_Paulo") ? "Em teste" : "Teste terminou"} em ${formatarDataBr(tenant.testeAte)}. Primeira fatura: ${rotuloCompetencia(primeiraCompetenciaCobrada(tenant.testeAte))}.`
                 : "Sem teste: cobrança mensal normal."}
             </p>
-            <FormAcao acao={definirFimDoTesteAcao.bind(null, tenant.id)} textoBotao="Salvar teste" variante="outline" className="flex flex-col gap-2">
+            {pode("financeiro.gerenciar") && <FormAcao acao={definirFimDoTesteAcao.bind(null, tenant.id)} textoBotao="Salvar teste" variante="outline" className="flex flex-col gap-2">
               <Label htmlFor="teste-ate" className="text-xs">
                 Teste até
               </Label>
@@ -160,7 +160,7 @@ export default async function DetalhesClinicaPlataformaPage({
                   <input type="checkbox" name="encerrar" /> Encerrar o teste (cobra a partir do mês atual)
                 </label>
               )}
-            </FormAcao>
+            </FormAcao>}
           </div>
         </div>
 

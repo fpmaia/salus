@@ -103,6 +103,21 @@ export function emailConviteClinica(para: string, dados: { plano: string; dias: 
   });
 }
 
+export function emailConviteEquipePlataforma(para: string, dados: { papel: string; url: string; expiraEm: Date }): MensagemEmail {
+  return montar({
+    para,
+    assunto: `Convite para a equipe da plataforma Salus (${dados.papel})`,
+    saudacao: "Olá!",
+    paragrafos: [
+      `Você foi convidado para a equipe que administra a plataforma Salus, com o papel ${dados.papel}.`,
+      "Entre (ou crie a conta) com este mesmo e-mail e aceite o convite na área da plataforma. Será pedida a verificação em duas etapas.",
+      `O convite vale até ${dataBr(dados.expiraEm)}.`,
+    ],
+    botao: { texto: "Abrir a plataforma", url: dados.url },
+    rodape: "Convite enviado pela equipe Salus.",
+  });
+}
+
 /** Alerta operacional para a equipe técnica (sem dado pessoal: só ids e contagens). */
 export function emailAlerta(para: string, dados: { chave: string; mensagem: string; detalhes: Record<string, unknown>; quando: Date }): MensagemEmail {
   const detalhes = JSON.stringify(dados.detalhes, null, 2);

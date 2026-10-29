@@ -1,4 +1,4 @@
-import { asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { getDb, type Database } from "../db/client";
 import {
@@ -18,6 +18,8 @@ import { erroPostgres } from "../db/erros";
 import { withSistema, withUser } from "../db/tenant";
 import { estadoLicencaProntuario, statusParaExibir } from "../domain/cobranca";
 import { hojeNoFuso } from "../domain/tempo";
+import { exigir2FAParaAdmin } from "../auth/dois-fatores";
+import { papelPode, ROTULOS_PAPEL_PLATAFORMA, type PapelPlataforma, type PermissaoPlataforma } from "../domain/permissoes-plataforma";
 import { ErroNegocio } from "./erros";
 
 export type MetricasPlataforma = {
@@ -54,19 +56,45 @@ export type UsuarioPlataforma = {
   createdAt: Date;
 };
 
-export async function ehSuperadmin(userId: string, database: Database = getDb()): Promise<boolean> {
-  const [u] = await database
-    .select({ role: users.role, banned: users.banned })
-    .from(users)
-    .where(eq(users.id, userId));
-  return Boolean(u && u.role === "superadmin" && !u.banned);
+/** Papel do usuário na equipe Salus (null = fora da equipe). */
+export async function papelNaPlataforma(userId: string, database?: Database): Promise<PapelPlataforma | null> {
+  return withUser(
+    userId,
+    async (tx) => {
+      const { rows } = await tx.execute<{ papel: PapelPlataforma | null }>(sql`select app_papel_plataforma() as papel`);
+      return rows[0]?.papel ?? null;
+    },
+    database,
+  );
 }
 
-export async function exigirSuperadmin(userId: string, database: Database = getDb()): Promise<void> {
-  const ok = await ehSuperadmin(userId, database);
-  if (!ok) {
-    throw new ErroNegocio("Acesso negado: área restrita ao dono da plataforma Salus.");
+export async function ehSuperadmin(userId: string, database?: Database): Promise<boolean> {
+  return (await papelNaPlataforma(userId, database)) !== null;
+}
+
+/**
+ * Porta de toda função da plataforma: o papel precisa da permissão e, quando a verificação em
+ * duas etapas é obrigatória, ela precisa estar ativa (o layout redireciona; aqui a action recusa).
+ */
+export async function exigirAcessoPlataforma(
+  userId: string,
+  permissao: PermissaoPlataforma = "ver",
+  database: Database = getDb(),
+): Promise<PapelPlataforma> {
+  const papel = await papelNaPlataforma(userId, database);
+  if (!papel) throw new ErroNegocio("Acesso negado: área restrita à equipe da plataforma Salus.");
+  if (!papelPode(papel, permissao)) {
+    throw new ErroNegocio(`Acesso negado: o papel ${ROTULOS_PAPEL_PLATAFORMA[papel]} não permite esta ação.`);
   }
+  if (exigir2FAParaAdmin()) {
+    const [u] = await database.select({ doisFatores: users.twoFactorEnabled }).from(users).where(eq(users.id, userId));
+    if (!u?.doisFatores) throw new ErroNegocio("Ative a verificação em duas etapas para usar a área da plataforma.");
+  }
+  return papel;
+}
+
+export async function exigirSuperadmin(userId: string, database?: Database): Promise<void> {
+  await exigirAcessoPlataforma(userId, "ver", database);
 }
 
 export async function obterMetricasPlataforma(
@@ -191,7 +219,7 @@ export async function suspenderClinicaPlataforma(
   motivo: string,
   database?: Database,
 ): Promise<void> {
-  await exigirSuperadmin(userId, database);
+  await exigirAcessoPlataforma(userId, "clinicas.gerenciar", database);
   await withUser(
     userId,
     async (tx) => {
@@ -206,7 +234,7 @@ export async function reativarClinicaPlataforma(
   tenantId: string,
   database?: Database,
 ): Promise<void> {
-  await exigirSuperadmin(userId, database);
+  await exigirAcessoPlataforma(userId, "clinicas.gerenciar", database);
   await withUser(
     userId,
     async (tx) => {
@@ -222,7 +250,7 @@ export async function alterarPlanoClinicaPlataforma(
   planoId: string,
   database?: Database,
 ): Promise<void> {
-  await exigirSuperadmin(userId, database);
+  await exigirAcessoPlataforma(userId, "financeiro.gerenciar", database);
   await withUser(
     userId,
     async (tx) => {
@@ -238,7 +266,7 @@ export async function banirUsuarioPlataforma(
   motivo: string,
   database?: Database,
 ): Promise<void> {
-  await exigirSuperadmin(userId, database);
+  await exigirAcessoPlataforma(userId, "usuarios.banir", database);
   if (usuarioAlvoId === userId) {
     throw new ErroNegocio("Você não pode banir seu próprio usuário superadmin.");
   }
@@ -256,7 +284,7 @@ export async function desbanirUsuarioPlataforma(
   usuarioAlvoId: string,
   database?: Database,
 ): Promise<void> {
-  await exigirSuperadmin(userId, database);
+  await exigirAcessoPlataforma(userId, "usuarios.banir", database);
   await withUser(
     userId,
     async (tx) => {
@@ -266,12 +294,35 @@ export async function desbanirUsuarioPlataforma(
   );
 }
 
+export type FiltrosAuditoriaPlataforma = {
+  /** Começo da ação (ex.: "clinica." ou "plataforma.fatura"). */
+  acao?: string;
+  /** Id do alvo (clínica, fatura, usuário…). */
+  alvoId?: string;
+  /** Nome ou e-mail de quem fez. */
+  pessoa?: string;
+  /** Datas AAAA-MM-DD, inclusivas, no fuso de São Paulo. */
+  de?: string;
+  ate?: string;
+  limite?: number;
+};
+
 export async function listarAuditoriaPlataforma(
   userId: string,
   limite = 50,
   database: Database = getDb(),
+  filtros: Omit<FiltrosAuditoriaPlataforma, "limite"> = {},
 ) {
   await exigirSuperadmin(userId, database);
+  const condicoes = [
+    filtros.acao ? ilike(auditPlataforma.acao, `${filtros.acao.replace(/[%_]/g, "")}%`) : undefined,
+    filtros.alvoId ? eq(auditPlataforma.alvoId, filtros.alvoId) : undefined,
+    filtros.pessoa ? or(ilike(users.name, `%${filtros.pessoa.replace(/[%_]/g, "")}%`), ilike(users.email, `%${filtros.pessoa.replace(/[%_]/g, "")}%`)) : undefined,
+    filtros.de && /^\d{4}-\d{2}-\d{2}$/.test(filtros.de) ? sql`${auditPlataforma.criadoEm} >= (${filtros.de}::date)::timestamp AT TIME ZONE 'America/Sao_Paulo'` : undefined,
+    filtros.ate && /^\d{4}-\d{2}-\d{2}$/.test(filtros.ate)
+      ? sql`${auditPlataforma.criadoEm} < (${filtros.ate}::date + 1)::timestamp AT TIME ZONE 'America/Sao_Paulo'`
+      : undefined,
+  ];
   return database
     .select({
       id: auditPlataforma.id,
@@ -286,8 +337,9 @@ export async function listarAuditoriaPlataforma(
     })
     .from(auditPlataforma)
     .leftJoin(users, eq(users.id, auditPlataforma.userId))
+    .where(and(...condicoes))
     .orderBy(desc(auditPlataforma.criadoEm))
-    .limit(limite);
+    .limit(Math.min(Math.max(limite, 1), 5000));
 }
 
 export async function listarPlanosCompletosPlataforma(userId: string, database: Database = getDb()) {
@@ -318,7 +370,7 @@ export async function atualizarConfiguracaoPlano(
   dados: z.input<typeof configuracaoPlanoSchema>,
   database?: Database,
 ) {
-  await exigirSuperadmin(userId, database);
+  await exigirAcessoPlataforma(userId, "planos.editar", database);
   const id = z.uuid().parse(planoId);
   const valores = configuracaoPlanoSchema.parse(dados);
   await withUser(

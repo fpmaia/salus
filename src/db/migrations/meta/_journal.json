@@ -323,6 +323,13 @@
       "when": 1793224227223,
       "tag": "0045_convite_trial_clinica",
       "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1793235323273,
+      "tag": "0046_equipe_plataforma",
+      "breakpoints": true
     }
   ]
 }

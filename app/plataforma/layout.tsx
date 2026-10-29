@@ -1,28 +1,43 @@
 import Link from "next/link";
-import { ArrowLeft, Building2, LayoutDashboard, Shield, Users, Activity, Layers, DollarSign, Gift } from "lucide-react";
+import { ArrowLeft, Building2, LayoutDashboard, Shield, Users, Activity, Layers, DollarSign, Gift, UserCog } from "lucide-react";
 import { redirect } from "next/navigation";
 import { precisaConfigurar2FA, ROTA_CONFIGURAR_2FA } from "@/src/auth/dois-fatores";
-import { exigirUsuario } from "@/src/auth/sessao";
-import { ehSuperadmin } from "@/src/server/plataforma";
+import { ROTULOS_PAPEL_PLATAFORMA, type PermissaoPlataforma } from "@/src/domain/permissoes-plataforma";
+import { conviteEquipePendenteDoUsuario } from "@/src/server/equipe-plataforma";
+import { acessoPlataforma } from "./acesso";
+import { AceitarConviteEquipe } from "./aceitar-convite-equipe";
 import { AcessoNegado } from "@/components/acesso-negado";
 import { SalusLogo } from "@/components/brand/salus-logo";
 import { BotaoSair } from "@/app/painel/botao-sair";
+
+const LINKS: { href: string; rotulo: string; Icone: typeof Shield; permissao: PermissaoPlataforma }[] = [
+  { href: "/plataforma", rotulo: "Visão Geral", Icone: LayoutDashboard, permissao: "ver" },
+  { href: "/plataforma/clinicas", rotulo: "Clínicas", Icone: Building2, permissao: "ver" },
+  { href: "/plataforma/financeiro", rotulo: "Financeiro", Icone: DollarSign, permissao: "ver" },
+  { href: "/plataforma/convites", rotulo: "Convites", Icone: Gift, permissao: "ver" },
+  { href: "/plataforma/planos", rotulo: "Planos", Icone: Layers, permissao: "ver" },
+  { href: "/plataforma/usuarios", rotulo: "Usuários", Icone: Users, permissao: "ver" },
+  { href: "/plataforma/equipe", rotulo: "Equipe", Icone: UserCog, permissao: "ver" },
+  { href: "/plataforma/auditoria", rotulo: "Auditoria", Icone: Activity, permissao: "ver" },
+];
 
 export default async function PlataformaLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const usuario = await exigirUsuario();
-  const superadmin = await ehSuperadmin(usuario.id);
+  const { usuario, papel, pode } = await acessoPlataforma();
 
-  // Dono da plataforma: 2FA obrigatório (src/auth/dois-fatores.ts).
-  if (superadmin && precisaConfigurar2FA(usuario, true)) redirect(`${ROTA_CONFIGURAR_2FA}?obrigatorio=1`);
+  // Equipe da plataforma: 2FA obrigatório (src/auth/dois-fatores.ts).
+  if (papel && precisaConfigurar2FA(usuario, true)) redirect(`${ROTA_CONFIGURAR_2FA}?obrigatorio=1`);
 
-  if (!superadmin) {
+  if (!papel) {
+    // Convidado para a equipe: aceita aqui, entrando com o e-mail do convite.
+    const convite = await conviteEquipePendenteDoUsuario(usuario.id);
+    if (convite) return <AceitarConviteEquipe convite={convite} />;
     return (
       <AcessoNegado
-        titulo="Área Restrita ao Dono da Plataforma"
+        titulo="Área Restrita à Equipe da Plataforma"
         mensagem="Esta área é de acesso exclusivo da administração central e mantenedores do Salus (LS Code)."
       />
     );
@@ -41,50 +56,17 @@ export default async function PlataformaLayout({
             </span>
           </div>
 
-          {/* Links Centrais da Plataforma */}
-          <nav className="flex items-center gap-1">
-            <Link
-              href="/plataforma"
-              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted transition-colors"
-            >
-              <LayoutDashboard className="size-3.5 text-muted-foreground" /> Visão Geral
-            </Link>
-            <Link
-              href="/plataforma/clinicas"
-              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted transition-colors"
-            >
-              <Building2 className="size-3.5 text-muted-foreground" /> Clínicas
-            </Link>
-            <Link
-              href="/plataforma/convites"
-              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted transition-colors"
-            >
-              <Gift className="size-3.5 text-muted-foreground" /> Convites
-            </Link>
-            <Link
-              href="/plataforma/planos"
-              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted transition-colors"
-            >
-              <Layers className="size-3.5 text-muted-foreground" /> Planos
-            </Link>
-            <Link
-              href="/plataforma/financeiro"
-              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted transition-colors"
-            >
-              <DollarSign className="size-3.5 text-muted-foreground" /> Financeiro
-            </Link>
-            <Link
-              href="/plataforma/usuarios"
-              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted transition-colors"
-            >
-              <Users className="size-3.5 text-muted-foreground" /> Usuários
-            </Link>
-            <Link
-              href="/plataforma/auditoria"
-              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted transition-colors"
-            >
-              <Activity className="size-3.5 text-muted-foreground" /> Auditoria
-            </Link>
+          {/* Links Centrais da Plataforma: cada papel vê o que pode usar */}
+          <nav className="flex flex-wrap items-center gap-1">
+            {LINKS.filter((l) => pode(l.permissao)).map(({ href, rotulo, Icone }) => (
+              <Link
+                key={href}
+                href={href}
+                className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted transition-colors"
+              >
+                <Icone className="size-3.5 text-muted-foreground" /> {rotulo}
+              </Link>
+            ))}
           </nav>
 
           {/* Usuário e Saída */}
@@ -98,7 +80,7 @@ export default async function PlataformaLayout({
             <div className="hidden h-4 w-px bg-border/60 sm:block" />
             <div className="hidden flex-col items-end sm:flex">
               <span className="text-xs font-bold text-foreground">{usuario.name}</span>
-              <span className="text-[10px] text-primary font-semibold">Superadmin</span>
+              <span className="text-[10px] text-primary font-semibold">{ROTULOS_PAPEL_PLATAFORMA[papel]}</span>
             </div>
             <BotaoSair />
           </div>

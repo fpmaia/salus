@@ -2,12 +2,12 @@ import Link from "next/link";
 import { Gift } from "lucide-react";
 import { FormAcao } from "@/components/form-acao";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { exigirUsuario } from "@/src/auth/sessao";
 import { listarConvitesClinica, VALIDADE_PADRAO_CONVITE_CLINICA_DIAS, type SituacaoConviteClinica } from "@/src/server/convites-clinica";
 import { listarPlanosDisponiveis } from "@/src/server/plataforma";
 import { formatarDataBr } from "@/src/server/reservas";
 import { revogarConviteClinicaAcao } from "./actions";
 import { FormularioConviteClinica } from "./formulario-convite";
+import { acessoPlataforma } from "../acesso";
 
 const ROTULO: Record<SituacaoConviteClinica, { texto: string; classe: string }> = {
   pendente: { texto: "Aguardando cadastro", classe: "bg-primary/10 text-primary" },
@@ -21,7 +21,8 @@ function data(d: Date) {
 }
 
 export default async function ConvitesPlataformaPage() {
-  const usuario = await exigirUsuario();
+  const { usuario, pode } = await acessoPlataforma();
+  const podeConvidar = pode("convites.gerenciar");
   const [planos, convites] = await Promise.all([listarPlanosDisponiveis(usuario.id), listarConvitesClinica(usuario.id)]);
 
   return (
@@ -36,7 +37,7 @@ export default async function ConvitesPlataformaPage() {
         </p>
       </div>
 
-      <Card>
+      {podeConvidar && <Card>
         <CardHeader>
           <CardTitle className="text-base">Novo convite</CardTitle>
           <CardDescription>Um convite novo para o mesmo e-mail substitui o anterior ainda não usado.</CardDescription>
@@ -47,7 +48,7 @@ export default async function ConvitesPlataformaPage() {
             validadePadrao={VALIDADE_PADRAO_CONVITE_CLINICA_DIAS}
           />
         </CardContent>
-      </Card>
+      </Card>}
 
       <Card>
         <CardHeader>
@@ -80,7 +81,7 @@ export default async function ConvitesPlataformaPage() {
                       </span>
                     )}
                   </div>
-                  {c.situacao === "pendente" && (
+                  {podeConvidar && c.situacao === "pendente" && (
                     <FormAcao
                       acao={revogarConviteClinicaAcao.bind(null, c.id)}
                       textoBotao="Revogar"

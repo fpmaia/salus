@@ -1,10 +1,10 @@
 import { Sparkles } from "lucide-react";
-import { exigirUsuario } from "@/src/auth/sessao";
+import { acessoPlataforma } from "../acesso";
 import { listarPlanosCompletosPlataforma } from "@/src/server/plataforma";
 import { PainelPlanos } from "./painel-planos";
 
 export default async function PlanosPlataformaPage() {
-  const usuario = await exigirUsuario();
+  const { usuario, pode } = await acessoPlataforma();
   const planos = await listarPlanosCompletosPlataforma(usuario.id);
 
   return (
@@ -23,7 +23,7 @@ export default async function PlanosPlataformaPage() {
         </div>
       </div>
 
-      <PainelPlanos planos={planos} />
+      <PainelPlanos planos={planos} podeEditar={pode("planos.editar")} />
     </main>
   );
 }

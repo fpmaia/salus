@@ -333,6 +333,37 @@ export const auditPlataforma = pgTable(
   (t) => [index("audit_plataforma_criado_em_idx").on(t.criadoEm)],
 );
 
+// Equipe Salus: quem tem users.role = 'superadmin' está na equipe; o papel aqui limita o que
+// cada um faz (sem linha = dono, compatível com o superadmin único de antes). Sem acesso direto
+// do app: leitura e escrita só pelas funções app_plataforma_* (migration 0046).
+export const papelPlataforma = pgEnum("papel_plataforma", ["dono", "financeiro", "suporte"]);
+
+export const equipePlataforma = pgTable("equipe_plataforma", {
+  userId: uuid("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  papel: papelPlataforma("papel").notNull(),
+  criadoPor: uuid("criado_por").references(() => users.id, { onDelete: "set null" }),
+  criadoEm: criadoEm(),
+  atualizadoEm: atualizadoEm(),
+});
+
+// Convite para a equipe Salus: vale para quem entrar com o e-mail convidado (já verificado).
+export const convitesEquipePlataforma = pgTable(
+  "convites_equipe_plataforma",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    email: text("email").notNull(),
+    papel: papelPlataforma("papel").notNull(),
+    expiraEm: timestamp("expira_em", { withTimezone: true }).notNull(),
+    criadoPor: uuid("criado_por").references(() => users.id, { onDelete: "set null" }),
+    aceitoEm: timestamp("aceito_em", { withTimezone: true }),
+    revogadoEm: timestamp("revogado_em", { withTimezone: true }),
+    criadoEm: criadoEm(),
+  },
+  (t) => [index("convites_equipe_plataforma_email_idx").on(t.email)],
+);
+
 // ---------------------------------------------------------------------------
 // Fase 1: espaço, profissionais e reservas de sala (RLS)
 // ---------------------------------------------------------------------------
