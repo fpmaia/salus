@@ -51,6 +51,16 @@ export class GatewayFalso implements GatewayCobranca {
     if (c) c.removida = true;
   }
 
+  /** Atualizações recebidas (valor/vencimento), para o teste conferir. */
+  atualizacoes: { id: string; valorCentavos?: number; vencimento?: string }[] = [];
+
+  async atualizarCobranca(id: string, m: { valorCentavos?: number; vencimento?: string }) {
+    const c = this.cobrancas.get(id);
+    if (!c || c.removida) throw new ErroGateway("cobrança não encontrada");
+    if (m.valorCentavos !== undefined) c.valor = m.valorCentavos;
+    this.atualizacoes.push({ id, ...m });
+  }
+
   async obterPix(id: string) {
     const c = this.cobrancas.get(id);
     return c && c.billingType === "PIX" ? { copiaECola: `00020126PIX-FALSO-${id}` } : null;

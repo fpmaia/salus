@@ -103,6 +103,20 @@ export function emailConviteClinica(para: string, dados: { plano: string; dias: 
   });
 }
 
+export function emailFaturaSaas(para: string, dados: { espaco: string; valor: string; vencimento: string; url: string }): MensagemEmail {
+  return montar({
+    para,
+    assunto: `Fatura do Salus de ${dados.espaco}: ${dados.valor}, vence em ${dados.vencimento}`,
+    saudacao: "Olá!",
+    paragrafos: [
+      `A fatura do Salus de ${dados.espaco} no valor de ${dados.valor} vence em ${dados.vencimento}.`,
+      "Você pode pagar por PIX, boleto ou cartão pelo link abaixo. Se já pagou, desconsidere este e-mail.",
+    ],
+    botao: { texto: "Ver e pagar a fatura", url: dados.url },
+    rodape: "Você recebeu este e-mail porque administra este espaço no Salus.",
+  });
+}
+
 export function emailConviteEquipePlataforma(para: string, dados: { papel: string; url: string; expiraEm: Date }): MensagemEmail {
   return montar({
     para,

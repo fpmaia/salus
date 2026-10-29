@@ -25,6 +25,8 @@ import { definirFimDoTesteAcao } from "@/app/plataforma/convites/actions";
 import { acessoPlataforma } from "@/app/plataforma/acesso";
 import { obterCobrancaDaClinica } from "@/src/server/plataforma-financeiro";
 import { SecaoCobranca } from "./secao-cobranca";
+import { AcoesFatura } from "@/app/plataforma/faturas/acoes-fatura";
+import { FormFaturaAvulsa } from "@/app/plataforma/faturas/form-fatura-avulsa";
 
 const STATUS_FATURA: Record<string, { bg: string; text: string; label: string }> = {
   paga: { bg: "bg-emerald-500/10 border-emerald-500/20", text: "text-emerald-600 dark:text-emerald-400", label: "Paga" },
@@ -51,6 +53,7 @@ export default async function DetalhesClinicaPlataformaPage({
   }
 
   const { tenant, recursos, membros, faturas, itensPorFatura } = dados;
+  const podeFinanceiro = pode("financeiro.gerenciar");
 
   const salasCount = recursos.salas.length;
   const salasLimite = (tenant.limites as Record<string, number>).salas ?? 0;
@@ -331,6 +334,8 @@ export default async function DetalhesClinicaPlataformaPage({
           <p className="text-xs text-muted-foreground">Cobranças emitidas via Asaas para esta clínica.</p>
         </div>
 
+        {podeFinanceiro && <FormFaturaAvulsa tenantId={tenant.id} />}
+
         {faturas.length === 0 ? (
           <p className="text-sm text-muted-foreground py-4 text-center">Nenhuma fatura emitida para esta clínica ainda.</p>
         ) : (
@@ -352,9 +357,13 @@ export default async function DetalhesClinicaPlataformaPage({
                         </span>
                       </div>
                       <span className="text-xs text-muted-foreground block mt-0.5">
+                        {f.tipo === "avulsa" ? "Avulsa · " : f.tipo === "parcela_acordo" ? "Parcela de acordo · " : ""}
                         Vence em {formatarDataBr(f.vencimento)}
                         {f.asaasPaymentId && ` · ID Asaas: ${f.asaasPaymentId}`}
+                        {f.formaBaixa === "manual" && " · baixa manual"}
+                        {f.formaBaixa === "isenta" && " · isenta"}
                       </span>
+                      {f.observacao && <span className="text-xs text-muted-foreground block">Nota: {f.observacao}</span>}
                     </div>
 
                     <div className="flex items-center gap-3">
@@ -373,6 +382,8 @@ export default async function DetalhesClinicaPlataformaPage({
                       )}
                     </div>
                   </div>
+
+                  {podeFinanceiro && <AcoesFatura fatura={{ id: f.id, tenantId: tenant.id, status: f.status, vencimento: f.vencimento }} />}
 
                   {/* Itens discriminados */}
                   {itens.length > 0 && (

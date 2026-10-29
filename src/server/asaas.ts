@@ -24,6 +24,8 @@ export type NovaCobranca = {
   jurosMesBp?: number | null;
 };
 
+export type AtualizacaoCobranca = { valorCentavos?: number; vencimento?: string; descricao?: string };
+
 export class ErroGateway extends Error {
   constructor(
     message: string,
@@ -42,6 +44,8 @@ export interface GatewayCobranca {
   consultarCobranca(id: string): Promise<CobrancaGateway | null>;
   buscarPorReferencia(referencia: string): Promise<CobrancaGateway | null>;
   cancelarCobranca(id: string): Promise<void>;
+  /** Muda valor, vencimento ou descrição de uma cobrança ainda em aberto. */
+  atualizarCobranca(id: string, mudancas: AtualizacaoCobranca): Promise<void>;
   /** PIX "copia e cola" da cobrança (null quando não há PIX para ela). */
   obterPix(id: string): Promise<{ copiaECola: string } | null>;
 }
@@ -70,6 +74,7 @@ export class GatewaySimulado implements GatewayCobranca {
     return null;
   }
   async cancelarCobranca() {}
+  async atualizarCobranca() {}
   // Sem PIX de verdade no simulado: o pagamento é simulado pela equipe.
   async obterPix() {
     return null;
@@ -172,6 +177,15 @@ export class GatewayAsaas implements GatewayCobranca {
 
   async cancelarCobranca(id: string) {
     await this.requisitar("DELETE", `/payments/${encodeURIComponent(id)}`);
+  }
+
+  // POST /payments/{id} só aceita cobrança em aberto; os campos omitidos ficam como estão.
+  async atualizarCobranca(id: string, m: AtualizacaoCobranca) {
+    await this.requisitar("POST", `/payments/${encodeURIComponent(id)}`, {
+      ...(m.valorCentavos !== undefined ? { value: m.valorCentavos / 100 } : {}),
+      ...(m.vencimento ? { dueDate: m.vencimento } : {}),
+      ...(m.descricao ? { description: m.descricao.slice(0, 500) } : {}),
+    });
   }
 
   async obterPix(id: string) {

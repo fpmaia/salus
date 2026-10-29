@@ -30,6 +30,13 @@ const MENSAGENS: Record<string, string> = {
   "cupom.plano": "Este cupom não vale para o plano do espaço",
   "cupom.ja_usado": "Este cupom já foi usado neste espaço",
   "cupom.ja_tem": "O espaço já tem um cupom ativo",
+  "fatura.nao_encontrada": "Fatura não encontrada",
+  "fatura.nao_aberta": "A fatura não está mais em aberto",
+  "fatura.vencimento_passado": "O vencimento não pode ser no passado",
+  "fatura.ajuste_zero": "Informe um valor diferente de zero",
+  "fatura.ajuste_negativo": "O ajuste deixaria a fatura negativa",
+  "fatura.pagamento_futuro": "A data do pagamento não pode ser no futuro",
+  "fatura.sem_itens": "Inclua ao menos um item com valor",
 };
 
 export function traduzirErroFinanceiro(erro: unknown): never {
@@ -141,7 +148,7 @@ export async function obterCobrancaDaClinica(userId: string, tenantId: string, a
       const [condicoes] = await tx.select().from(condicoesComerciaisTenant);
       const descontos = await tx.select().from(descontosTenant).orderBy(desc(descontosTenant.criadoEm));
       const creditos = await tx.select().from(creditosTenant).orderBy(asc(creditosTenant.criadoEm));
-      const { rows } = await tx.execute<{ competencia: string }>(sql`select competencia::text from faturas_saas`);
+      const { rows } = await tx.execute<{ competencia: string }>(sql`select competencia::text from faturas_saas where tipo = 'mensal'`);
       return { tenant, condicoes: condicoes ?? null, descontos, creditos, faturadas: new Set(rows.map((r) => r.competencia)) };
     },
     database,

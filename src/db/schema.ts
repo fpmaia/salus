@@ -1162,6 +1162,10 @@ export const faturasSaas = pgTable(
     pagoEm: timestamp("pago_em", { withTimezone: true }),
     // Como foi quitada: pelo Asaas, baixa manual da equipe Salus ou isenta (valor zero).
     formaBaixa: text("forma_baixa").$type<"gateway" | "manual" | "isenta">(),
+    // mensal (uma por competência), avulsa (serviço extra) ou parcela de acordo de renegociação.
+    tipo: text("tipo").$type<"mensal" | "avulsa" | "parcela_acordo">().notNull().default("mensal"),
+    // Nota da equipe Salus (motivo do cancelamento, da baixa manual, da fatura avulsa…).
+    observacao: text("observacao"),
     ultimoErro: text("ultimo_erro"),
     // E-mails da inadimplência (um de cada por fatura): aviso 5 dias antes e suspensão.
     avisoSuspensaoEm: timestamp("aviso_suspensao_em", { withTimezone: true }),
@@ -1170,10 +1174,11 @@ export const faturasSaas = pgTable(
     atualizadoEm: atualizadoEm(),
   },
   (t) => [
-    uniqueIndex("faturas_saas_competencia_key").on(t.tenantId, t.competencia),
+    uniqueIndex("faturas_saas_competencia_key").on(t.tenantId, t.competencia).where(sql`tipo = 'mensal'`),
     uniqueIndex("faturas_saas_asaas_key").on(t.asaasPaymentId),
     check("faturas_saas_valor_check", sql`${t.valorCentavos} >= 0`),
     check("faturas_saas_forma_baixa_check", sql`${t.formaBaixa} in ('gateway', 'manual', 'isenta')`),
+    check("faturas_saas_tipo_check", sql`${t.tipo} in ('mensal', 'avulsa', 'parcela_acordo')`),
   ],
 );
 

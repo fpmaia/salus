@@ -449,8 +449,16 @@ export async function gerarFaturaDoMes(tenantId: string, opcoes: Opcoes = {}) {
   return { criada: true, ...(await enviarFatura(tenantId, preparo.fatura.id, gateway, database)) };
 }
 
+/** Descrição da cobrança no Asaas, conforme o tipo da fatura. */
+function descricaoDaCobranca(fatura: typeof faturasSaas.$inferSelect, plano: { nome: string }, varios: boolean): string {
+  const mes = `${fatura.competencia.slice(5, 7)}/${fatura.competencia.slice(0, 4)}`;
+  if (fatura.tipo === "avulsa") return `Salus — ${fatura.observacao ?? "cobrança avulsa"}`;
+  if (fatura.tipo === "parcela_acordo") return `Salus — ${fatura.observacao ?? "parcela de acordo"}`;
+  return varios ? `Salus — Plano ${plano.nome} (+ overages/adicionais) — ${mes}` : `Salus — plano ${plano.nome} — ${mes}`;
+}
+
 /** Envia a fatura ao Asaas da plataforma (consultando a referência antes; não duplica). */
-async function enviarFatura(tenantId: string, faturaId: string, gateway: GatewayCobranca, database: Database) {
+export async function enviarFatura(tenantId: string, faturaId: string, gateway: GatewayCobranca, database: Database) {
   const { tenant, fatura, plano, itens } = await withSistema(
     tenantId,
     async (tx) => {
@@ -468,9 +476,7 @@ async function enviarFatura(tenantId: string, faturaId: string, gateway: Gateway
     let remota = await gateway.buscarPorReferencia(referencia);
     if (!remota) {
       clienteId ??= (await gateway.criarCliente({ nome: tenant.nome, cpfCnpj: tenant.documento, referencia: `tenant:${tenantId}` })).id;
-      const descricao = itens.length > 1
-        ? `Salus — Plano ${plano.nome} (+ overages/adicionais) — ${fatura.competencia.slice(5, 7)}/${fatura.competencia.slice(0, 4)}`
-        : `Salus — plano ${plano.nome} — ${fatura.competencia.slice(5, 7)}/${fatura.competencia.slice(0, 4)}`;
+      const descricao = descricaoDaCobranca(fatura, plano, itens.length > 1);
       remota = await gateway.criarCobranca({
         cliente: clienteId,
         forma: "UNDEFINED",
@@ -828,11 +834,18 @@ async function processarWebhookLicenca(
 
 async function aplicarStatusFatura(tx: Transaction, faturaId: string, status: ReturnType<typeof mapearStatusAsaas>, agora: Date) {
   const [atual] = await tx.select().from(faturasSaas).where(eq(faturasSaas.id, faturaId)).for("update");
-  if (!atual || atual.status === status || atual.status === "cancelada") return false;
+  if (!atual) return false;
+  // Baixada à mão (ou cancelada) e o Asaas ainda confirmou pagamento: fica registrado para a
+  // equipe devolver ou compensar, sem mudar a fatura.
+  if (status === "paga" && (atual.status === "cancelada" || atual.formaBaixa === "manual")) {
+    await registrarAuditoria(tx, { acao: "assinatura.pagamento_divergente", entidade: "faturas_saas", entidadeId: faturaId, dados: { statusLocal: atual.status, formaBaixa: atual.formaBaixa } });
+    return false;
+  }
+  if (atual.status === status || atual.status === "cancelada") return false;
   if (atual.status === "paga" && status !== "estornada") return false;
   await tx
     .update(faturasSaas)
-    .set({ status, ...(status === "paga" ? { pagoEm: agora } : {}) })
+    .set({ status, ...(status === "paga" ? { pagoEm: agora, formaBaixa: "gateway" as const } : {}) })
     .where(eq(faturasSaas.id, faturaId));
   await registrarAuditoria(tx, { acao: `assinatura.fatura_${status}`, entidade: "faturas_saas", entidadeId: faturaId });
   return true;
