@@ -25,6 +25,8 @@ import { definirFimDoTesteAcao } from "@/app/plataforma/convites/actions";
 import { acessoPlataforma } from "@/app/plataforma/acesso";
 import { obterCobrancaDaClinica } from "@/src/server/plataforma-financeiro";
 import { SecaoCobranca } from "./secao-cobranca";
+import { SecaoAcordos } from "./secao-acordos";
+import { listarAcordosDaClinica } from "@/src/server/plataforma-acordos";
 import { AcoesFatura } from "@/app/plataforma/faturas/acoes-fatura";
 import { FormFaturaAvulsa } from "@/app/plataforma/faturas/form-fatura-avulsa";
 
@@ -45,9 +47,13 @@ export default async function DetalhesClinicaPlataformaPage({
   const { id: tenantId } = await params;
   const { usuario, pode } = await acessoPlataforma();
 
-  let dados, cobranca;
+  let dados, cobranca, acordos;
   try {
-    [dados, cobranca] = await Promise.all([obterDetalhesClinicaPlataforma(usuario.id, tenantId), obterCobrancaDaClinica(usuario.id, tenantId)]);
+    [dados, cobranca, acordos] = await Promise.all([
+      obterDetalhesClinicaPlataforma(usuario.id, tenantId),
+      obterCobrancaDaClinica(usuario.id, tenantId),
+      listarAcordosDaClinica(usuario.id, tenantId),
+    ]);
   } catch {
     notFound();
   }
@@ -325,6 +331,16 @@ export default async function DetalhesClinicaPlataformaPage({
           precoUnidadeExtraCentavos: tenant.precoUnidadeExtraCentavos,
           precoProntuarioCentavos: tenant.precoProntuarioCentavos,
         }}
+      />
+
+      {/* Renegociação em parcelas */}
+      <SecaoAcordos
+        tenantId={tenant.id}
+        acordos={acordos}
+        podeEditar={podeFinanceiro}
+        abertas={faturas.filter(
+          (f) => ["pendente", "vencida", "erro"].includes(f.status) && !acordos.some((a) => a.id === f.acordoId && a.status === "ativo"),
+        )}
       />
 
       {/* Histórico Financeiro da Clínica */}

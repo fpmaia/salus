@@ -7,7 +7,9 @@ import {
   Clock,
   ShieldCheck,
   BadgePercent,
+  Handshake,
 } from "lucide-react";
+import { acordosDoEspaco } from "@/src/server/plataforma-acordos";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { condicoesDoEspaco } from "@/src/server/plataforma-financeiro";
@@ -53,7 +55,8 @@ export default async function AssinaturaPage({
     situacao,
     teste,
   } = await obterAssinatura(ctx);
-  const { descontos, creditos, condicoes } = await condicoesDoEspaco(ctx);
+  const [{ descontos, creditos, condicoes }, acordos] = await Promise.all([condicoesDoEspaco(ctx), acordosDoEspaco(ctx)]);
+  const acordosAtivos = acordos.filter((a) => a.status === "ativo");
   const temCupomAtivo = descontos.some((d) => d.cupomId);
 
   return (
@@ -175,6 +178,40 @@ export default async function AssinaturaPage({
           </CardContent>
         </Card>
       )}
+
+      {/* Acordo de renegociação em andamento */}
+      {acordosAtivos.map((a) => (
+        <Card key={a.id} className="border-primary/30">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Handshake className="size-4 text-primary" /> Acordo de pagamento: {formatarMoeda(a.valorFinalCentavos)} em {a.parcelas}x
+            </CardTitle>
+            <CardDescription>
+              Combinado com a equipe Salus{a.descontoCentavos > 0 ? `, com ${formatarMoeda(a.descontoCentavos)} de desconto` : ""}. Cada parcela é uma
+              fatura: pague até o vencimento para o espaço seguir funcionando.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ul className="divide-y rounded-lg border text-sm">
+              {a.parcelasFaturas.map((p, i) => (
+                <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+                  <span>
+                    Parcela {i + 1}/{a.parcelas} · vence {formatarDataBr(p.vencimento)} · {STATUS[p.status] ?? p.status}
+                  </span>
+                  <span className="flex items-center gap-3">
+                    <strong>{formatarMoeda(p.valorCentavos)}</strong>
+                    {p.invoiceUrl && p.status !== "paga" && (
+                      <a href={p.invoiceUrl} target="_blank" rel="noreferrer" className="text-xs font-semibold text-primary hover:underline">
+                        Pagar
+                      </a>
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      ))}
 
       {/* Descontos, créditos e cupom */}
       <Card>

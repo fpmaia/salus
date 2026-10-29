@@ -19,6 +19,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { formatarRange, lerRange, type Intervalo } from "./range";
 
 /*
@@ -1166,6 +1167,9 @@ export const faturasSaas = pgTable(
     tipo: text("tipo").$type<"mensal" | "avulsa" | "parcela_acordo">().notNull().default("mensal"),
     // Nota da equipe Salus (motivo do cancelamento, da baixa manual, da fatura avulsa…).
     observacao: text("observacao"),
+    // Parcela de um acordo de renegociação / fatura original que o acordo substituiu.
+    acordoId: uuid("acordo_id").references((): AnyPgColumn => acordosSaas.id),
+    substituidaPorAcordoId: uuid("substituida_por_acordo_id").references((): AnyPgColumn => acordosSaas.id),
     ultimoErro: text("ultimo_erro"),
     // E-mails da inadimplência (um de cada por fatura): aviso 5 dias antes e suspensão.
     avisoSuspensaoEm: timestamp("aviso_suspensao_em", { withTimezone: true }),
@@ -1216,6 +1220,34 @@ export const faturasSaasItens = pgTable(
     check("faturas_saas_itens_qtd_check", sql`${t.quantidade} > 0`),
     // Só desconto, crédito e ajuste podem abater (valor negativo).
     check("faturas_saas_itens_valor_check", sql`${t.valorTotalCentavos} >= 0 or ${t.tipo}::text in ('desconto', 'credito', 'ajuste')`),
+  ],
+);
+
+// Acordo de renegociação: faturas em aberto viram parcelas (com desconto opcional). As parcelas
+// são faturas comuns (tipo parcela_acordo): atraso numa parcela segue a carência normal.
+export const acordosSaas = pgTable(
+  "acordos_saas",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: tenantIdDoContexto(),
+    status: text("status").$type<"ativo" | "quitado" | "cancelado">().notNull().default("ativo"),
+    valorOriginalCentavos: integer("valor_original_centavos").notNull(),
+    descontoCentavos: integer("desconto_centavos").notNull().default(0),
+    valorFinalCentavos: integer("valor_final_centavos").notNull(),
+    parcelas: integer("parcelas").notNull(),
+    motivo: text("motivo").notNull(),
+    criadoPor: uuid("criado_por").references(() => users.id, { onDelete: "set null" }),
+    criadoEm: criadoEm(),
+    encerradoEm: timestamp("encerrado_em", { withTimezone: true }),
+  },
+  (t) => [
+    index("acordos_saas_tenant_idx").on(t.tenantId),
+    check("acordos_saas_status_check", sql`${t.status} in ('ativo', 'quitado', 'cancelado')`),
+    check(
+      "acordos_saas_valores_check",
+      sql`${t.descontoCentavos} >= 0 and ${t.valorFinalCentavos} > 0 and ${t.valorFinalCentavos} = ${t.valorOriginalCentavos} - ${t.descontoCentavos}`,
+    ),
+    check("acordos_saas_parcelas_check", sql`${t.parcelas} between 1 and 24`),
   ],
 );
 

@@ -37,6 +37,13 @@ const MENSAGENS: Record<string, string> = {
   "fatura.ajuste_negativo": "O ajuste deixaria a fatura negativa",
   "fatura.pagamento_futuro": "A data do pagamento não pode ser no futuro",
   "fatura.sem_itens": "Inclua ao menos um item com valor",
+  "acordo.sem_faturas": "Escolha ao menos uma fatura em aberto",
+  "acordo.faturas_invalidas": "Só entram no acordo faturas desta clínica ainda em aberto",
+  "acordo.parcelas_invalidas": "De 1 a 24 parcelas",
+  "acordo.desconto_invalido": "O desconto precisa ser menor que o total",
+  "acordo.soma_invalida": "A soma das parcelas precisa fechar com o total do acordo",
+  "acordo.datas_invalidas": "Cada parcela precisa vencer depois da anterior, a partir de hoje",
+  "acordo.nao_ativo": "Este acordo não está mais ativo",
 };
 
 export function traduzirErroFinanceiro(erro: unknown): never {
