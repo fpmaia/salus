@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, Building2, LayoutDashboard, Shield, Users, Activity, Layers, DollarSign, Gift, UserCog } from "lucide-react";
+import { ArrowLeft, Building2, LayoutDashboard, Shield, Users, Activity, Layers, DollarSign, Gift, Ticket, UserCog } from "lucide-react";
 import { redirect } from "next/navigation";
 import { precisaConfigurar2FA, ROTA_CONFIGURAR_2FA } from "@/src/auth/dois-fatores";
 import { ROTULOS_PAPEL_PLATAFORMA, type PermissaoPlataforma } from "@/src/domain/permissoes-plataforma";
@@ -14,6 +14,7 @@ const LINKS: { href: string; rotulo: string; Icone: typeof Shield; permissao: Pe
   { href: "/plataforma", rotulo: "Visão Geral", Icone: LayoutDashboard, permissao: "ver" },
   { href: "/plataforma/clinicas", rotulo: "Clínicas", Icone: Building2, permissao: "ver" },
   { href: "/plataforma/financeiro", rotulo: "Financeiro", Icone: DollarSign, permissao: "ver" },
+  { href: "/plataforma/cupons", rotulo: "Cupons", Icone: Ticket, permissao: "ver" },
   { href: "/plataforma/convites", rotulo: "Convites", Icone: Gift, permissao: "ver" },
   { href: "/plataforma/planos", rotulo: "Planos", Icone: Layers, permissao: "ver" },
   { href: "/plataforma/usuarios", rotulo: "Usuários", Icone: Users, permissao: "ver" },

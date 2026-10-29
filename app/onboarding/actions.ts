@@ -8,7 +8,7 @@ import { criarTenantComAdmin, ErroOnboarding } from "@/src/server/onboarding";
 
 export type EstadoOnboarding = {
   erro: string | null;
-  valores: { nomeTenant: string; documento: string };
+  valores: { nomeTenant: string; documento: string; cupom: string };
 };
 
 export async function criarEspaco(
@@ -19,11 +19,12 @@ export async function criarEspaco(
   const valores = {
     nomeTenant: String(formData.get("nomeTenant") ?? ""),
     documento: String(formData.get("documento") ?? ""),
+    cupom: String(formData.get("cupom") ?? ""),
   };
   if (await usuarioTemEspacoBloqueado(usuario.id)) redirect("/conta-suspensa");
   const conviteTrial = String(formData.get("conviteTrial") ?? "") || undefined;
   try {
-    await criarTenantComAdmin(usuario.id, { ...valores, conviteTrial });
+    await criarTenantComAdmin(usuario.id, { ...valores, cupom: valores.cupom.trim() || undefined, conviteTrial });
   } catch (erro) {
     if (erro instanceof ErroOnboarding) return { erro: erro.message, valores };
     if (erro instanceof ZodError) {

@@ -10,10 +10,10 @@ import { criarEspaco, type EstadoOnboarding } from "./actions";
 
 const estadoInicial: EstadoOnboarding = {
   erro: null,
-  valores: { nomeTenant: "", documento: "" },
+  valores: { nomeTenant: "", documento: "", cupom: "" },
 };
 
-export function FormularioOnboarding({ conviteTrial }: { conviteTrial?: string }) {
+export function FormularioOnboarding({ conviteTrial, cupomDoConvite }: { conviteTrial?: string; cupomDoConvite?: string | null }) {
   const [estado, acao, pendente] = useActionState(criarEspaco, estadoInicial);
 
   return (
@@ -42,6 +42,16 @@ export function FormularioOnboarding({ conviteTrial }: { conviteTrial?: string }
             required
           />
         </div>
+        {cupomDoConvite ? (
+          <p className="text-xs text-muted-foreground">
+            Cupom <strong className="text-foreground">{cupomDoConvite}</strong> incluído no convite.
+          </p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="cupom">Cupom de desconto (opcional)</Label>
+            <Input id="cupom" name="cupom" placeholder="BEMVINDO" defaultValue={estado.valores.cupom} maxLength={30} className="uppercase" />
+          </div>
+        )}
         {estado.erro && <p className="text-sm text-destructive">{estado.erro}</p>}
       </CardContent>
       <CardFooter className="mt-6">

@@ -1,12 +1,17 @@
 import { timingSafeEqual } from "node:crypto";
-import { and, asc, count, desc, eq, inArray, isNotNull } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { registrarAuditoria } from "../db/audit";
 import { getDb, type Database, type Transaction } from "../db/client";
-import { eventosWebhook, faturasSaas, faturasSaasItens, licencasProntuario, memberships, planosSaas, profissionais, salas, tenants, unidades, users } from "../db/schema";
+import { condicoesComerciaisTenant, creditosTenant, descontosTenant, eventosWebhook, faturasSaas, faturasSaasItens, licencasProntuario, memberships, planosSaas, profissionais, salas, tenants, unidades, users } from "../db/schema";
 import { type ContextoTenant, withSistema, withTenant } from "../db/tenant";
 import {
+  DIAS_DE_CARENCIA_SAAS,
+  aplicarAbatimentos,
   calcularItensFaturaSaas,
+  descontoVigente,
+  precosEfetivos,
+  type CondicoesComerciais,
   DIAS_DE_TRIAL_PRONTUARIO,
   estadoLicencaProntuario,
   estenderPagamentoProntuario,
@@ -147,21 +152,13 @@ export async function obterAssinatura(ctx: ContextoTenant, database?: Database) 
       const prontuariosFaturaveis = profissionaisProntuario.filter((l) => l.faturavel).length;
       const prontuariosEmTrial = profissionaisProntuario.filter((l) => l.emTrial).length;
 
-      const projecaoProximoMes = plano
-        ? calcularItensFaturaSaas({
-            planoNome: plano.nome,
-            precoBaseCentavos: plano.precoMensalCentavos,
-            limites: plano.limites,
-            precoSalaExtraCentavos: plano.precoSalaExtraCentavos,
-            precoProfissionalExtraCentavos: plano.precoProfissionalExtraCentavos,
-            precoUnidadeExtraCentavos: plano.precoUnidadeExtraCentavos,
-            precoProntuarioCentavos: plano.precoProntuarioCentavos,
-            unidadesAtivas: uso.unidades,
-            salasAtivas: uso.salas,
-            profissionaisAtivos: uso.profissionais,
-            profissionaisProntuarioFaturaveis: prontuariosFaturaveis,
-          })
-        : null;
+      // Próxima fatura como sairia hoje (preço negociado, descontos e créditos incluídos).
+      const teste = await testeNaTransacao(tx, agora);
+      const hoje = await hojeDoEspaco(tx, agora);
+      const competenciaProxima = teste?.ativo ? teste.primeiraCompetencia : primeiraCompetenciaCobrada(competenciaDe(hoje));
+      const previa = await calcularFaturaNaTransacao(tx, competenciaProxima, agora);
+      const projecaoProximoMes = previa ? { ...previa.calculo, competencia: competenciaProxima, vencimento: previa.vencimento } : null;
+      const condicoes = previa?.condicoes ?? (await condicoesNaTransacao(tx));
 
       return {
         plano,
@@ -175,7 +172,8 @@ export async function obterAssinatura(ctx: ContextoTenant, database?: Database) 
         prontuariosEmTrial,
         prontuariosFaturaveis,
         projecaoProximoMes,
-        teste: await testeNaTransacao(tx),
+        diasCarencia: condicoes?.diasCarencia ?? DIAS_DE_CARENCIA_SAAS,
+        teste,
         situacao: await situacaoNaTransacao(tx),
       };
     },
@@ -195,7 +193,8 @@ async function situacaoNaTransacao(tx: Transaction, agora = new Date()): Promise
     .select({ status: faturasSaas.status, vencimento: faturasSaas.vencimento })
     .from(faturasSaas)
     .where(inArray(faturasSaas.status, ["pendente", "vencida"]));
-  return situacaoDaAssinatura(abertas, await hojeDoEspaco(tx, agora));
+  const condicoes = await condicoesNaTransacao(tx);
+  return situacaoDaAssinatura(abertas, await hojeDoEspaco(tx, agora), condicoes?.diasCarencia ?? undefined);
 }
 
 /** Situação da assinatura do espaço (aviso no painel e bloqueio das ações). Qualquer papel. */
@@ -327,6 +326,64 @@ export async function trocarPlano(ctx: ContextoTenant, codigo: string, database?
 // Faturas (job do worker, um tenant por vez)
 // ---------------------------------------------------------------------------
 
+/** Condições negociadas da clínica (null = segue o plano). */
+async function condicoesNaTransacao(tx: Transaction): Promise<CondicoesComerciais | null> {
+  const [c] = await tx.select().from(condicoesComerciaisTenant);
+  return c ?? null;
+}
+
+/**
+ * Fatura da competência como sairia agora: plano com os preços negociados, uso, licenças do
+ * prontuário, descontos vigentes e créditos com saldo. Usada para gerar e para a prévia.
+ */
+async function calcularFaturaNaTransacao(tx: Transaction, competencia: string, agora: Date) {
+  const plano = await planoDoTenant(tx);
+  if (!plano) return null;
+  const condicoes = await condicoesNaTransacao(tx);
+  const precos = precosEfetivos(plano, condicoes);
+  // Plano gratuito sem condição negociada: não há fatura.
+  if (plano.precoMensalCentavos <= 0 && !precos.negociado) return null;
+
+  const uso = await usoAtual(tx);
+  // Só as licenças pagas pelo espaço; as do profissional têm cobrança própria.
+  const licencas = await tx.select().from(licencasProntuario).where(eq(licencasProntuario.ativo, true));
+  const prontuariosFaturaveis = licencas.filter((l) => licencaFaturavelNoEspaco(l, agora)).length;
+
+  const bruto = calcularItensFaturaSaas({
+    planoNome: precos.negociado ? `${plano.nome} (condição negociada)` : plano.nome,
+    precoBaseCentavos: precos.precoMensalCentavos,
+    limites: plano.limites,
+    precoSalaExtraCentavos: precos.precoSalaExtraCentavos,
+    precoProfissionalExtraCentavos: precos.precoProfissionalExtraCentavos,
+    precoUnidadeExtraCentavos: precos.precoUnidadeExtraCentavos,
+    precoProntuarioCentavos: precos.precoProntuarioCentavos,
+    unidadesAtivas: uso.unidades,
+    salasAtivas: uso.salas,
+    profissionaisAtivos: uso.profissionais,
+    profissionaisProntuarioFaturaveis: prontuariosFaturaveis,
+  });
+  const descontos = (await tx.select().from(descontosTenant).where(isNull(descontosTenant.revogadoEm))).filter((d) => descontoVigente(d, competencia));
+  const creditos = await tx
+    .select()
+    .from(creditosTenant)
+    .where(and(isNull(creditosTenant.revogadoEm), gt(creditosTenant.saldoCentavos, 0)))
+    .orderBy(asc(creditosTenant.criadoEm));
+  const { creditosUsados, ...calculo } = aplicarAbatimentos(bruto, descontos, creditos);
+  return {
+    plano,
+    precos,
+    condicoes,
+    calculo,
+    creditosUsados,
+    vencimento: vencimentoDaFaturaSaas(competencia, condicoes?.diaVencimento ?? undefined),
+  };
+}
+
+/** Prévia da fatura da competência (sem gravar): tela da plataforma e troca de plano. */
+export async function previaDaFatura(tenantId: string, competencia: string, agora = new Date(), database?: Database) {
+  return withSistema(tenantId, (tx) => calcularFaturaNaTransacao(tx, competencia, agora), database);
+}
+
 /** Gera e envia a fatura do mês corrente (idempotente: uma por competência). */
 export async function gerarFaturaDoMes(tenantId: string, opcoes: Opcoes = {}) {
   const database = opcoes.database ?? getDb();
@@ -341,31 +398,15 @@ export async function gerarFaturaDoMes(tenantId: string, opcoes: Opcoes = {}) {
       const hoje = await hojeDoEspaco(tx, agora);
       const competencia = competenciaDe(hoje);
       if (!competenciaCobravel(tenant.testeAte, competencia)) return null; // teste grátis
-      // Fatura gerada depois do dia 10 (ex.: primeiro mês) vence em 3 dias, nunca no passado.
-      const vencimentoBase = vencimentoDaFaturaSaas(competencia);
       const minimo = somarDias(hoje, 3);
-      const plano = await planoDoTenant(tx);
-      if (!plano || plano.precoMensalCentavos <= 0) return null;
+      const previa = await calcularFaturaNaTransacao(tx, competencia, agora);
+      if (!previa) return null;
+      const { plano, calculo } = previa;
+      // Fatura gerada depois do dia de vencimento (ex.: primeiro mês) vence em 3 dias, nunca no passado.
+      const vencimentoBase = previa.vencimento;
 
-      const uso = await usoAtual(tx);
-      // Só as licenças pagas pelo espaço; as do profissional têm cobrança própria.
-      const licencas = await tx.select().from(licencasProntuario).where(eq(licencasProntuario.ativo, true));
-      const prontuariosFaturaveis = licencas.filter((l) => licencaFaturavelNoEspaco(l, agora)).length;
-
-      const calculo = calcularItensFaturaSaas({
-        planoNome: plano.nome,
-        precoBaseCentavos: plano.precoMensalCentavos,
-        limites: plano.limites,
-        precoSalaExtraCentavos: plano.precoSalaExtraCentavos,
-        precoProfissionalExtraCentavos: plano.precoProfissionalExtraCentavos,
-        precoUnidadeExtraCentavos: plano.precoUnidadeExtraCentavos,
-        precoProntuarioCentavos: plano.precoProntuarioCentavos,
-        unidadesAtivas: uso.unidades,
-        salasAtivas: uso.salas,
-        profissionaisAtivos: uso.profissionais,
-        profissionaisProntuarioFaturaveis: prontuariosFaturaveis,
-      });
-
+      // Descontos e créditos zerando a fatura: ela nasce quitada (isenta), sem ir ao Asaas.
+      const isenta = calculo.valorTotalCentavos === 0;
       const [fatura] = await tx
         .insert(faturasSaas)
         .values({
@@ -374,6 +415,7 @@ export async function gerarFaturaDoMes(tenantId: string, opcoes: Opcoes = {}) {
           valorCentavos: calculo.valorTotalCentavos,
           vencimento: vencimentoBase < minimo ? minimo : vencimentoBase,
           ambiente: gateway.ambiente,
+          ...(isenta ? { status: "paga" as const, formaBaixa: "isenta" as const, pagoEm: agora } : {}),
         })
         .onConflictDoNothing()
         .returning();
@@ -388,14 +430,22 @@ export async function gerarFaturaDoMes(tenantId: string, opcoes: Opcoes = {}) {
           quantidade: item.quantidade,
           valorUnitarioCentavos: item.valorUnitarioCentavos,
           valorTotalCentavos: item.valorTotalCentavos,
+          referenciaId: item.referenciaId,
         });
       }
+      for (const usado of previa.creditosUsados) {
+        await tx
+          .update(creditosTenant)
+          .set({ saldoCentavos: sql`${creditosTenant.saldoCentavos} - ${usado.valorCentavos}` })
+          .where(eq(creditosTenant.id, usado.id));
+      }
 
-      return { tenant, plano, fatura, calculo };
+      return { tenant, plano, fatura, calculo, isenta };
     },
     database,
   );
   if (!preparo) return { criada: false };
+  if (preparo.isenta) return { criada: true, enviada: false, isenta: true };
   return { criada: true, ...(await enviarFatura(tenantId, preparo.fatura.id, gateway, database)) };
 }
 

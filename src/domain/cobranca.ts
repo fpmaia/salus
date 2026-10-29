@@ -69,9 +69,11 @@ export function competenciaCobravel(testeAte: DataLocal | null, competencia: Dat
   return testeAte === null || competencia >= primeiraCompetenciaCobrada(testeAte);
 }
 
-/** Vencimento da fatura do SaaS: dia 10 da competência. */
-export function vencimentoDaFaturaSaas(competencia: DataLocal): DataLocal {
-  return somarDias(competencia, 9);
+export const DIA_DE_VENCIMENTO_SAAS = 10;
+
+/** Vencimento da fatura do SaaS: dia 10 da competência (ou o dia negociado com a clínica). */
+export function vencimentoDaFaturaSaas(competencia: DataLocal, dia: number = DIA_DE_VENCIMENTO_SAAS): DataLocal {
+  return somarDias(competencia, dia - 1);
 }
 
 // Inadimplência do SaaS: 15 dias de carência depois do vencimento (fatura do dia 10 →
@@ -90,14 +92,18 @@ export type SituacaoAssinatura =
  * também conta (o OVERDUE do Asaas pode chegar atrasado); "erro" não: a fatura nem chegou
  * ao Asaas, então a falha é nossa.
  */
-export function situacaoDaAssinatura(faturas: { status: StatusCobranca; vencimento: DataLocal }[], hoje: DataLocal): SituacaoAssinatura {
+export function situacaoDaAssinatura(
+  faturas: { status: StatusCobranca; vencimento: DataLocal }[],
+  hoje: DataLocal,
+  diasCarencia: number = DIAS_DE_CARENCIA_SAAS,
+): SituacaoAssinatura {
   const vencidas = faturas
     .filter((f) => f.status === "vencida" || (f.status === "pendente" && f.vencimento < hoje))
     .map((f) => f.vencimento)
     .sort();
   if (vencidas.length === 0) return { estado: "em_dia" };
   const vencimento = vencidas[0];
-  const suspensaoEm = somarDias(vencimento, DIAS_DE_CARENCIA_SAAS + 1);
+  const suspensaoEm = somarDias(vencimento, diasCarencia + 1);
   return {
     estado: hoje >= suspensaoEm ? "suspensa" : "atrasada",
     vencimento,
@@ -156,7 +162,15 @@ export function usoAcimaDosLimites(
   return limites.unidades !== undefined && uso.unidades > limites.unidades ? ["unidades"] : [];
 }
 
-export type TipoItemFatura = "base" | "sala_extra" | "profissional_extra" | "unidade_extra" | "prontuario_licenca";
+export type TipoItemFatura =
+  | "base"
+  | "sala_extra"
+  | "profissional_extra"
+  | "unidade_extra"
+  | "prontuario_licenca"
+  | "desconto"
+  | "credito"
+  | "ajuste";
 
 export type ItemCalculadoFaturaSaas = {
   tipo: TipoItemFatura;
@@ -164,6 +178,8 @@ export type ItemCalculadoFaturaSaas = {
   quantidade: number;
   valorUnitarioCentavos: number;
   valorTotalCentavos: number;
+  /** Desconto ou crédito que gerou o item. */
+  referenciaId?: string;
 };
 
 /** Verifica se a licença de prontuário ainda está dentro do período de 15 dias de teste grátis. */
@@ -293,4 +309,95 @@ export function calcularItensFaturaSaas(dados: {
 
   const valorTotalCentavos = itens.reduce((soma, i) => soma + i.valorTotalCentavos, 0);
   return { itens, valorTotalCentavos };
+}
+
+// ---------------------------------------------------------------------------
+// Condições negociadas, descontos e créditos (gestão da plataforma)
+// ---------------------------------------------------------------------------
+
+export type DescontoFatura = {
+  id: string;
+  tipo: "percentual" | "valor";
+  /** percentual: 1 a 100; valor: centavos por fatura. */
+  valor: number;
+  competenciaInicio: DataLocal;
+  competenciaFim: DataLocal | null;
+  motivo: string;
+  revogadoEm?: Date | null;
+};
+
+export type CreditoFatura = { id: string; saldoCentavos: number; motivo: string };
+
+/** O desconto vale na competência (faixa inclusiva, fim aberto = sem prazo) e não foi revogado. */
+export function descontoVigente(d: DescontoFatura, competencia: DataLocal): boolean {
+  return !d.revogadoEm && d.competenciaInicio <= competencia && (d.competenciaFim === null || competencia <= d.competenciaFim);
+}
+
+/**
+ * Abate da fatura, nesta ordem: descontos percentuais (sobre o subtotal), descontos em valor e
+ * créditos (do mais antigo). Nunca abaixo de zero: o que não couber fica para depois (créditos)
+ * ou se perde (descontos do mês). Devolve quanto de cada crédito foi usado.
+ */
+export function aplicarAbatimentos(
+  calculo: { itens: ItemCalculadoFaturaSaas[]; valorTotalCentavos: number },
+  descontos: DescontoFatura[],
+  creditos: CreditoFatura[],
+): { itens: ItemCalculadoFaturaSaas[]; valorTotalCentavos: number; creditosUsados: { id: string; valorCentavos: number }[] } {
+  const subtotal = calculo.valorTotalCentavos;
+  let restante = subtotal;
+  const itens = [...calculo.itens];
+  const abater = (tipo: TipoItemFatura, descricao: string, valor: number, referenciaId: string) => {
+    const usado = Math.min(valor, restante);
+    if (usado <= 0) return 0;
+    restante -= usado;
+    itens.push({ tipo, descricao, quantidade: 1, valorUnitarioCentavos: -usado, valorTotalCentavos: -usado, referenciaId });
+    return usado;
+  };
+
+  const ordenados = [...descontos].sort((a, b) => (a.tipo === b.tipo ? 0 : a.tipo === "percentual" ? -1 : 1));
+  for (const d of ordenados) {
+    const valor = d.tipo === "percentual" ? Math.round((subtotal * d.valor) / 100) : d.valor;
+    abater("desconto", d.tipo === "percentual" ? `Desconto de ${d.valor}% — ${d.motivo}` : `Desconto — ${d.motivo}`, valor, d.id);
+  }
+  const creditosUsados: { id: string; valorCentavos: number }[] = [];
+  for (const c of creditos) {
+    const usado = abater("credito", `Crédito — ${c.motivo}`, c.saldoCentavos, c.id);
+    if (usado > 0) creditosUsados.push({ id: c.id, valorCentavos: usado });
+  }
+  return { itens, valorTotalCentavos: restante, creditosUsados };
+}
+
+export type CondicoesComerciais = {
+  precoMensalCentavos: number | null;
+  precoSalaExtraCentavos: number | null;
+  precoProfissionalExtraCentavos: number | null;
+  precoUnidadeExtraCentavos: number | null;
+  precoProntuarioCentavos: number | null;
+  diaVencimento: number | null;
+  diasCarencia: number | null;
+};
+
+type PrecosDoPlano = {
+  precoMensalCentavos: number;
+  precoSalaExtraCentavos: number;
+  precoProfissionalExtraCentavos: number;
+  precoUnidadeExtraCentavos: number;
+  precoProntuarioCentavos: number;
+};
+
+/** Preços efetivos da clínica: o negociado onde houver, senão o do plano. */
+export function precosEfetivos<P extends PrecosDoPlano>(plano: P, condicoes: Partial<CondicoesComerciais> | null | undefined): P & { negociado: boolean } {
+  const c = condicoes ?? {};
+  const precos = {
+    ...plano,
+    precoMensalCentavos: c.precoMensalCentavos ?? plano.precoMensalCentavos,
+    precoSalaExtraCentavos: c.precoSalaExtraCentavos ?? plano.precoSalaExtraCentavos,
+    precoProfissionalExtraCentavos: c.precoProfissionalExtraCentavos ?? plano.precoProfissionalExtraCentavos,
+    precoUnidadeExtraCentavos: c.precoUnidadeExtraCentavos ?? plano.precoUnidadeExtraCentavos,
+    precoProntuarioCentavos: c.precoProntuarioCentavos ?? plano.precoProntuarioCentavos,
+  };
+  const negociado = (["precoMensalCentavos", "precoSalaExtraCentavos", "precoProfissionalExtraCentavos", "precoUnidadeExtraCentavos", "precoProntuarioCentavos"] as const).some(
+    (k) => c[k] !== null && c[k] !== undefined,
+  );
+  return { ...precos, negociado };
 }

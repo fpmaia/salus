@@ -6,17 +6,21 @@ import {
   Receipt,
   Clock,
   ShieldCheck,
+  BadgePercent,
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { condicoesDoEspaco } from "@/src/server/plataforma-financeiro";
 import { FormAcao } from "@/components/form-acao";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { exigirPermissaoNaPagina } from "@/src/auth/permissao";
 import { obterContextoTenant } from "@/src/auth/sessao";
-import { DIAS_DE_CARENCIA_SAAS, RECURSOS_LIMITADOS, ROTULOS_RECURSO } from "@/src/domain/cobranca";
+import { RECURSOS_LIMITADOS, ROTULOS_RECURSO } from "@/src/domain/cobranca";
 import { formatarMoeda } from "@/src/domain/dinheiro";
 import { obterAssinatura } from "@/src/server/assinatura";
 import { formatarDataBr } from "@/src/server/reservas";
 import { rotuloCompetencia } from "../financeiro/componentes";
-import { alternarLicencaProntuarioAcao, simularPagamentoFaturaAcao, trocarPlanoAcao } from "./actions";
+import { alternarLicencaProntuarioAcao, aplicarCupomAcao, simularPagamentoFaturaAcao, trocarPlanoAcao } from "./actions";
 
 const STATUS: Record<string, string> = {
   pendente: "Em aberto",
@@ -45,9 +49,12 @@ export default async function AssinaturaPage({
     itensPorFatura,
     profissionaisProntuario,
     projecaoProximoMes,
+    diasCarencia,
     situacao,
     teste,
   } = await obterAssinatura(ctx);
+  const { descontos, creditos, condicoes } = await condicoesDoEspaco(ctx);
+  const temCupomAtivo = descontos.some((d) => d.cupomId);
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6">
@@ -117,7 +124,7 @@ export default async function AssinaturaPage({
             <CardDescription>
               {situacao.estado === "suspensa"
                 ? `A fatura que venceu em ${formatarDataBr(situacao.vencimento)} não foi paga. A equipe continua vendo tudo, mas não consegue marcar nem alterar nada, e o agendamento online está fora do ar. Os lembretes dos pacientes já marcados continuam saindo. Pague abaixo: o espaço volta a funcionar assim que o pagamento for confirmado.`
-                : `A fatura venceu em ${formatarDataBr(situacao.vencimento)}. Há ${DIAS_DE_CARENCIA_SAAS} dias de carência: se não for paga até ${formatarDataBr(situacao.suspensaoEm)}, o espaço fica só para consulta até o pagamento.`}
+                : `A fatura venceu em ${formatarDataBr(situacao.vencimento)}. Há ${diasCarencia} dias de carência: se não for paga até ${formatarDataBr(situacao.suspensaoEm)}, o espaço fica só para consulta até o pagamento.`}
             </CardDescription>
           </CardHeader>
         </Card>
@@ -168,6 +175,51 @@ export default async function AssinaturaPage({
           </CardContent>
         </Card>
       )}
+
+      {/* Descontos, créditos e cupom */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <BadgePercent className="size-4 text-primary" /> Descontos e cupom
+          </CardTitle>
+          <CardDescription>
+            {condicoes?.diaVencimento ? `Suas faturas vencem no dia ${condicoes.diaVencimento}. ` : ""}
+            Descontos e créditos entram automaticamente na fatura do mês.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4 text-sm">
+          {descontos.length === 0 && creditos.length === 0 ? (
+            <p className="text-muted-foreground">Nenhum desconto ativo.</p>
+          ) : (
+            <ul className="divide-y rounded-lg border">
+              {descontos.map((d) => (
+                <li key={d.id} className="flex flex-wrap justify-between gap-2 px-3 py-2">
+                  <span>
+                    {d.tipo === "percentual" ? `${d.valor}% de desconto` : `${formatarMoeda(d.valor)} de desconto por mês`} · {d.motivo}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {rotuloCompetencia(d.competenciaInicio)} a {d.competenciaFim ? rotuloCompetencia(d.competenciaFim) : "sem prazo"}
+                  </span>
+                </li>
+              ))}
+              {creditos.map((c) => (
+                <li key={c.id} className="flex flex-wrap justify-between gap-2 px-3 py-2">
+                  <span>Crédito · {c.motivo}</span>
+                  <span className="text-xs text-muted-foreground">saldo {formatarMoeda(c.saldoCentavos)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {!temCupomAtivo && (
+            <FormAcao acao={aplicarCupomAcao} textoBotao="Aplicar cupom" textoPendente="Aplicando…" className="flex flex-wrap items-end gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="cupom">Tem um cupom?</Label>
+                <Input id="cupom" name="cupom" required maxLength={30} placeholder="CÓDIGO" className="w-48 uppercase" />
+              </div>
+            </FormAcao>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Módulo de Prontuário Eletrônico (EHR) */}
       <Card>
@@ -373,7 +425,7 @@ export default async function AssinaturaPage({
         <CardHeader>
           <CardTitle>Faturas</CardTitle>
           <CardDescription>
-            Geradas pelo Asaas no início de cada mês, com vencimento no dia 10 (na primeira, 3 dias depois de gerada). Pague por PIX, boleto ou cartão. Sem pagamento em {DIAS_DE_CARENCIA_SAAS} dias depois do vencimento, o espaço fica só para consulta.
+            Geradas pelo Asaas no início de cada mês, com vencimento no dia {condicoes?.diaVencimento ?? 10} (na primeira, 3 dias depois de gerada). Pague por PIX, boleto ou cartão. Sem pagamento em {diasCarencia} dias depois do vencimento, o espaço fica só para consulta.
           </CardDescription>
         </CardHeader>
         <CardContent>

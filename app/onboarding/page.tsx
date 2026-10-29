@@ -18,7 +18,7 @@ export default async function OnboardingPage({ searchParams }: PageProps<"/onboa
   const convite = typeof trial === "string" ? await obterConviteClinicaPublico(trial) : null;
   const teste =
     convite?.situacao === "pendente" && convite.email.toLowerCase() === usuario.email.toLowerCase() && typeof trial === "string"
-      ? { token: trial, planoNome: convite.planoNome, diasTeste: convite.diasTeste }
+      ? { token: trial, planoNome: convite.planoNome, diasTeste: convite.diasTeste, cupom: convite.cupom }
       : null;
 
   return (
@@ -53,7 +53,7 @@ export default async function OnboardingPage({ searchParams }: PageProps<"/onboa
               </span>
             </div>
           )}
-          <FormularioOnboarding conviteTrial={teste?.token} />
+          <FormularioOnboarding conviteTrial={teste?.token} cupomDoConvite={teste?.cupom} />
         </Card>
 
         <LSCodeBadge variant="compact" />

@@ -48,6 +48,10 @@ export function FormularioConviteClinica({ planos, validadePadrao }: { planos: P
           <Label htmlFor="cv-obs">Observação interna (opcional)</Label>
           <Input id="cv-obs" name="observacao" maxLength={300} placeholder="Ex.: indicação, evento, parceiro" />
         </div>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="cv-cupom">Cupom depois do teste (opcional)</Label>
+          <Input id="cv-cupom" name="cupom" maxLength={30} placeholder="Ex.: PARCEIRO20" className="uppercase" />
+        </div>
       </div>
 
       {estado.erro && <p className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{estado.erro}</p>}

@@ -21,6 +21,7 @@ export async function criarConviteClinicaAcao(_estado: EstadoAcao, formData: For
       diasTeste,
       validadeDias: texto(formData, "validadeDias") || undefined,
       observacao: texto(formData, "observacao"),
+      cupom: texto(formData, "cupom"),
     });
     revalidatePath("/plataforma/convites");
     const plano = (await listarPlanosDisponiveis(usuario.id)).find((p) => p.id === planoId);

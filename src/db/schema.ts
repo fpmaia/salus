@@ -253,6 +253,8 @@ export const convitesClinica = pgTable(
     usadoPor: uuid("usado_por").references(() => users.id, { onDelete: "set null" }),
     tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "set null" }),
     revogadoEm: timestamp("revogado_em", { withTimezone: true }),
+    // Cupom aplicado automaticamente quando a clínica se cadastra pelo convite.
+    cupomCodigo: text("cupom_codigo"),
     criadoEm: criadoEm(),
   },
   (t) => [
@@ -1158,6 +1160,8 @@ export const faturasSaas = pgTable(
     asaasPaymentId: text("asaas_payment_id"),
     invoiceUrl: text("invoice_url"),
     pagoEm: timestamp("pago_em", { withTimezone: true }),
+    // Como foi quitada: pelo Asaas, baixa manual da equipe Salus ou isenta (valor zero).
+    formaBaixa: text("forma_baixa").$type<"gateway" | "manual" | "isenta">(),
     ultimoErro: text("ultimo_erro"),
     // E-mails da inadimplência (um de cada por fatura): aviso 5 dias antes e suspensão.
     avisoSuspensaoEm: timestamp("aviso_suspensao_em", { withTimezone: true }),
@@ -1168,7 +1172,8 @@ export const faturasSaas = pgTable(
   (t) => [
     uniqueIndex("faturas_saas_competencia_key").on(t.tenantId, t.competencia),
     uniqueIndex("faturas_saas_asaas_key").on(t.asaasPaymentId),
-    check("faturas_saas_valor_check", sql`${t.valorCentavos} > 0`),
+    check("faturas_saas_valor_check", sql`${t.valorCentavos} >= 0`),
+    check("faturas_saas_forma_baixa_check", sql`${t.formaBaixa} in ('gateway', 'manual', 'isenta')`),
   ],
 );
 
@@ -1178,6 +1183,9 @@ export const tipoItemFaturaSaas = pgEnum("tipo_item_fatura_saas", [
   "profissional_extra",
   "unidade_extra",
   "prontuario_licenca",
+  "desconto",
+  "credito",
+  "ajuste",
 ]);
 
 // Detalhamento item a item da fatura do SaaS (valor base + overages de salas/profs/unidades + prontuário).
@@ -1194,14 +1202,121 @@ export const faturasSaasItens = pgTable(
     quantidade: integer("quantidade").notNull().default(1),
     valorUnitarioCentavos: integer("valor_unitario_centavos").notNull(),
     valorTotalCentavos: integer("valor_total_centavos").notNull(),
+    // Desconto ou crédito que originou o item (descontos_tenant / creditos_tenant).
+    referenciaId: uuid("referencia_id"),
     criadoEm: criadoEm(),
   },
   (t) => [
     index("faturas_saas_itens_fatura_idx").on(t.faturaId),
     check("faturas_saas_itens_qtd_check", sql`${t.quantidade} > 0`),
-    check("faturas_saas_itens_valor_check", sql`${t.valorTotalCentavos} >= 0`),
+    // Só desconto, crédito e ajuste podem abater (valor negativo).
+    check("faturas_saas_itens_valor_check", sql`${t.valorTotalCentavos} >= 0 or ${t.tipo}::text in ('desconto', 'credito', 'ajuste')`),
   ],
 );
+
+// Condições negociadas com a clínica (sobrepõem o plano). Leitura pelo tenant (RLS); escrita só
+// pela equipe da plataforma, pelas funções app_plataforma_* (migration 0047).
+export const condicoesComerciaisTenant = pgTable(
+  "condicoes_comerciais_tenant",
+  {
+    tenantId: uuid("tenant_id")
+      .primaryKey()
+      .default(sql`app_current_tenant_id()`)
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    precoMensalCentavos: integer("preco_mensal_centavos"),
+    precoSalaExtraCentavos: integer("preco_sala_extra_centavos"),
+    precoProfissionalExtraCentavos: integer("preco_profissional_extra_centavos"),
+    precoUnidadeExtraCentavos: integer("preco_unidade_extra_centavos"),
+    precoProntuarioCentavos: integer("preco_prontuario_centavos"),
+    diaVencimento: integer("dia_vencimento"),
+    diasCarencia: integer("dias_carencia"),
+    observacao: text("observacao"),
+    atualizadoPor: uuid("atualizado_por").references(() => users.id, { onDelete: "set null" }),
+    atualizadoEm: atualizadoEm(),
+  },
+  (t) => [
+    check("condicoes_dia_vencimento_check", sql`${t.diaVencimento} between 1 and 28`),
+    check("condicoes_dias_carencia_check", sql`${t.diasCarencia} between 0 and 90`),
+    check(
+      "condicoes_precos_check",
+      sql`coalesce(${t.precoMensalCentavos}, 0) >= 0 and coalesce(${t.precoSalaExtraCentavos}, 0) >= 0 and coalesce(${t.precoProfissionalExtraCentavos}, 0) >= 0 and coalesce(${t.precoUnidadeExtraCentavos}, 0) >= 0 and coalesce(${t.precoProntuarioCentavos}, 0) >= 0`,
+    ),
+  ],
+);
+
+// Cupom de desconto da plataforma (global). O app só usa pelas funções (migration 0047).
+export const cupons = pgTable(
+  "cupons",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    codigo: text("codigo").notNull(),
+    descricao: text("descricao"),
+    // percentual: 1 a 100 (%); valor: centavos por fatura.
+    tipo: text("tipo").$type<"percentual" | "valor">().notNull(),
+    valor: integer("valor").notNull(),
+    // Quantas faturas o desconto cobre (null = enquanto durar a assinatura).
+    duracaoMeses: integer("duracao_meses"),
+    validoAte: date("valido_ate", { mode: "string" }),
+    maxUsos: integer("max_usos"),
+    usos: integer("usos").notNull().default(0),
+    // Planos em que vale (null = todos).
+    planosIds: uuid("planos_ids").array(),
+    ativo: boolean("ativo").notNull().default(true),
+    criadoPor: uuid("criado_por").references(() => users.id, { onDelete: "set null" }),
+    criadoEm: criadoEm(),
+    atualizadoEm: atualizadoEm(),
+  },
+  (t) => [
+    uniqueIndex("cupons_codigo_key").on(t.codigo),
+    check("cupons_tipo_check", sql`${t.tipo} in ('percentual', 'valor')`),
+    check("cupons_valor_check", sql`${t.valor} > 0 and (${t.tipo} <> 'percentual' or ${t.valor} <= 100)`),
+    check("cupons_duracao_check", sql`${t.duracaoMeses} is null or ${t.duracaoMeses} between 1 and 120`),
+  ],
+);
+
+// Desconto recorrente da clínica (manual da equipe ou vindo de cupom), por faixa de competências.
+export const descontosTenant = pgTable(
+  "descontos_tenant",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: tenantIdDoContexto(),
+    tipo: text("tipo").$type<"percentual" | "valor">().notNull(),
+    valor: integer("valor").notNull(),
+    competenciaInicio: date("competencia_inicio", { mode: "string" }).notNull(),
+    competenciaFim: date("competencia_fim", { mode: "string" }),
+    motivo: text("motivo").notNull(),
+    cupomId: uuid("cupom_id").references(() => cupons.id, { onDelete: "set null" }),
+    criadoPor: uuid("criado_por").references(() => users.id, { onDelete: "set null" }),
+    criadoEm: criadoEm(),
+    revogadoEm: timestamp("revogado_em", { withTimezone: true }),
+  },
+  (t) => [
+    index("descontos_tenant_tenant_idx").on(t.tenantId),
+    check("descontos_tenant_tipo_check", sql`${t.tipo} in ('percentual', 'valor')`),
+    check("descontos_tenant_valor_check", sql`${t.valor} > 0 and (${t.tipo} <> 'percentual' or ${t.valor} <= 100)`),
+    check("descontos_tenant_periodo_check", sql`${t.competenciaFim} is null or ${t.competenciaFim} >= ${t.competenciaInicio}`),
+  ],
+);
+
+// Crédito avulso (compensação): abate das próximas faturas até o saldo acabar.
+export const creditosTenant = pgTable(
+  "creditos_tenant",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: tenantIdDoContexto(),
+    valorCentavos: integer("valor_centavos").notNull(),
+    saldoCentavos: integer("saldo_centavos").notNull(),
+    motivo: text("motivo").notNull(),
+    criadoPor: uuid("criado_por").references(() => users.id, { onDelete: "set null" }),
+    criadoEm: criadoEm(),
+    revogadoEm: timestamp("revogado_em", { withTimezone: true }),
+  },
+  (t) => [
+    index("creditos_tenant_tenant_idx").on(t.tenantId),
+    check("creditos_tenant_valor_check", sql`${t.valorCentavos} > 0 and ${t.saldoCentavos} between 0 and ${t.valorCentavos}`),
+  ],
+);
+
 
 export const statusConexaoWhatsapp = pgEnum("status_conexao_whatsapp", ["desconectado", "conectando", "conectado"]);
 

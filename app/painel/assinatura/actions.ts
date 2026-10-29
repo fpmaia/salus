@@ -1,8 +1,17 @@
 "use server";
 
 import { obterContextoTenant } from "@/src/auth/sessao";
-import { executarAcao } from "@/src/server/acao";
+import { type EstadoAcao, executarAcao, texto } from "@/src/server/acao";
 import { simularPagamentoFatura, trocarPlano } from "@/src/server/assinatura";
+import { aplicarCupomNoEspaco } from "@/src/server/plataforma-financeiro";
+
+export async function aplicarCupomAcao(_estado: EstadoAcao, formData: FormData): Promise<EstadoAcao> {
+  return executarAcao(async () => {
+    const ctx = await obterContextoTenant();
+    await aplicarCupomNoEspaco(ctx, texto(formData, "cupom"));
+    return "Cupom aplicado: o desconto entra a partir da próxima fatura";
+  }, { liberadaNaSuspensao: true });
+}
 
 export async function trocarPlanoAcao(codigo: string) {
   return executarAcao(async () => {

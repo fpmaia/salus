@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { registrarAuditoria } from "../db/audit";
 import type { Database } from "../db/client";
@@ -7,6 +7,7 @@ import { memberships, planosSaas, tenantSettings, tenants } from "../db/schema";
 import { withTenant } from "../db/tenant";
 import { analisarDocumento } from "../domain/documentos";
 import { usarConviteClinica } from "./convites-clinica";
+import { traduzirErroFinanceiro } from "./plataforma-financeiro";
 import { ErroNegocio } from "./erros";
 import { listarMembershipsDoUsuario } from "./memberships";
 
@@ -15,6 +16,8 @@ export const dadosOnboardingSchema = z.object({
   documento: z.string().trim().min(1, "Informe o CPF ou CNPJ"),
   /** Token do convite trial da plataforma: plano do convite e período de teste grátis. */
   conviteTrial: z.string().optional(),
+  /** Cupom de desconto digitado no cadastro (o do convite trial já vem aplicado). */
+  cupom: z.string().trim().max(30).optional(),
 });
 
 export class ErroOnboarding extends Error {
@@ -33,7 +36,7 @@ export async function criarTenantComAdmin(
   dados: z.input<typeof dadosOnboardingSchema>,
   database?: Database,
 ): Promise<{ tenantId: string }> {
-  const { nomeTenant, documento, conviteTrial } = dadosOnboardingSchema.parse(dados);
+  const { nomeTenant, documento, conviteTrial, cupom } = dadosOnboardingSchema.parse(dados);
   const doc = analisarDocumento(documento);
   if (!doc) throw new ErroOnboarding("CPF ou CNPJ inválido");
 
@@ -64,6 +67,14 @@ export async function criarTenantComAdmin(
         await usarConviteClinica(tx, conviteTrial).catch((erro) => {
           throw erro instanceof ErroNegocio ? new ErroOnboarding(erro.message) : erro;
         });
+      }
+      if (cupom) {
+        await tx
+          .execute(sql`select app_aplicar_cupom(${cupom})`)
+          .catch(traduzirErroFinanceiro)
+          .catch((erro) => {
+            throw erro instanceof ErroNegocio ? new ErroOnboarding(erro.message) : erro;
+          });
       }
       await registrarAuditoria(tx, {
         acao: "tenant.criado",

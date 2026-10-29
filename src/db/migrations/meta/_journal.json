@@ -330,6 +330,13 @@
       "when": 1793235323273,
       "tag": "0046_equipe_plataforma",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1793235930808,
+      "tag": "0047_condicoes_comerciais",
+      "breakpoints": true
     }
   ]
 }

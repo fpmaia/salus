@@ -23,6 +23,8 @@ import { formatarDataBr } from "@/src/server/reservas";
 import { rotuloCompetencia } from "@/app/painel/financeiro/componentes";
 import { definirFimDoTesteAcao } from "@/app/plataforma/convites/actions";
 import { acessoPlataforma } from "@/app/plataforma/acesso";
+import { obterCobrancaDaClinica } from "@/src/server/plataforma-financeiro";
+import { SecaoCobranca } from "./secao-cobranca";
 
 const STATUS_FATURA: Record<string, { bg: string; text: string; label: string }> = {
   paga: { bg: "bg-emerald-500/10 border-emerald-500/20", text: "text-emerald-600 dark:text-emerald-400", label: "Paga" },
@@ -41,9 +43,9 @@ export default async function DetalhesClinicaPlataformaPage({
   const { id: tenantId } = await params;
   const { usuario, pode } = await acessoPlataforma();
 
-  let dados;
+  let dados, cobranca;
   try {
-    dados = await obterDetalhesClinicaPlataforma(usuario.id, tenantId);
+    [dados, cobranca] = await Promise.all([obterDetalhesClinicaPlataforma(usuario.id, tenantId), obterCobrancaDaClinica(usuario.id, tenantId)]);
   } catch {
     notFound();
   }
@@ -307,6 +309,20 @@ export default async function DetalhesClinicaPlataformaPage({
           ))}
         </div>
       </div>
+
+      {/* Cobrança: condições negociadas, descontos, créditos e prévia */}
+      <SecaoCobranca
+        tenantId={tenant.id}
+        cobranca={cobranca}
+        podeEditar={pode("financeiro.gerenciar")}
+        plano={{
+          precoMensalCentavos: tenant.planoPrecoMensalCentavos,
+          precoSalaExtraCentavos: tenant.precoSalaExtraCentavos,
+          precoProfissionalExtraCentavos: tenant.precoProfissionalExtraCentavos,
+          precoUnidadeExtraCentavos: tenant.precoUnidadeExtraCentavos,
+          precoProntuarioCentavos: tenant.precoProntuarioCentavos,
+        }}
+      />
 
       {/* Histórico Financeiro da Clínica */}
       <div className="rounded-2xl border border-border/80 bg-card p-6 shadow-sm space-y-4">

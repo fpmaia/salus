@@ -43,6 +43,7 @@ export const conviteClinicaSchema = z.object({
   diasTeste: z.coerce.number().int("Dias inteiros").min(1, "Mínimo de 1 dia").max(365, "Máximo de 365 dias"),
   validadeDias: z.coerce.number().int().min(1, "O link vale no mínimo 1 dia").max(90, "O link vale no máximo 90 dias").default(VALIDADE_PADRAO_CONVITE_CLINICA_DIAS),
   observacao: z.string().trim().max(300, "Observação até 300 caracteres").default(""),
+  cupom: z.string().trim().toUpperCase().max(30, "Código do cupom até 30 caracteres").default(""),
 });
 
 /** Cria o convite (substitui um pendente do mesmo e-mail). O token só existe aqui, em claro. */
@@ -61,7 +62,7 @@ export async function criarConviteClinica(
     async (tx) => {
       const { rows } = await tx
         .execute<{ id: string }>(
-          sql`select app_plataforma_criar_convite_clinica(${d.email}, ${d.planoId}, ${d.diasTeste}, ${expiraEm.toISOString()}, ${hashTokenClinica(token)}, ${d.observacao}) as id`,
+          sql`select app_plataforma_criar_convite_clinica(${d.email}, ${d.planoId}, ${d.diasTeste}, ${expiraEm.toISOString()}, ${hashTokenClinica(token)}, ${d.observacao}, ${d.cupom}) as id`,
         )
         .catch(traduzir);
       return rows[0].id;
@@ -138,6 +139,7 @@ export type ConviteClinicaPublico = {
   planoNome: string;
   diasTeste: number;
   expiraEm: Date;
+  cupom: string | null;
   situacao: SituacaoConviteClinica;
 };
 
@@ -151,6 +153,7 @@ export async function obterConviteClinicaPublico(token: string, database: Databa
     expira_em: string;
     usado_em: string | null;
     revogado_em: string | null;
+    cupom_codigo: string | null;
   }>(sql`select * from app_convite_clinica_por_token(${hashTokenClinica(token)})`);
   const [r] = rows;
   if (!r) return null;
@@ -160,6 +163,7 @@ export async function obterConviteClinicaPublico(token: string, database: Databa
     planoNome: r.plano_nome,
     diasTeste: r.dias_teste,
     expiraEm,
+    cupom: r.cupom_codigo,
     situacao: situacaoDoConvite({ usadoEm: r.usado_em ? new Date(r.usado_em) : null, revogadoEm: r.revogado_em ? new Date(r.revogado_em) : null, expiraEm }, agora),
   };
 }
