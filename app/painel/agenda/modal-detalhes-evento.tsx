@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { InputMascara } from "@/components/input-mascara";
 import { ROTULOS_STATUS, transicoesPossiveis, type StatusAgendamento } from "@/src/domain/agendamentos";
-import { formatarDataBr } from "@/src/domain/tempo";
+import { formatarDataBr, horaDeMinutos, minutosDoDia } from "@/src/domain/tempo";
 import { alterarStatusAcao, remarcarAcao, desfazerStatusAcao } from "../atendimentos/actions";
 import { definirValorAcao } from "../financeiro/actions";
 import { cancelarReservaAcao } from "./actions";
@@ -411,7 +411,10 @@ export function ModalDetalhesEvento({
                     salaNome: dados.salaNome,
                     data: dados.data,
                     horaInicio: dados.horaInicio,
-                    horaFim: dados.horaFim,
+                    // Primeiro slot do horário vago; o término continua editável no formulário.
+                    horaFim: horaDeMinutos(
+                      Math.min(minutosDoDia(dados.horaFim), minutosDoDia(dados.horaInicio) + slotMinutos),
+                    ),
                     slotMinutos,
                     reserva: {
                       id: res?.id ?? "",

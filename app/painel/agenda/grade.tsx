@@ -2,7 +2,14 @@
 
 import Link from "next/link";
 import { cn } from "cn";
-import { segmentarReserva, slotAberto, type ConfigUnidade, type SegmentoReserva } from "@/src/domain/reservas";
+import {
+  linhaSobPonteiro,
+  segmentarReserva,
+  slotAberto,
+  slotDoSegmento,
+  type ConfigUnidade,
+  type SegmentoReserva,
+} from "@/src/domain/reservas";
 import { diaSemana, horaDeMinutos, minutosDoDia, type DataLocal } from "@/src/domain/tempo";
 import type { ReservaNaAgenda } from "@/src/domain/reservas";
 
@@ -346,16 +353,54 @@ export function GradeAgenda({
                   "data-data": r.data,
                   "data-inicio-min": minutosDoDia(seg.horaInicio),
                   "data-linhas": fim - inicio,
-                  title: "Clique para agendar paciente neste horário do médico",
+                  title: "Clique no horário desejado para agendar um paciente com este médico",
                 }
               : {};
 
-            const handleClick = (e: React.MouseEvent) => {
+            const vagoClicavel = !temPaciente && r.status === "ativa";
+            const nLinhas = fim - inicio;
+            const linhaDoEvento = (e: React.MouseEvent<HTMLElement>) => {
+              const ret = e.currentTarget.getBoundingClientRect();
+              return linhaSobPonteiro(e.clientY - ret.top, ret.height, nLinhas);
+            };
+
+            const handleClick = (e: React.MouseEvent<HTMLElement>) => {
               if (aoClicarReserva) {
                 e.preventDefault();
-                aoClicarReserva(r, seg);
+                // Horário vago de uma reserva: agenda só o slot clicado, não o bloco inteiro.
+                aoClicarReserva(r, vagoClicavel ? slotDoSegmento(seg, linhaDoEvento(e), slot) : seg);
               }
             };
+
+            const realceSlot = vagoClicavel && nLinhas > 1
+              ? {
+                  onMouseMove: (e: React.MouseEvent<HTMLElement>) => {
+                    const linha = linhaDoEvento(e);
+                    const el = e.currentTarget;
+                    if (el.dataset.linhaRealce !== String(linha)) {
+                      el.dataset.linhaRealce = String(linha);
+                      el.style.setProperty("--linha-realce", String(linha));
+                      const alvo = slotDoSegmento(seg, linha, slot);
+                      el.setAttribute("aria-description", `Agendar às ${alvo.horaInicio}`);
+                      const rotulo = el.querySelector<HTMLElement>("[data-rotulo-slot]");
+                      if (rotulo) rotulo.textContent = `${alvo.horaInicio} – ${alvo.horaFim}`;
+                    }
+                  },
+                }
+              : {};
+
+            const realce = vagoClicavel && nLinhas > 1 ? (
+              <span
+                aria-hidden
+                className="pointer-events-none absolute inset-x-0 z-0 hidden items-center justify-center rounded-md bg-primary/20 ring-1 ring-primary/50 group-hover:flex"
+                style={{
+                  height: `${100 / nLinhas}%`,
+                  top: `calc(var(--linha-realce, 0) * ${100 / nLinhas}%)`,
+                }}
+              >
+                <span data-rotulo-slot className="rounded bg-background/90 px-1.5 py-0.5 font-mono text-[10px] font-bold text-primary shadow-xs" />
+              </span>
+            ) : null;
 
             return href ? (
               <Link
@@ -363,15 +408,18 @@ export function GradeAgenda({
                 href={href}
                 scroll={false}
                 onClick={handleClick}
-                className={cn(classe, arrastavel && "cursor-grab")}
+                className={cn(classe, "group relative", arrastavel && "cursor-grab")}
                 style={estilo}
                 {...atributos}
+                {...realceSlot}
               >
-                {conteudo}
+                {realce}
+                <div className="relative h-full">{conteudo}</div>
               </Link>
             ) : (
-              <div key={seg.chave} className={classe} style={estilo} onClick={handleClick}>
-                {conteudo}
+              <div key={seg.chave} className={cn(classe, "group relative")} style={estilo} onClick={handleClick} {...realceSlot}>
+                {realce}
+                <div className="relative h-full">{conteudo}</div>
               </div>
             );
           });

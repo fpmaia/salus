@@ -299,3 +299,25 @@ export type ReservaNaAgenda = {
 };
 
 
+
+/**
+ * Linha (0-based) sob o ponteiro num bloco que ocupa `linhas` linhas da grade.
+ * `deslocamento` é a distância do ponteiro ao topo do bloco; `altura`, a altura do bloco.
+ */
+export function linhaSobPonteiro(deslocamento: number, altura: number, linhas: number): number {
+  if (linhas <= 1 || altura <= 0) return 0;
+  return Math.min(linhas - 1, Math.max(0, Math.floor((deslocamento / altura) * linhas)));
+}
+
+/**
+ * Recorta de um segmento vago o slot da linha clicada: clicar num horário reservado agenda
+ * só aquele slot (o horário de término continua editável no formulário).
+ */
+export function slotDoSegmento(seg: SegmentoReserva, linha: number, slotMinutos: number): SegmentoReserva {
+  const inicioSeg = minutosDoDia(seg.horaInicio);
+  const fimSeg = minutosDoDia(seg.horaFim);
+  const ultimaLinha = Math.max(0, Math.floor((fimSeg - 1 - inicioSeg) / slotMinutos));
+  const inicio = inicioSeg + Math.min(Math.max(0, linha), ultimaLinha) * slotMinutos;
+  const fim = Math.min(fimSeg, inicio + slotMinutos);
+  return { ...seg, horaInicio: horaDeMinutos(inicio), horaFim: horaDeMinutos(fim) };
+}

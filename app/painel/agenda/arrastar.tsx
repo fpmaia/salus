@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { useAviso } from "@/components/avisos";
+import { linhaSobPonteiro } from "@/src/domain/reservas";
 import { horaDeMinutos } from "@/src/domain/tempo";
 import { remarcarArrastandoAcao } from "./actions";
 
@@ -25,7 +26,7 @@ export function GradeArrastavel({ slotMinutos, children }: { slotMinutos: number
     const inicio = Number(alvo.dataset.inicioMin);
     const linhas = Number(alvo.dataset.linhas ?? "1");
     const ret = alvo.getBoundingClientRect();
-    const linha = Math.min(linhas - 1, Math.max(0, Math.floor(((evento.clientY - ret.top) / ret.height) * linhas)));
+    const linha = linhaSobPonteiro(evento.clientY - ret.top, ret.height, linhas);
     return { salaId: alvo.dataset.sala!, data: alvo.dataset.data!, minutos: inicio + linha * slotMinutos };
   }
 

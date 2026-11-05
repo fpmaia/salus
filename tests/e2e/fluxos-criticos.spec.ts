@@ -36,10 +36,17 @@ test("recepção agenda um paciente dentro da reserva do profissional", async ({
   await entrar(page, "recepcao");
   await page.goto(`/painel/agenda?data=${amanha}`);
 
-  // O trecho vago da reserva do profissional (14h–15h; às 15h já há paciente) abre o modal travado nele.
-  await page.getByTitle("Clique para agendar paciente neste horário do médico").filter({ hasText: "14:00 – 15:00" }).click();
+  // O trecho vago da reserva do profissional (14h–15h; às 15h já há paciente) abre o modal travado
+  // nele, com o slot clicado (não o trecho inteiro): clicar na metade de baixo agenda 14:30–15:00.
+  const trecho = page
+    .getByTitle("Clique no horário desejado para agendar um paciente com este médico")
+    .filter({ hasText: "14:00 – 15:00" });
+  const caixa = (await trecho.boundingBox())!;
+  await trecho.click({ position: { x: caixa.width / 2, y: caixa.height * 0.75 } });
   const modal = page.getByRole("dialog", { name: "Agendar Paciente" });
   await expect(modal.getByText("Dra. E2E")).toBeVisible();
+  await expect(modal.getByLabel("Horário de Início")).toHaveValue("14:30");
+  await expect(modal.getByLabel("Horário de Término")).toHaveValue("15:00");
   await modal.getByRole("combobox", { name: "Paciente da Consulta" }).fill("Ana Pac");
   await modal.getByRole("option", { name: /Ana Paciente/ }).click();
   await modal.getByLabel("Horário de Início").fill("14:00");

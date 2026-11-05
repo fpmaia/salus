@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { datasDaRecorrencia, descreverRecorrencia, limiteDaJanela, semanaDoMesDe } from "./recorrencia";
-import { calcularHorariosVagos, ErroReserva, segmentarReserva, slotAberto, slotsDaGrade, validarJanela, type ConfigUnidade } from "./reservas";
+import {
+  calcularHorariosVagos,
+  ErroReserva,
+  linhaSobPonteiro,
+  segmentarReserva,
+  slotAberto,
+  slotDoSegmento,
+  slotsDaGrade,
+  validarJanela,
+  type ConfigUnidade,
+} from "./reservas";
 
 // Segunda a sexta 08–12 e 14–18; sábado 08–12; domingo fechado.
 const config: ConfigUnidade = {
@@ -292,5 +302,29 @@ describe("recorrência quinzenal e mensal", () => {
     expect(descreverRecorrencia({ diaSemana: 6, frequencia: "mensal", semanaDoMes: 5 })).toBe("todo último sábado do mês");
     expect(descreverRecorrencia({ diaSemana: 3, frequencia: "quinzenal" })).toBe("a cada 2 semanas, na quarta");
     expect(descreverRecorrencia({ diaSemana: 0, frequencia: "semanal" })).toBe("todo domingo");
+  });
+});
+
+describe("clique por slot num horário reservado", () => {
+  it("acha a linha sob o ponteiro", () => {
+    expect(linhaSobPonteiro(0, 288, 8)).toBe(0);
+    expect(linhaSobPonteiro(40, 288, 8)).toBe(1);
+    expect(linhaSobPonteiro(287, 288, 8)).toBe(7);
+    expect(linhaSobPonteiro(500, 288, 8)).toBe(7);
+    expect(linhaSobPonteiro(-5, 288, 8)).toBe(0);
+    expect(linhaSobPonteiro(100, 36, 1)).toBe(0);
+  });
+
+  it("recorta o slot de 30 min da linha clicada", () => {
+    const seg = { chave: "r-vago", tipo: "vago" as const, horaInicio: "08:00", horaFim: "12:00" };
+    expect(slotDoSegmento(seg, 0, 30)).toMatchObject({ horaInicio: "08:00", horaFim: "08:30" });
+    expect(slotDoSegmento(seg, 3, 30)).toMatchObject({ horaInicio: "09:30", horaFim: "10:00" });
+    expect(slotDoSegmento(seg, 7, 30)).toMatchObject({ horaInicio: "11:30", horaFim: "12:00" });
+  });
+
+  it("não ultrapassa o fim de um segmento que não fecha o slot", () => {
+    const seg = { chave: "r-vago", tipo: "vago" as const, horaInicio: "08:00", horaFim: "08:45" };
+    expect(slotDoSegmento(seg, 1, 30)).toMatchObject({ horaInicio: "08:30", horaFim: "08:45" });
+    expect(slotDoSegmento(seg, 5, 30)).toMatchObject({ horaInicio: "08:30", horaFim: "08:45" });
   });
 });
