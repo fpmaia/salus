@@ -100,15 +100,28 @@ test("recepção", async ({ page }) => {
 
   // Clique numa consulta: detalhes com check-in, falta, valor e remarcar.
   await page.goto(`/painel/agenda?data=${d.hoje}`);
-  await page.locator("[data-agendamento]", { hasText: "Elisa Prado" }).click();
+  // Pelo link do bloco (o data-agendamento só existe enquanto a consulta pode ser arrastada:
+  // depois que a reserva da manhã termina, à noite, ele some).
+  await page.getByRole("link").filter({ hasText: "Elisa Prado" }).first().click();
   await foto(page, "23-detalhes-consulta");
-  await page.getByRole("dialog", { name: "Detalhes da Consulta" }).getByRole("button", { name: "Alterar horário" }).click();
-  await foto(page, "25-remarcar");
+  const alterar = page.getByRole("dialog", { name: "Detalhes da Consulta" }).getByRole("button", { name: "Alterar horário" });
+  if (await alterar.isVisible().catch(() => false)) {
+    await alterar.click();
+    await foto(page, "25-remarcar");
+  }
 
   await page.goto(`/painel/agenda?data=${d.hoje}&visao=lista`);
   await foto(page, "24-consultas-do-dia", { inteira: true });
   await page.goto("/painel/pacientes");
   await foto(page, "26-pacientes");
+  await page.goto("/painel/pacientes?novo=1");
+  await page.getByRole("dialog", { name: "Novo paciente" }).getByText("Responsável, convênio e endereço").click();
+  await foto(page, "26b-novo-paciente");
+  await page.goto("/painel");
+  await page.waitForLoadState("networkidle");
+  await page.getByRole("button", { name: /^Buscar/ }).first().click();
+  await page.getByPlaceholder("Buscar páginas, ações ou pacientes…").fill("ag");
+  await foto(page, "02b-busca-rapida");
   await page.goto(`/painel/pacientes/${d.paciente}`);
   await foto(page, "27-paciente", { inteira: true });
   await page.goto("/painel/espera");
@@ -141,6 +154,10 @@ test("profissional", async ({ page }) => {
   await foto(page, "37-prontuario-paciente", { inteira: true });
   await page.goto(`/painel/prontuario/${d.carla}?aba=documentos`);
   await foto(page, "37b-prontuario-documentos", { inteira: true });
+  await page.goto("/painel/documentos");
+  await foto(page, "37c-papel-timbrado", { inteira: true });
+  await page.goto("/painel/documentos?aba=modelos");
+  await foto(page, "37d-modelos-documento", { inteira: true });
   await page.goto("/painel/agendamento-online");
   await foto(page, "38-agenda-online", { inteira: true });
 

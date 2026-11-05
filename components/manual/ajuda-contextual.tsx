@@ -19,6 +19,7 @@ const SECAO_POR_ROTA: [prefixo: string, secao: string][] = [
   ["/painel/unidades", "unidades-salas"],
   ["/painel/profissionais", "profissionais"],
   ["/painel/equipe", "equipe"],
+  ["/painel/documentos", "papel-timbrado"],
   ["/painel/notificacoes", "notificacoes"],
   ["/painel/assinatura", "planos"],
   ["/painel/perfil", "seguranca"],

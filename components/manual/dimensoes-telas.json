@@ -7,9 +7,13 @@
     "largura": 1280,
     "altura": 820
   },
+  "02b-busca-rapida": {
+    "largura": 1280,
+    "altura": 820
+  },
   "03-perfil": {
     "largura": 1280,
-    "altura": 1140
+    "altura": 1093
   },
   "04-cadastro": {
     "largura": 1280,
@@ -17,19 +21,19 @@
   },
   "10-admin-inicio": {
     "largura": 1280,
-    "altura": 1091
+    "altura": 1236
   },
   "11-unidades": {
     "largura": 1280,
-    "altura": 1162
+    "altura": 1369
   },
   "12-unidade": {
     "largura": 1280,
-    "altura": 2462
+    "altura": 2669
   },
   "13-profissionais": {
     "largura": 1280,
-    "altura": 883
+    "altura": 836
   },
   "14-contratos": {
     "largura": 1280,
@@ -37,7 +41,7 @@
   },
   "15-contrato-novo": {
     "largura": 1280,
-    "altura": 1790
+    "altura": 1743
   },
   "16-equipe": {
     "largura": 1280,
@@ -49,7 +53,7 @@
   },
   "21-agenda-salas": {
     "largura": 1280,
-    "altura": 1499
+    "altura": 1481
   },
   "22-agendar-modal": {
     "largura": 1280,
@@ -61,7 +65,7 @@
   },
   "24-consultas-do-dia": {
     "largura": 1280,
-    "altura": 1688
+    "altura": 1641
   },
   "25-remarcar": {
     "largura": 1280,
@@ -71,13 +75,17 @@
     "largura": 1280,
     "altura": 820
   },
+  "26b-novo-paciente": {
+    "largura": 1280,
+    "altura": 820
+  },
   "27-paciente": {
     "largura": 1280,
-    "altura": 1037
+    "altura": 990
   },
   "28-lista-espera": {
     "largura": 1280,
-    "altura": 976
+    "altura": 929
   },
   "30-profissional-inicio": {
     "largura": 1280,
@@ -89,11 +97,11 @@
   },
   "32-meu-contrato": {
     "largura": 1280,
-    "altura": 919
+    "altura": 872
   },
   "33-meu-extrato": {
     "largura": 1280,
-    "altura": 1045
+    "altura": 998
   },
   "34-recibo": {
     "largura": 1280,
@@ -109,11 +117,19 @@
   },
   "37-prontuario-paciente": {
     "largura": 1280,
-    "altura": 2414
+    "altura": 2367
   },
   "37b-prontuario-documentos": {
     "largura": 1280,
-    "altura": 2259
+    "altura": 2260
+  },
+  "37c-papel-timbrado": {
+    "largura": 1280,
+    "altura": 1179
+  },
+  "37d-modelos-documento": {
+    "largura": 1280,
+    "altura": 1056
   },
   "38-agenda-online": {
     "largura": 1280,
@@ -121,11 +137,11 @@
   },
   "40-financeiro": {
     "largura": 1280,
-    "altura": 1218
+    "altura": 1171
   },
   "41-financeiro-profissional": {
     "largura": 1280,
-    "altura": 1419
+    "altura": 1372
   },
   "42-fechamento-pdf": {
     "largura": 1280,
@@ -133,7 +149,7 @@
   },
   "43-notas-fiscais": {
     "largura": 1280,
-    "altura": 1184
+    "altura": 1137
   },
   "50-notificacoes": {
     "largura": 1280,
@@ -141,7 +157,7 @@
   },
   "60-assinatura": {
     "largura": 1280,
-    "altura": 2087
+    "altura": 2056
   },
   "61-licencas-prontuario": {
     "largura": 1280,
@@ -165,7 +181,7 @@
   },
   "80-plataforma": {
     "largura": 1280,
-    "altura": 1072
+    "altura": 1024
   },
   "81-plataforma-clinicas": {
     "largura": 1280,
@@ -177,7 +193,7 @@
   },
   "83-plataforma-financeiro": {
     "largura": 1280,
-    "altura": 1744
+    "altura": 1696
   },
   "84-plataforma-auditoria": {
     "largura": 1280,
@@ -185,7 +201,7 @@
   },
   "85-plataforma-convites": {
     "largura": 1280,
-    "altura": 962
+    "altura": 914
   },
   "86-teste-gratis-link": {
     "largura": 1280,
@@ -193,11 +209,11 @@
   },
   "87-plataforma-equipe": {
     "largura": 1280,
-    "altura": 1231
+    "altura": 1183
   },
   "88-plataforma-cupons": {
     "largura": 1280,
-    "altura": 926
+    "altura": 878
   },
   "89-clinica-resumo": {
     "largura": 1280,
@@ -205,7 +221,7 @@
   },
   "90-clinica-cobranca": {
     "largura": 1280,
-    "altura": 1598
+    "altura": 1566
   },
   "91-fatura-acoes": {
     "largura": 1280,

@@ -24,7 +24,7 @@ Notas:
   e rode o Playwright com `--output` fora do OneDrive (ex.: `--output %TEMP%\pw-out`).
 - O CI (`.github/workflows/ci.yml`) roda lint, tipos, Vitest, build, E2E, teste de backup e a checagem do compose de produção.
 
-Situação em 28/10/2026: **528 testes no Vitest (27 arquivos unitários + 32 de integração) e 27 fluxos E2E, todos passando.**
+Situação em 05/11/2026: **611 testes no Vitest (284 unitários em 34 arquivos + 327 de integração em 39 arquivos) e 32 fluxos E2E, todos passando.**
 
 ## Pirâmide
 
@@ -127,6 +127,17 @@ página bloqueava). O prontuário não pode ser desligado se houver registros (g
 | Agenda online | `modulos-servidor.test`, `agendamento-online.test`, `planos-e-modulos.spec` |
 | Prontuário | `modulos-servidor.test`, `prontuario.test`, `licenca-prontuario.test`, `planos-e-modulos.spec` |
 
+## 4b. Endereço, documentos e interface
+
+| O que | Como funciona | Testes |
+|---|---|---|
+| Busca por CEP (paciente e unidade) | CEP completo preenche rua, bairro, cidade e UF (BrasilAPI, reserva no ViaCEP) pela rota `/api/cep/[cep]` (logado, limite de taxa, cache de 1 dia); CEP inexistente pede preenchimento manual. `CEP_PROVIDER=simulado` no E2E | `endereco.test`, `cep.test`, E2E `endereco.spec` |
+| Endereço estruturado da unidade | CEP, rua, número, complemento, bairro, cidade, UF; `unidades.endereco` vira a linha formatada lida por avisos, recibo e mapa | `endereco.test`, `notificacoes.test`, `pacientes-recibo.test` |
+| Modelos de documento | da clínica (admin) e do profissional (só ele vê e edita os seus); excluir = desativar; outro espaço não vê | `documentos-personalizados.test`, E2E `planos-e-modulos.spec` |
+| Papel timbrado | do profissional > da clínica > padrão; variáveis trocadas e linhas vazias omitidas; logo PNG/JPG/WebP até 500 KB (tipo conferido pelos bytes), servida como `data:` | `papel-timbrado.test`, `documentos-personalizados.test`, E2E `planos-e-modulos.spec` |
+| Clique num horário reservado | agenda só o slot clicado (ex.: 10:30–11:00), não o bloco todo | `reservas.test` (`linhaSobPonteiro`, `slotDoSegmento`), E2E `fluxos-criticos.spec` |
+| Menu lateral, Ctrl+K, tema | menu por papel/módulo continua com o nome "Menu principal"; avisos em `[data-sonner-toast]` | E2E `controle-acesso.spec` e demais |
+
 ## 5. Licença do prontuário
 
 | Estado | Quando | Escrever | Fatura do espaço | Testes |
@@ -172,6 +183,7 @@ contra a cobrança atual; reativar não dá segundo teste; o admin pode assumir 
 | 26 | Actions da plataforma não exigiam 2FA (só o layout) | `exigirAcessoPlataforma` confere o 2FA | `plataforma-equipe.test` |
 | 27 | Trocar o plano de uma clínica aceitava plano inexistente ou inativo | Validação em `app_plataforma_alterar_plano` | `plataforma-equipe.test` |
 | 28 | Datas de cadastro e de "membro desde" na ficha da clínica saíam no dia UTC (um dia a mais à noite) | Data no fuso de São Paulo | captura do manual |
+| 29 | Clicar num horário vago de uma reserva do profissional abria o agendamento com o bloco inteiro (ex.: 08:00–12:00), não o slot de 30 min clicado | Linha sob o ponteiro (mesma conta do arrastar) recorta o slot | `reservas.test`, E2E `fluxos-criticos.spec` |
 
 ## 7. Pendências conhecidas (não corrigidas)
 
@@ -198,6 +210,10 @@ Itens que dependem de serviços reais e credenciais; rode em sandbox/homologaç�
 - [ ] **WhatsApp (Evolution)**: conectar por QR, lembrete chega com link, paciente confirma e cancela pelo link.
 - [ ] **E-mail (Resend)**: confirmação de cadastro, redefinição de senha, convite de equipe, aviso de atraso.
 - [ ] **NFS-e (Focus, homologação)**: configurar, emitir do mês fechado, cancelar com justificativa.
+- [ ] **CEP real**: com internet e sem `CEP_PROVIDER`, um CEP de rua e um CEP geral de cidade preenchem o endereço; com a rede
+  bloqueada, a tela pede o preenchimento manual.
+- [ ] **Papel timbrado na impressão**: com logo, imprimir (ou salvar em PDF) um documento, o prontuário e um recibo; conferir
+  margens e que no tema escuro o papel sai branco.
 - [ ] **Turnstile**: cadastro e agendamento online recusam sem o captcha.
 - [ ] **Sentry**: erro forçado aparece sem dados pessoais.
 - [ ] **Backup**: `npm run backup:testar` restaura e confere.
