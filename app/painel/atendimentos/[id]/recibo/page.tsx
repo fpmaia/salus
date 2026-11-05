@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { BotaoDispararImpressao } from "@/components/botao-imprimir";
+import { CabecalhoTimbrado, RodapeTimbrado } from "@/components/papel-timbrado";
+import { timbradoDoDocumento } from "@/src/server/documentos-personalizados";
 import { obterContextoTenant } from "@/src/auth/sessao";
 import { formatarCpfCnpj } from "@/src/domain/documentos";
 import { formatarMoeda } from "@/src/domain/dinheiro";
@@ -21,6 +23,7 @@ export default async function ReciboPage({ params }: PageProps<"/painel/atendime
     throw erro;
   });
   const conselho = [r.profissional.conselho, r.profissional.registro].filter(Boolean).join(" ");
+  const timbrado = await timbradoDoDocumento(ctx, r.profissional.id);
 
   return (
     <div className="min-h-screen bg-muted/30 px-4 py-6 text-foreground print:bg-white sm:px-6">
@@ -32,6 +35,7 @@ export default async function ReciboPage({ params }: PageProps<"/painel/atendime
       </div>
 
       <div className="mx-auto max-w-3xl rounded-2xl border border-border/60 bg-white p-8 text-black shadow-lg print:rounded-none print:border-none print:p-0 print:shadow-none sm:p-12">
+        <CabecalhoTimbrado timbrado={timbrado} className="mb-6 text-neutral-900 [&_p]:text-neutral-800" />
         <header className="mb-8 flex items-start justify-between gap-4 border-b-2 border-neutral-200 pb-6">
           <div className="space-y-1">
             <h1 className="text-2xl font-bold tracking-tight text-neutral-900">Recibo</h1>
@@ -73,6 +77,7 @@ export default async function ReciboPage({ params }: PageProps<"/painel/atendime
           {conselho && <p className="text-xs">{conselho}</p>}
           {r.profissional.documento && <p className="text-xs">CPF/CNPJ {formatarCpfCnpj(r.profissional.documento)}</p>}
         </footer>
+        <RodapeTimbrado timbrado={timbrado} className="mt-10 border-neutral-200 text-neutral-500" />
       </div>
     </div>
   );

@@ -31,6 +31,7 @@ const NAVEGACAO: (ItemNavegacao & { permissao?: Permissao; modulo?: Modulo })[] 
   { href: "/painel/unidades", rotulo: "Unidades e salas", grupo: "configuracoes", permissao: "salas.gerenciar" },
   { href: "/painel/profissionais", rotulo: "Profissionais", grupo: "configuracoes", permissao: "profissionais.gerenciar" },
   { href: "/painel/equipe", rotulo: "Equipe", grupo: "configuracoes", permissao: "membros.gerenciar" },
+  { href: "/painel/documentos", rotulo: "Documentos e timbrado", grupo: "configuracoes", permissao: "documentos.personalizar" },
   { href: "/painel/notificacoes", rotulo: "Notificações", grupo: "configuracoes", permissao: "auditoria.ver" },
   { href: "/painel/assinatura", rotulo: "Assinatura", grupo: "configuracoes", permissao: "assinatura.ver" },
   { href: "/painel/perfil", rotulo: "Meu perfil", grupo: "configuracoes" },

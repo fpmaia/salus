@@ -1,4 +1,6 @@
+import { CabecalhoTimbrado, RodapeTimbrado } from "@/components/papel-timbrado";
 import type { pacientes } from "@/src/db/schema";
+import type { TimbradoImpressao } from "@/src/server/documentos-personalizados";
 import type { RegistroLido } from "@/src/server/prontuario";
 import { horarioLocal } from "@/src/server/prontuario";
 import { formatarDataBr } from "@/src/server/reservas";
@@ -12,15 +14,18 @@ export function DocumentoProntuario({
   tenantNome,
   emitidoPor,
   solicitacao,
+  timbrado,
 }: {
   paciente: typeof pacientes.$inferSelect;
   registros: RegistroLido[];
   tenantNome: string;
   emitidoPor: string;
   solicitacao: { justificativa: string; profissionalNome: string } | null;
+  timbrado: TimbradoImpressao;
 }) {
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 py-8 print:max-w-none print:p-0">
+      <CabecalhoTimbrado timbrado={timbrado} />
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs text-muted-foreground">{tenantNome}</p>
@@ -42,6 +47,7 @@ export function DocumentoProntuario({
         Documento sigiloso. Registros com assinatura eletrônica simples (autoria, data/hora e hash SHA-256 de integridade); não
         substitui assinatura digital ICP-Brasil.
       </p>
+      <RodapeTimbrado timbrado={timbrado} />
     </main>
   );
 }

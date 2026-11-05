@@ -365,6 +365,13 @@
       "when": 1793914067987,
       "tag": "0051_endereco_estruturado",
       "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1793914426678,
+      "tag": "0052_modelos_e_papel_timbrado",
+      "breakpoints": true
     }
   ]
 }

@@ -40,6 +40,10 @@ const tstzrange = customType<{ data: Intervalo; driverData: string }>({
   fromDriver: lerRange,
 });
 
+const bytea = customType<{ data: Buffer; driverData: Buffer }>({
+  dataType: () => "bytea",
+});
+
 const criadoEm = () =>
   timestamp("criado_em", { withTimezone: true }).notNull().defaultNow();
 const atualizadoEm = () =>
@@ -1558,6 +1562,55 @@ export const anexosClinicos = pgTable(
     index("anexos_clinicos_registro_idx").on(t.registroId),
     foreignKey({ columns: [t.tenantId, t.registroId], foreignColumns: [registrosClinicos.tenantId, registrosClinicos.id] }),
     check("anexos_clinicos_tamanho_check", sql`${t.tamanhoBytes} > 0`),
+  ],
+);
+
+// Modelos de documento criados no espaço. Sem profissional = modelo da clínica (o admin
+// mantém; todos os profissionais usam); com profissional = modelo pessoal dele.
+// Os modelos do sistema continuam no código (src/domain/modelos-documentos.ts).
+export const modelosDocumento = pgTable(
+  "modelos_documento",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: tenantIdDoContexto(),
+    profissionalId: uuid("profissional_id"),
+    nome: text("nome").notNull(),
+    descricao: text("descricao"),
+    titulo: text("titulo").notNull().default(""),
+    anotacoes: text("anotacoes").notNull().default(""),
+    prescricao: text("prescricao").notNull().default(""),
+    ativo: boolean("ativo").notNull().default(true),
+    criadoPor: uuid("criado_por").references(() => users.id, { onDelete: "set null" }),
+    criadoEm: criadoEm(),
+    atualizadoEm: atualizadoEm(),
+  },
+  (t) => [
+    index("modelos_documento_tenant_idx").on(t.tenantId, t.profissionalId),
+    foreignKey({ columns: [t.tenantId, t.profissionalId], foreignColumns: [profissionais.tenantId, profissionais.id] }).onDelete("cascade"),
+  ],
+);
+
+// Papel timbrado: cabeçalho, rodapé e logo opcional dos documentos impressos.
+// Sem profissional = padrão da clínica; com profissional = o dele (tem prioridade).
+export const papeisTimbrados = pgTable(
+  "papeis_timbrados",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: tenantIdDoContexto(),
+    profissionalId: uuid("profissional_id"),
+    cabecalho: text("cabecalho").notNull(),
+    rodape: text("rodape").notNull(),
+    alinhamento: text("alinhamento").notNull().default("centro"),
+    mostrarLogo: boolean("mostrar_logo").notNull().default(false),
+    logo: bytea("logo"),
+    logoTipo: text("logo_tipo"),
+    atualizadoEm: atualizadoEm(),
+  },
+  (t) => [
+    unique("papeis_timbrados_tenant_profissional_key").on(t.tenantId, t.profissionalId).nullsNotDistinct(),
+    foreignKey({ columns: [t.tenantId, t.profissionalId], foreignColumns: [profissionais.tenantId, profissionais.id] }).onDelete("cascade"),
+    check("papeis_timbrados_alinhamento_check", sql`${t.alinhamento} in ('centro', 'esquerda')`),
+    check("papeis_timbrados_logo_check", sql`${t.logo} is null or octet_length(${t.logo}) <= 512000`),
   ],
 );
 

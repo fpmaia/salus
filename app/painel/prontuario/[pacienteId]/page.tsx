@@ -10,6 +10,7 @@ import { exigirModuloNaPagina, exigirPermissaoNaPagina } from "@/src/auth/permis
 import { obterContextoTenant } from "@/src/auth/sessao";
 import { AcoesLicencaProntuario } from "@/components/acoes-licenca-prontuario";
 import { obterStatusLicencaProntuarioProfissional } from "@/src/server/assinatura";
+import { listarModelos } from "@/src/server/documentos-personalizados";
 import { ErroNegocio } from "@/src/server/erros";
 import { horarioLocal, obterProntuario, type RegistroLido } from "@/src/server/prontuario";
 import { formatarDataBr } from "@/src/server/reservas";
@@ -53,6 +54,13 @@ export default async function ProntuarioPacientePage({ params, searchParams }: P
     (r) => r.tipo === "adendo" && r.status === "rascunho" && r.proprio && r.adendoDe && daAba.has(r.adendoDe),
   );
   const podeEscrever = !statusLicenca.possuiPerfilProfissional || statusLicenca.podeEscrever;
+  const modelosPersonalizados =
+    podeEscrever && aba === "documentos"
+      ? await listarModelos(ctx).catch((erro) => {
+          if (erro instanceof ErroNegocio) return undefined;
+          throw erro;
+        })
+      : undefined;
 
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-8 sm:px-6">
@@ -132,6 +140,7 @@ export default async function ProntuarioPacientePage({ params, searchParams }: P
               tipo={aba === "documentos" ? "documento" : "evolucao"}
               acao={salvarRascunhoAcao.bind(null, pacienteId, undefined)}
               atendimentos={atendimentos}
+              modelosPersonalizados={modelosPersonalizados}
             />
           </CardContent>
         </Card>

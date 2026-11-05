@@ -4,6 +4,8 @@ import { obterContextoTenant } from "@/src/auth/sessao";
 import { ErroNegocio } from "@/src/server/erros";
 import { exportarRegistroIndividual, horarioLocal } from "@/src/server/prontuario";
 import { formatarDataBr } from "@/src/server/reservas";
+import { CabecalhoTimbrado, RodapeTimbrado } from "@/components/papel-timbrado";
+import { timbradoDoDocumento } from "@/src/server/documentos-personalizados";
 import { BotaoImprimir } from "../../../botao-imprimir";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -26,6 +28,7 @@ export default async function ImprimirRelatorioIndividualPage({
   });
 
   const { paciente, registro, adendos, autor } = dados;
+  const timbrado = await timbradoDoDocumento(ctx, autor.id);
   const titulo = registro.tipo === "documento" ? registro.conteudo.titulo || "Documento" : "Evolução clínica";
   const hoje = new Date().toLocaleDateString("pt-BR", {
     day: "numeric",
@@ -47,18 +50,8 @@ export default async function ImprimirRelatorioIndividualPage({
         <BotaoImprimir />
       </div>
 
-      {/* Cabeçalho Timbrado do Documento */}
-      <header className="flex flex-col items-center text-center border-b-2 border-primary/20 pb-6 gap-1.5">
-        <h2 className="text-xl font-bold tracking-tight uppercase text-foreground">{ctx.tenantNome}</h2>
-        <p className="text-xs text-muted-foreground">Serviços Especializados de Saúde e Atendimento Clínico</p>
-        <div className="mt-2 text-xs font-medium text-foreground/80">
-          <span>{autor.nome}</span>
-          {autor.especialidade && <span> · {autor.especialidade}</span>}
-          {autor.conselho && autor.registro && (
-            <span> · {autor.conselho} nº {autor.registro}</span>
-          )}
-        </div>
-      </header>
+      {/* Papel timbrado do profissional emitente (ou da clínica) */}
+      <CabecalhoTimbrado timbrado={timbrado} />
 
       {/* Dados do Paciente */}
       <section className="rounded-lg border bg-muted/20 p-4 text-xs leading-relaxed">
@@ -135,10 +128,8 @@ export default async function ImprimirRelatorioIndividualPage({
           </span>
         </div>
 
-        <div className="w-full border-t pt-3 text-[10px] text-muted-foreground flex flex-wrap justify-between">
-          <span>{ctx.tenantNome} · Prontuário Eletrônico Salus</span>
-          <span>Hash completo: {registro.hash}</span>
-        </div>
+        <RodapeTimbrado timbrado={timbrado} />
+        <p className="w-full text-center font-mono text-[9px] text-muted-foreground/80">Hash completo: {registro.hash}</p>
       </footer>
     </main>
   );

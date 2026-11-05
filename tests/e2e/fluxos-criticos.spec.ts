@@ -249,7 +249,7 @@ test("profissional emite o recibo do atendimento pago e a recepção cadastra pa
   await page.goto(`/painel/atendimentos/${atendimentoPago}/recibo`);
   await expect(page.getByRole("heading", { name: "Recibo" })).toBeVisible();
   await expect(page.getByText(/Recebi de Ana Paciente, a quantia de R\$\s200,00 \(duzentos reais\)/)).toBeVisible();
-  await expect(page.getByText("CRP 06/000001")).toBeVisible();
+  await expect(page.getByText("CRP 06/000001", { exact: true })).toBeVisible(); // assinatura (o cabeçalho timbrado também cita o registro)
   await expect(page.getByRole("button", { name: "Imprimir / Salvar PDF" })).toBeVisible();
 
   await page.context().clearCookies();

@@ -65,6 +65,45 @@ test("admin liga os módulos; o profissional ativa o teste do prontuário, regis
   await expect(impressao.getByRole("heading", { name: /Atestado de comparecimento — Ana Paciente/ })).toBeVisible();
 });
 
+test("admin personaliza o papel timbrado com logo; o profissional cria um modelo e o usa no prontuário", async ({ page }) => {
+  const PNG_1X1 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+  await entrar(page, "admin");
+  await page.goto("/painel/documentos");
+  await page.waitForLoadState("networkidle");
+  await page.getByLabel("Cabeçalho").fill("{clinica}\nCuidado integral em saúde");
+  await page.getByLabel("Arquivo da logo").setInputFiles({ name: "logo.png", mimeType: "image/png", buffer: Buffer.from(PNG_1X1, "base64") });
+  await expect(page.getByLabel("Prévia do papel timbrado").getByRole("img", { name: "Logo" })).toBeVisible();
+  await expect(page.getByLabel("Prévia do papel timbrado").getByText("Cuidado integral em saúde")).toBeVisible();
+  await page.getByRole("button", { name: "Salvar papel timbrado" }).click();
+  await expect(page.getByRole("status").getByText("Papel timbrado salvo")).toBeVisible();
+
+  await page.context().clearCookies();
+  await entrar(page, "profissional");
+  await page.goto("/painel/documentos?aba=modelos");
+  await page.getByRole("button", { name: "Novo modelo" }).click();
+  await page.getByLabel("Nome do modelo").fill("Atestado de repouso");
+  await page.getByLabel("Título do documento").fill("Atestado médico");
+  await page.getByLabel("Texto", { exact: true }).fill("Atesto, para os devidos fins, a necessidade de repouso.");
+  await page.getByRole("button", { name: "Salvar modelo" }).click();
+  await expect(page.getByRole("status").getByText("Modelo criado")).toBeVisible();
+  await expect(page.getByRole("listitem").filter({ hasText: "Atestado de repouso" })).toBeVisible();
+
+  await page.goto("/painel/prontuario");
+  await page.getByRole("link", { name: "Ana Paciente" }).click();
+  await page.getByRole("link", { name: /Documentos/ }).click();
+  await page.getByRole("button", { name: /Atestado de repouso/ }).click();
+  await expect(page.getByLabel("Título do documento")).toHaveValue("Atestado médico");
+  await page.getByRole("button", { name: "Criar rascunho" }).click();
+  await page.getByRole("button", { name: "Finalizar" }).click();
+  await confirmar(page);
+  await expect(page.getByText("Atestado médico ·")).toBeVisible();
+
+  const [impressao] = await Promise.all([page.waitForEvent("popup"), page.getByRole("link", { name: /Imprimir documento/ }).first().click()]);
+  await expect(impressao.getByRole("heading", { name: /Atestado médico — Ana Paciente/ })).toBeVisible();
+  await expect(impressao.getByText("Cuidado integral em saúde")).toBeVisible();
+  await expect(impressao.getByRole("img", { name: "Logo" })).toBeVisible();
+});
+
 test("paciente agenda pela página pública do profissional", async ({ page }) => {
   const dia = emDias(4);
   // O profissional abre horários reservando sala; depois liga a página pública.

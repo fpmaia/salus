@@ -22,7 +22,7 @@ export type DadosRecibo = {
   /** Quem pagou: o responsável legal, quando houver, senão o paciente. */
   pagador: { nome: string; cpf: string | null; parentesco: string | null };
   paciente: { nome: string; cpf: string | null };
-  profissional: { nome: string; conselho: string | null; registro: string | null; especialidade: string | null; documento: string | null };
+  profissional: { id: string; nome: string; conselho: string | null; registro: string | null; especialidade: string | null; documento: string | null };
   /** Pagamento centralizado: o espaço recebeu em nome do profissional. */
   recebidoPeloEspaco: boolean;
   espaco: { nome: string; documento: string };
@@ -67,7 +67,7 @@ export async function dadosDoRecibo(ctx: ContextoTenant, agendamentoId: string, 
           ? { nome: p.responsavelNome, cpf: p.responsavelCpf, parentesco: p.responsavelParentesco }
           : { nome: p.nome, cpf: p.cpf, parentesco: null },
         paciente: { nome: p.nome, cpf: p.cpf },
-        profissional: { nome: pr.nome, conselho: pr.conselho, registro: pr.registro, especialidade: pr.especialidade, documento: pr.documento },
+        profissional: { id: pr.id, nome: pr.nome, conselho: pr.conselho, registro: pr.registro, especialidade: pr.especialidade, documento: pr.documento },
         recebidoPeloEspaco: acordo?.fluxoRecebimento === "centralizado",
         espaco,
         local: { unidade: u.nome, endereco: u.endereco },

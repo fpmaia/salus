@@ -7,6 +7,7 @@ import { gerarMinutaContratoPadrao } from "@/src/domain/contratos";
 import { dadosDaMinuta, obterContrato } from "@/src/server/contratos";
 import { mensagemDeErro } from "@/src/server/erros";
 import { BotaoDispararImpressao } from "@/components/botao-imprimir";
+import { timbradoDoDocumento } from "@/src/server/documentos-personalizados";
 
 // Impressão / PDF: os termos do contrato ou, sem eles, a minuta padrão com as condições atuais.
 export default async function ImprimirContratoPage({ params }: PageProps<"/painel/contratos/[id]/imprimir">) {
@@ -18,6 +19,8 @@ export default async function ImprimirContratoPage({ params }: PageProps<"/paine
   };
   const [detalhe, dados] = await Promise.all([obterContrato(ctx, id).catch(naoEncontrado), dadosDaMinuta(ctx, id).catch(naoEncontrado)]);
   const texto = detalhe.contrato.termos || gerarMinutaContratoPadrao(dados);
+  // Contrato da clínica: usa a logo do papel timbrado da clínica, se houver.
+  const { logo } = await timbradoDoDocumento(ctx, null);
 
   return (
     <div className="min-h-screen bg-muted/30 px-4 py-6 text-foreground print:bg-white sm:px-6">
@@ -35,7 +38,12 @@ export default async function ImprimirContratoPage({ params }: PageProps<"/paine
             {dados.clinicaDocumento && <p className="text-xs text-neutral-600">{dados.clinicaDocumento}</p>}
           </div>
           <div className="flex flex-col items-end space-y-1 text-right">
-            <SalusLogo variant="symbol" size="sm" priority />
+            {logo ? (
+              // eslint-disable-next-line @next/next/no-img-element -- data: URL do banco
+              <img src={logo} alt="Logo da clínica" className="max-h-12 w-auto max-w-32 object-contain" />
+            ) : (
+              <SalusLogo variant="symbol" size="sm" priority />
+            )}
             <span className="font-mono text-xs font-bold text-neutral-800">{dados.codigo}</span>
           </div>
         </header>

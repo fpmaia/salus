@@ -3,6 +3,7 @@ import { exigirModuloNaPagina, exigirPermissaoNaPagina } from "@/src/auth/permis
 import { obterContextoTenant } from "@/src/auth/sessao";
 import { ErroNegocio } from "@/src/server/erros";
 import { exportarProntuario } from "@/src/server/prontuario";
+import { timbradoDoUsuario } from "@/src/server/documentos-personalizados";
 import { DocumentoProntuario } from "../../impressao";
 
 export default async function ImprimirProntuarioPage({ params }: PageProps<"/painel/prontuario/[pacienteId]/imprimir">) {
@@ -14,5 +15,6 @@ export default async function ImprimirProntuarioPage({ params }: PageProps<"/pai
     if (erro instanceof ErroNegocio) notFound();
     throw erro;
   });
-  return <DocumentoProntuario {...dados} tenantNome={ctx.tenantNome} emitidoPor={ctx.usuario.nome} />;
+  const timbrado = await timbradoDoUsuario(ctx);
+  return <DocumentoProntuario {...dados} timbrado={timbrado} tenantNome={ctx.tenantNome} emitidoPor={ctx.usuario.nome} />;
 }

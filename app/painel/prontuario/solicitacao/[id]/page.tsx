@@ -3,6 +3,7 @@ import { exigirModuloNaPagina, exigirPermissaoNaPagina } from "@/src/auth/permis
 import { obterContextoTenant } from "@/src/auth/sessao";
 import { ErroNegocio } from "@/src/server/erros";
 import { lerSolicitacao } from "@/src/server/prontuario";
+import { timbradoDoDocumento } from "@/src/server/documentos-personalizados";
 import { DocumentoProntuario } from "../../impressao";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -17,5 +18,7 @@ export default async function SolicitacaoProntuarioPage({ params }: PageProps<"/
     if (erro instanceof ErroNegocio) notFound();
     throw erro;
   });
-  return <DocumentoProntuario {...dados} tenantNome={ctx.tenantNome} emitidoPor={`${ctx.usuario.nome} (administração)`} />;
+  // Solicitação formal: sai no papel timbrado da clínica.
+  const timbrado = await timbradoDoDocumento(ctx, null);
+  return <DocumentoProntuario {...dados} timbrado={timbrado} tenantNome={ctx.tenantNome} emitidoPor={`${ctx.usuario.nome} (administração)`} />;
 }

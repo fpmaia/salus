@@ -38,6 +38,10 @@ export const PERMISSOES = {
   "prontuario.solicitacao": ["admin"],
   "prontuario.menu": ["admin", "profissional"],
   "extrato.proprio": ["profissional"],
+  // Modelos de documento e papel timbrado: os da clínica são do admin; cada profissional, os seus.
+  "documentos.clinica": ["admin"],
+  "documentos.proprios": ["profissional"],
+  "documentos.personalizar": ["admin", "profissional"],
   // Preço e regras do contrato são do admin; a recepção consulta.
   "contratos.gerenciar": ["admin"],
   "contratos.ver": ["admin", "recepcao", "profissional"],
