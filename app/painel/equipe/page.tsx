@@ -22,7 +22,7 @@ export default async function EquipePage() {
   ]);
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+    <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
       <TabelaEquipe
         membros={membros}
         convites={convites}

@@ -49,7 +49,7 @@ export default async function FinanceiroPage({ searchParams }: PageProps<"/paine
   const podeFecharTodos = pode(ctx.role, "financeiro.fechar") && competencia < (await competenciaAtual(ctx)) && abertos > 0;
 
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6">
+    <main className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-8 sm:px-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Financeiro</h1>

@@ -254,8 +254,8 @@ test("profissional emite o recibo do atendimento pago e a recepção cadastra pa
 
   await page.context().clearCookies();
   await entrar(page, "admin");
-  await page.goto("/painel/pacientes");
-  const novo = page.locator("form", { has: page.getByRole("button", { name: "Cadastrar paciente" }) });
+  await page.goto("/painel/pacientes?novo=1"); // abre o painel "Novo paciente"
+  const novo = page.getByRole("dialog", { name: "Novo paciente" });
   await novo.getByLabel("Nome", { exact: true }).fill("Lia Criança");
   await novo.getByLabel("Nascimento").fill("2019-04-02");
   await novo.getByRole("button", { name: "Cadastrar paciente" }).click();
@@ -269,8 +269,8 @@ test("profissional emite o recibo do atendimento pago e a recepção cadastra pa
 
 test("máscaras formatam CPF e telefone enquanto o usuário digita", async ({ page }) => {
   await entrar(page, "admin");
-  await page.goto("/painel/pacientes");
-  const novo = page.locator("form", { has: page.getByRole("button", { name: "Cadastrar paciente" }) });
+  await page.goto("/painel/pacientes?novo=1"); // abre o painel "Novo paciente"
+  const novo = page.getByRole("dialog", { name: "Novo paciente" });
   await novo.getByLabel("CPF (opcional)").pressSequentially("52998224725");
   await expect(novo.getByLabel("CPF (opcional)")).toHaveValue("529.982.247-25");
   await novo.getByLabel("Telefone / WhatsApp").pressSequentially("11999990000");

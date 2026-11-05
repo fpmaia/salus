@@ -53,7 +53,7 @@ export default async function FinanceiroProfissionalPage({ params, searchParams 
   const c = competencia.slice(0, 7);
 
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6">
+    <main className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-8 sm:px-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <Link href={`/painel/financeiro?competencia=${c}`} className="text-sm text-muted-foreground hover:underline">

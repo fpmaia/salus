@@ -121,10 +121,13 @@ export async function resumoDoMes(ctx: ContextoTenant, agora = new Date(), datab
   ];
   let minutosReservados = 0;
   let minutosAbertos = 0;
-  for (const u of (await listarUnidades(ctx, database)).filter((x) => x.ativo)) {
+  const unidadesAtivas = (await listarUnidades(ctx, database)).filter((x) => x.ativo);
+  const ocupacaoPorSala: { id: string; sala: string; unidade: string; ocupacao: number; horas: number }[] = [];
+  for (const u of unidadesAtivas) {
     for (const s of await ocupacaoSalas(ctx, u.id, c, database)) {
       minutosReservados += s.minutosReservados;
       minutosAbertos += s.minutosAbertos;
+      ocupacaoPorSala.push({ id: s.id, sala: s.nome, unidade: u.nome, ocupacao: s.ocupacao, horas: Math.round(s.minutosReservados / 60) });
     }
   }
   const vencidas = await withTenant(
@@ -142,6 +145,10 @@ export async function resumoDoMes(ctx: ContextoTenant, agora = new Date(), datab
     competencia,
     receitaCentavos: receita.reduce((acc, r) => acc + r.receitaCentavos, 0),
     ocupacao: minutosAbertos ? minutosReservados / minutosAbertos : 0,
+    // Mais ocupadas primeiro; o nome da unidade só aparece quando há mais de uma.
+    ocupacaoPorSala: ocupacaoPorSala
+      .sort((a, b) => b.ocupacao - a.ocupacao)
+      .map((s) => ({ ...s, rotulo: unidadesAtivas.length > 1 ? `${s.sala} · ${s.unidade}` : s.sala })),
     aReceberCentavos: resumo.filter((p) => p.saldoAcumulado > 0).reduce((acc, p) => acc + p.saldoAcumulado, 0),
     devedores: resumo.filter((p) => p.saldoAcumulado > 0).length,
     cobrancasVencidas: vencidas,

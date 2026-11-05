@@ -22,15 +22,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { authClient } from "@/src/auth/client";
+import { iniciais } from "./iniciais";
 import { abrirAtalhos } from "./paleta-comandos";
-
-export function iniciais(nome: string): string {
-  const partes = nome
-    .replace(/^(dra?|sr|sra)\.?\s+/i, "")
-    .split(/\s+/)
-    .filter(Boolean);
-  return ((partes[0]?.[0] ?? "") + (partes.length > 1 ? partes[partes.length - 1][0] : "")).toUpperCase() || "?";
-}
 
 /** Avatar com menu: perfil, segurança, tema, atalhos, manual, Plataforma e sair. */
 export function MenuUsuario({

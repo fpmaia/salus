@@ -1,5 +1,7 @@
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
+import { EsqueletoIndicadores } from "@/components/esqueletos";
+import { Skeleton } from "@/components/ui/skeleton";
 import { AlertTriangle, CalendarDays, CheckCircle2, Clock, DoorOpen, UserCheck, Wallet } from "lucide-react";
 import { PrimeirosPassos } from "@/components/primeiros-passos";
 import { Button } from "@/components/ui/button";
@@ -276,6 +278,7 @@ async function SecaoMes({ ctx }: { ctx: Awaited<ReturnType<typeof obterContextoT
           icone={<Wallet className="size-4" />}
         />
       </div>
+      {mes.ocupacaoPorSala.length > 0 && <OcupacaoPorSala salas={mes.ocupacaoPorSala} />}
       <Card className={pendencias.length ? "border-warning/50" : undefined}>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
@@ -303,6 +306,51 @@ async function SecaoMes({ ctx }: { ctx: Awaited<ReturnType<typeof obterContextoT
   );
 }
 
+function EsqueletoSecao() {
+  return (
+    <div className="flex flex-col gap-4" aria-busy="true">
+      <Skeleton className="h-6 w-40" />
+      <EsqueletoIndicadores />
+    </div>
+  );
+}
+
+/**
+ * Ocupação do mês por sala: barras horizontais de uma só cor (magnitude), da mais ocupada
+ * para a menos, com o valor escrito ao lado (não depende da cor) e o detalhe no hover.
+ */
+function OcupacaoPorSala({ salas }: { salas: { id: string; rotulo: string; ocupacao: number; horas: number }[] }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Ocupação por sala</CardTitle>
+        <CardDescription>Horas reservadas sobre o horário de funcionamento, no mês.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <ul className="flex flex-col gap-2.5" aria-label="Ocupação por sala">
+          {salas.map((s) => {
+            const pctSala = Math.round(s.ocupacao * 100);
+            return (
+              <li key={s.id} className="group grid grid-cols-[minmax(6rem,12rem)_1fr_3rem] items-center gap-3 text-sm" title={`${s.rotulo}: ${pctSala}% · ${s.horas} h reservadas`}>
+                <span className="truncate text-muted-foreground group-hover:text-foreground">{s.rotulo}</span>
+                <span className="relative h-2.5 rounded-full bg-muted" aria-hidden>
+                  <span
+                    className="absolute inset-y-0 left-0 rounded-full bg-chart-1 transition-opacity group-hover:opacity-80"
+                    style={{ width: `${Math.min(100, Math.max(pctSala, s.ocupacao > 0 ? 2 : 0))}%` }}
+                  />
+                </span>
+                <span className="text-right font-medium tabular-nums">
+                  {pctSala}%<span className="sr-only"> de ocupação, {s.horas} horas reservadas</span>
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default async function PainelPage() {
   const ctx = await obterContextoTenant();
   const etapas = pode(ctx.role, "tenant.configurar") ? await primeirosPassos(ctx) : [];
@@ -312,16 +360,29 @@ export default async function PainelPage() {
   const datasSemSala = await listarDatasNaoReservadas(ctx);
 
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-8 sm:px-6">
+    <main className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-8 sm:px-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Olá, {primeiroNome(ctx.usuario.nome)}</h1>
         <p className="text-sm text-muted-foreground">{ctx.tenantNome}</p>
       </div>
       {etapas.length > 0 && <PrimeirosPassos etapas={etapas} />}
       <DatasNaoReservadas datas={datasSemSala} equipe={ehEquipe} />
-      {ehAdmin && <SecaoMes ctx={ctx} />}
-      {ehEquipe && <SecaoHoje ctx={ctx} />}
-      {ehProfissional && <SecaoSemana ctx={ctx} />}
+      {/* Cada seção carrega sozinha: a mais lenta não segura as outras. */}
+      {ehAdmin && (
+        <Suspense fallback={<EsqueletoSecao />}>
+          <SecaoMes ctx={ctx} />
+        </Suspense>
+      )}
+      {ehEquipe && (
+        <Suspense fallback={<EsqueletoSecao />}>
+          <SecaoHoje ctx={ctx} />
+        </Suspense>
+      )}
+      {ehProfissional && (
+        <Suspense fallback={<EsqueletoSecao />}>
+          <SecaoSemana ctx={ctx} />
+        </Suspense>
+      )}
     </main>
   );
 }

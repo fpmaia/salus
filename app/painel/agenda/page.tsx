@@ -57,7 +57,7 @@ export default async function AgendaPage({ searchParams }: PageProps<"/painel/ag
 
   if (unidades.length === 0) {
     return (
-      <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
+      <main className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6">
         <Card>
           <CardHeader>
             <CardTitle>Agenda</CardTitle>

@@ -505,6 +505,7 @@ export function AgendaUnificada({
             aoClicarSlot={handleSlotClick}
             aoClicarReserva={handleReservaClick}
           />
+          <LegendaGrade />
         </GradeArrastavel>
       )}
 
@@ -542,5 +543,27 @@ export function AgendaUnificada({
         }}
       />
     </div>
+  );
+}
+
+/** O que cada cor da grade quer dizer (sempre com texto: a cor não é a única pista). */
+function LegendaGrade() {
+  const itens: [string, string][] = [
+    ["border border-border bg-background", "Livre: clique para agendar"],
+    ["border-2 border-dashed border-primary/50 bg-primary/10", "Reservado pelo profissional, vago"],
+    ["border-2 border-dashed border-warning/70 bg-warning/10", "Sala fixa (contrato), vago"],
+    ["border border-primary/40 bg-card", "Consulta agendada"],
+    ["border-2 border-warning/70 bg-warning/15", "Paciente chegou"],
+    ["border border-success/50 bg-success/15", "Atendimento realizado"],
+  ];
+  return (
+    <ul aria-label="Legenda da agenda" className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 text-[11px] text-muted-foreground">
+      {itens.map(([classe, rotulo]) => (
+        <li key={rotulo} className="flex items-center gap-1.5">
+          <span className={`inline-block size-3 rounded ${classe}`} aria-hidden />
+          {rotulo}
+        </li>
+      ))}
+    </ul>
   );
 }

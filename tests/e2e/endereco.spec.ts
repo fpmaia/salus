@@ -7,6 +7,7 @@ test("recepção cadastra paciente com endereço preenchido pelo CEP", async ({ 
   await entrar(page, "recepcao");
   await page.goto("/painel/pacientes");
   await page.waitForLoadState("networkidle");
+  await page.getByRole("button", { name: "Novo paciente" }).click();
 
   await page.getByLabel("Nome", { exact: true }).fill("Paciente do CEP");
   await page.getByText("Responsável, convênio e endereço").click();

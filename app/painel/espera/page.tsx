@@ -19,7 +19,7 @@ export default async function EsperaPage() {
   const [itens, profissionais] = await Promise.all([listarEspera(ctx), listarProfissionaisParaReserva(ctx)]);
 
   return (
-    <main className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[1fr_20rem]">
+    <main className="mx-auto grid w-full max-w-7xl gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[1fr_20rem]">
       <Card className="h-fit">
         <CardHeader>
           <CardTitle>Lista de espera ({itens.length})</CardTitle>

@@ -19,7 +19,7 @@ export default async function UnidadesPage() {
   const modulos = pode(ctx.role, "tenant.configurar") ? await modulosDoEspaco(ctx) : null;
 
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6">
+    <main className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-8 sm:px-6">
       <Card>
         <CardHeader>
           <CardTitle>Unidades</CardTitle>

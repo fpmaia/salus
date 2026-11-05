@@ -34,7 +34,7 @@ export default async function UnidadePage({ params, searchParams }: PageProps<"/
   const { unidade, horarios, feriados, salas } = detalhe;
 
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6">
+    <main className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-8 sm:px-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <Link href="/painel/unidades" className="text-sm text-muted-foreground hover:underline">
