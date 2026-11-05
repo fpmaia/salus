@@ -54,6 +54,8 @@ export function FormAcao({
       avisar?.(estado.sucesso);
       aoConcluir?.(estado);
     }
+    // O erro fica junto do botão e também vira aviso (o botão pode estar fora da tela).
+    if (estado.erro) avisar?.(estado.erro, { tipo: "erro" });
     // avisar e aoConcluir fora das dependências: só reage a um novo resultado da ação.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [estado]);

@@ -180,7 +180,7 @@ export function EditorPapelTimbrado({ papel, dados, acao }: { papel: PapelTimbra
 
       <div className="flex flex-col gap-2">
         <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Prévia</span>
-        <div aria-label="Prévia do papel timbrado" className="flex min-h-96 flex-col gap-6 rounded-xl border bg-white p-6 text-neutral-900 shadow-sm">
+        <div aria-label="Prévia do papel timbrado" className="tema-claro flex min-h-96 flex-col gap-6 rounded-xl border bg-white p-6 text-neutral-900 shadow-sm">
           <CabecalhoTimbrado timbrado={previa} />
           <div className="flex flex-1 flex-col gap-2" aria-hidden>
             <div className="mx-auto h-3 w-1/3 rounded bg-neutral-200" />

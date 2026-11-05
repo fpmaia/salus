@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import { headers } from "next/headers";
+import { ProvedorTema } from "@/components/provedor-tema";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -34,14 +35,17 @@ export const metadata: Metadata = {
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   // Ler o cabeçalho torna todas as páginas dinâmicas: o nonce da CSP (proxy.ts) muda a cada
   // requisição, e o Next.js só o aplica aos scripts de páginas renderizadas na hora.
-  await headers();
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
   return (
+    // suppressHydrationWarning: next-themes põe a classe do tema no <html> antes de hidratar.
     <html
       lang="pt-BR"
+      data-scroll-behavior="smooth"
+      suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} ${titulos.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col bg-background font-sans text-foreground">
-        {children}
+        <ProvedorTema nonce={nonce}>{children}</ProvedorTema>
       </body>
     </html>
   );

@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { BookmarkPlus, Building2, CheckSquare, ClipboardCheck, FileText, School, Send, Sparkles, Stethoscope, UserRound } from "lucide-react";
 import { useAviso } from "@/components/avisos";
+import { useConfirmar } from "@/components/confirmar";
 import { Button } from "@/components/ui/button";
 import { FormAcao } from "@/components/form-acao";
 import { Input } from "@/components/ui/input";
@@ -60,9 +61,16 @@ export function EditorRegistroComModelos({
   const [prescricao, setPrescricao] = useState(registro?.conteudo.prescricao ?? "");
   const [modeloSelecionado, setModeloSelecionado] = useState<string | null>(null);
 
-  const aplicarModelo = (chave: string, mod: { titulo: string; anotacoes: string; prescricao: string } | undefined) => {
+  const [confirmar, dialogoConfirmacao] = useConfirmar();
+
+  const aplicarModelo = async (chave: string, mod: { titulo: string; anotacoes: string; prescricao: string } | undefined) => {
     if (!mod) return;
-    if ((anotacoes.trim() || prescricao.trim()) && !window.confirm("Substituir o conteúdo atual pelo modelo selecionado?")) return;
+    if (
+      (anotacoes.trim() || prescricao.trim()) &&
+      !(await confirmar({ titulo: "Substituir o texto?", descricao: "O conteúdo atual será trocado pelo do modelo selecionado.", confirmar: "Substituir" }))
+    ) {
+      return;
+    }
     setTitulo(mod.titulo);
     setAnotacoes(mod.anotacoes);
     setPrescricao(mod.prescricao);
@@ -77,6 +85,7 @@ export function EditorRegistroComModelos({
   return (
     <FormAcao key={registro?.id ?? "novo"} acao={acao} textoBotao={registro ? "Salvar rascunho" : "Criar rascunho"} className="flex flex-col gap-5">
       <input type="hidden" name="tipo" value={tipo} />
+      {dialogoConfirmacao}
 
       {documento && !registro && (
         <div className="flex flex-col gap-2 rounded-xl border border-primary/20 bg-primary/5 p-3.5">
