@@ -94,7 +94,7 @@
   --sidebar-ring: oklch(0.6 0.09 195);
 }
 
-/* Modo escuro (classe .dark no <html>, via next-themes): mesmo teal da marca, mais claro para
+/* Modo escuro (classe .dark no <html>, ver components/tema.tsx): mesmo teal da marca, mais claro para
    manter contraste; superfícies em slate profundo, sem preto puro. */
 .dark {
   --background: oklch(0.165 0.018 255);

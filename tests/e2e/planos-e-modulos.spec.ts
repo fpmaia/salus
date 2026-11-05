@@ -19,11 +19,11 @@ test("admin vê uso e preços do plano, sobe para o Pro e volta ao Básico", asy
 
   await page.getByRole("button", { name: "Fazer upgrade" }).first().click();
   await confirmar(page);
-  await expect(page.getByRole("status").getByText(/os limites já valem/)).toBeVisible();
+  await expect(page.locator("[data-sonner-toast]").getByText(/os limites já valem/)).toBeVisible();
 
   await page.getByRole("button", { name: "Mudar para este" }).first().click();
   await confirmar(page);
-  await expect(page.getByRole("status").getByText(/os limites já valem/)).toBeVisible();
+  await expect(page.locator("[data-sonner-toast]").getByText(/os limites já valem/)).toBeVisible();
 });
 
 test("admin liga os módulos; o profissional ativa o teste do prontuário, registra uma evolução e emite um documento", async ({ page }) => {
@@ -32,7 +32,7 @@ test("admin liga os módulos; o profissional ativa o teste do prontuário, regis
   const modulos = page.locator("form", { has: page.getByRole("button", { name: "Salvar módulos" }) });
   for (const m of ["fiscal", "agendaOnline", "prontuario"]) await modulos.locator(`input[name="${m}"]`).check();
   await modulos.getByRole("button", { name: "Salvar módulos" }).click();
-  await expect(page.getByRole("status").first()).toBeVisible();
+  await expect(page.locator("[data-sonner-toast]").first()).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Menu principal" }).first().locator('a[href="/painel/prontuario"]')).toHaveCount(1);
 
   await page.context().clearCookies();
@@ -51,7 +51,7 @@ test("admin liga os módulos; o profissional ativa o teste do prontuário, regis
   await expect(page.getByText("Paciente relata melhora do sono.").first()).toBeVisible();
 
   // Documento: aba própria, modelo pronto, título e impressão individual.
-  await page.getByRole("link", { name: /Documentos/ }).click();
+  await page.getByRole("link", { name: /^Documentos \d+$/ }).click();
   await expect(page.getByText("Nenhum documento emitido ainda.")).toBeVisible();
   await page.getByRole("button", { name: /Atestado de comparecimento/ }).click();
   await expect(page.getByLabel("Título do documento")).toHaveValue("Atestado de comparecimento");
@@ -75,7 +75,7 @@ test("admin personaliza o papel timbrado com logo; o profissional cria um modelo
   await expect(page.getByLabel("Prévia do papel timbrado").getByRole("img", { name: "Logo" })).toBeVisible();
   await expect(page.getByLabel("Prévia do papel timbrado").getByText("Cuidado integral em saúde")).toBeVisible();
   await page.getByRole("button", { name: "Salvar papel timbrado" }).click();
-  await expect(page.getByRole("status").getByText("Papel timbrado salvo")).toBeVisible();
+  await expect(page.locator("[data-sonner-toast]").getByText("Papel timbrado salvo")).toBeVisible();
 
   await page.context().clearCookies();
   await entrar(page, "profissional");
@@ -85,12 +85,12 @@ test("admin personaliza o papel timbrado com logo; o profissional cria um modelo
   await page.getByLabel("Título do documento").fill("Atestado médico");
   await page.getByLabel("Texto", { exact: true }).fill("Atesto, para os devidos fins, a necessidade de repouso.");
   await page.getByRole("button", { name: "Salvar modelo" }).click();
-  await expect(page.getByRole("status").getByText("Modelo criado")).toBeVisible();
+  await expect(page.locator("[data-sonner-toast]").getByText("Modelo criado")).toBeVisible();
   await expect(page.getByRole("listitem").filter({ hasText: "Atestado de repouso" })).toBeVisible();
 
   await page.goto("/painel/prontuario");
   await page.getByRole("link", { name: "Ana Paciente" }).click();
-  await page.getByRole("link", { name: /Documentos/ }).click();
+  await page.getByRole("link", { name: /^Documentos \d+$/ }).click();
   await page.getByRole("button", { name: /Atestado de repouso/ }).click();
   await expect(page.getByLabel("Título do documento")).toHaveValue("Atestado médico");
   await page.getByRole("button", { name: "Criar rascunho" }).click();

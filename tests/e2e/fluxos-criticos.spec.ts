@@ -229,7 +229,7 @@ test("equipe agenda em 1 passo com cadastro rápido, desfaz o status e remarca",
   // Arrastando na grade: a consulta vai para as 20h na mesma sala, com a mesma duração.
   await page.goto(`/painel/agenda?data=${amanha}`);
   await page.locator("[data-agendamento]", { hasText: "Bruno Rápido" }).dragTo(page.getByRole("link", { name: "Agendar em Sala 1 às 20:00" }));
-  await expect(page.getByRole("status").getByText(/Remarcado para .*20:00/)).toBeVisible();
+  await expect(page.locator("[data-sonner-toast]").getByText(/Remarcado para .*20:00/)).toBeVisible();
   await page.goto(`/painel/atendimentos?data=${amanha}`);
   await expect(page.getByRole("listitem").filter({ hasText: "20:00–21:00" }).filter({ hasText: "Bruno Rápido" })).toBeVisible();
 });

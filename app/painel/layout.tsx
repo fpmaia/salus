@@ -1,11 +1,18 @@
 import Link from "next/link";
-import { AlertCircle, Gift, Shield } from "lucide-react";
+import { cookies } from "next/headers";
+import { AlertCircle, Gift } from "lucide-react";
 import { obterContextoTenant, situacaoDaAssinaturaAtual } from "@/src/auth/sessao";
 import { pode, type Permissao } from "@/src/domain/rbac";
 import { formatarDataBr } from "@/src/server/reservas";
 import { SalusLogo } from "@/components/brand/salus-logo";
 import { RodapeLegal } from "@/components/rodape-legal";
-import { PainelNav, PainelNavMobile, type ItemNavegacao } from "@/components/painel-nav";
+import { BarraLateral, type GrupoMenu } from "@/components/shell/barra-lateral";
+import { MenuUsuario } from "@/components/shell/menu-usuario";
+import { BotaoBusca, PaletaComandos, type AcaoPaleta } from "@/components/shell/paleta-comandos";
+import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { Separator } from "@/components/ui/separator";
+import { ROTULOS_ROLE } from "@/src/domain/rbac";
+import { buscarPacientesAcao } from "./pacientes/actions";
 import { modulosDoEspaco, type Modulo } from "@/src/server/modulos";
 import { ehSuperadmin } from "@/src/server/plataforma";
 import { ProvedorAvisos } from "@/components/avisos";
@@ -14,12 +21,15 @@ import { BannerProntuarioProfissional } from "@/components/banner-prontuario-pro
 import { primeirosPassos } from "@/src/server/primeiros-passos";
 import { obterStatusLicencaProntuarioProfissional, periodoDeTesteDoEspaco } from "@/src/server/assinatura";
 import { BotaoAjuda } from "@/components/manual/ajuda-contextual";
-import { BotaoSair } from "./botao-sair";
 import { SeletorClinica } from "@/components/seletor-clinica";
 
-const NAVEGACAO: (ItemNavegacao & { permissao?: Permissao; modulo?: Modulo })[] = [
+type Grupo = "operacao" | "financeiro" | "configuracoes";
+const ROTULOS_GRUPO: Record<Grupo, string> = { operacao: "Operação", financeiro: "Financeiro", configuracoes: "Configurações" };
+
+const NAVEGACAO: { href: string; rotulo: string; grupo: Grupo; permissao?: Permissao; modulo?: Modulo }[] = [
   { href: "/painel", rotulo: "Início", grupo: "operacao" },
   { href: "/painel/agenda", rotulo: "Agenda", grupo: "operacao", permissao: "agenda.ver" },
+  { href: "/painel/atendimentos", rotulo: "Atendimentos do dia", grupo: "operacao", permissao: "agenda.ver" },
   { href: "/painel/pacientes", rotulo: "Pacientes", grupo: "operacao", permissao: "pacientes.ver" },
   { href: "/painel/espera", rotulo: "Lista de espera", grupo: "operacao", permissao: "agenda.gerenciar" },
   { href: "/painel/prontuario", rotulo: "Prontuário", grupo: "operacao", permissao: "prontuario.menu", modulo: "prontuario" },
@@ -41,7 +51,7 @@ export default async function PainelLayout({ children }: LayoutProps<"/painel">)
   const ctx = await obterContextoTenant();
 
   const modulos = await modulosDoEspaco(ctx);
-  const itens: ItemNavegacao[] = NAVEGACAO.filter(
+  const itens = NAVEGACAO.filter(
     (item) => (!item.permissao || pode(ctx.role, item.permissao)) && (!item.modulo || modulos[item.modulo])
   ).map(({ href, rotulo, grupo }) => ({
     href,
@@ -63,83 +73,63 @@ export default async function PainelLayout({ children }: LayoutProps<"/painel">)
       ? await obterStatusLicencaProntuarioProfissional(ctx).catch(() => null)
       : null;
 
+  const grupos: GrupoMenu[] = (Object.keys(ROTULOS_GRUPO) as Grupo[])
+    .map((g) => ({ rotulo: ROTULOS_GRUPO[g], itens: itens.filter((i) => i.grupo === g).map(({ href, rotulo }) => ({ href, rotulo })) }))
+    .filter((g) => g.itens.length > 0);
+  const acoesRapidas: AcaoPaleta[] = [
+    ...(pode(ctx.role, "agenda.ver") ? [{ href: "/painel/agenda", rotulo: "Novo agendamento", icone: "agendamento" as const }] : []),
+    ...(pode(ctx.role, "pacientes.gerenciar") ? [{ href: "/painel/pacientes?novo=1", rotulo: "Novo paciente", icone: "paciente" as const }] : []),
+  ];
+  // Menu lateral aberto ou recolhido: lembrado no cookie do próprio componente.
+  const menuAberto = (await cookies()).get("sidebar_state")?.value !== "false";
+
   return (
     <ProvedorAvisos>
-    <div className="flex min-h-screen flex-1 flex-col bg-background selection:bg-primary/20 selection:text-primary">
-
-      {/* Header Principal do Painel */}
-      <header className="sticky top-0 z-30 border-b border-border/60 bg-background/90 backdrop-blur-md print:hidden">
-        <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-2.5 sm:px-6">
-          {/* Logo e Contexto do Espaço com Seletor Multi-clínicas */}
-          <div className="flex items-center gap-3 sm:gap-4">
-            <PainelNavMobile
-              itens={itens}
-              rodape={
-                <div className="flex flex-col gap-2 px-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="min-w-0 text-xs">
-                      <span className="block truncate font-medium">{ctx.usuario.nome}</span>
-                      <span className="block truncate text-muted-foreground">{ctx.usuario.email}</span>
-                    </span>
-                    <BotaoSair />
-                  </div>
-                  <div className="flex items-center gap-2 pt-2 border-t border-border/40 text-xs">
-                    {superadmin && (
-                      <Link href="/plataforma" className="font-bold text-primary flex items-center gap-1 hover:underline">
-                        <Shield className="size-3" /> Plataforma
-                      </Link>
-                    )}
-                    <BotaoAjuda compacto className="text-muted-foreground flex items-center gap-1 hover:underline ml-auto" />
-                  </div>
-                </div>
-              }
-            />
-            {/* No celular, só o símbolo: o seletor de clínica ocupa o resto da linha. */}
-            <span className="hidden sm:block">
-              <SalusLogo href="/painel" size="sm" priority />
+      <SidebarProvider defaultOpen={menuAberto}>
+        <BarraLateral
+          raiz="/painel"
+          grupos={grupos}
+          cabecalho={
+            <span className="flex items-center gap-2 overflow-hidden">
+              <span className="group-data-[collapsible=icon]:hidden">
+                <SalusLogo href="/painel" size="sm" priority />
+              </span>
+              <span className="hidden group-data-[collapsible=icon]:block">
+                <SalusLogo href="/painel" variant="symbol" size="sm" />
+              </span>
             </span>
-            <span className="sm:hidden">
-              <SalusLogo href="/painel" variant="symbol" size="sm" priority />
-            </span>
-
-            <div className="hidden h-6 w-px bg-border/60 sm:block" />
-
+          }
+          rodape={
+            <BotaoAjuda className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs font-medium text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:justify-center [&>span]:group-data-[collapsible=icon]:hidden" />
+          }
+        />
+        <SidebarInset className="min-w-0 selection:bg-primary/20 selection:text-primary">
+          {/* Barra superior: menu, clínica, busca e conta */}
+          <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b border-border/60 bg-background/90 px-3 backdrop-blur-md sm:px-4 print:hidden">
+            <SidebarTrigger aria-label="Abrir ou recolher o menu" />
+            <Separator orientation="vertical" className="mx-1 h-5" />
             <SeletorClinica
               clinicaAtualId={ctx.tenantId}
               clinicaAtualNome={ctx.tenantNome}
               roleAtual={ctx.role}
               todasClinicas={ctx.todasClinicas}
             />
-          </div>
-
-          {/* Ações do Topo (no celular, ficam no rodapé do menu) */}
-          <div className="hidden items-center gap-2 md:flex">
-            {superadmin && (
-              <Link
-                href="/plataforma"
-                className="inline-flex items-center gap-1.5 rounded-xl border border-primary/40 bg-primary/10 px-2.5 py-1.5 text-xs font-bold text-primary hover:bg-primary/20 transition-all mr-1 shadow-2xs"
-                title="Acessar o Painel Central da Plataforma Salus (Superadmin)"
-              >
-                <Shield className="size-3.5" />
-                <span>Plataforma</span>
-              </Link>
-            )}
-
-            <BotaoAjuda className="inline-flex items-center gap-1.5 rounded-xl border border-border/70 bg-card/60 px-2.5 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-muted hover:text-foreground transition-all mr-1 shadow-2xs" />
-
-            <div className="hidden flex-col items-end sm:flex mr-1">
-              <span className="text-xs font-medium text-foreground">{ctx.usuario.nome}</span>
-              <span className="text-[10px] text-muted-foreground">{ctx.usuario.email}</span>
+            <div className="ml-auto flex flex-1 items-center justify-end gap-2">
+              <div className="hidden flex-1 justify-end md:flex">
+                <BotaoBusca />
+              </div>
+              <span className="md:hidden">
+                <BotaoBusca compacto />
+              </span>
+              <MenuUsuario
+                nome={ctx.usuario.nome}
+                email={ctx.usuario.email}
+                subtitulo={ROTULOS_ROLE[ctx.role]}
+                perfilHref="/painel/perfil"
+                links={superadmin ? [{ href: "/plataforma", rotulo: "Plataforma Salus", icone: "plataforma" }] : []}
+              />
             </div>
-            <BotaoSair />
-          </div>
-        </div>
-
-        {/* Barra de Navegação Horizontal com Ícones */}
-        <div className="hidden border-t border-border/40 bg-muted/20 md:block">
-          <PainelNav itens={itens} />
-        </div>
-      </header>
+          </header>
 
       {/* Banner de Primeiros Passos Contextual */}
       {etapas.length > 0 && <BannerPrimeirosPassos etapas={etapas} />}
@@ -188,13 +178,11 @@ export default async function PainelLayout({ children }: LayoutProps<"/painel">)
       )}
 
       {/* Conteúdo da Página */}
-      <div className="flex-1">
-        {children}
-      </div>
+          <div className="flex-1">{children}</div>
 
       {/* Rodapé: marca do Salus e documentos legais (a LS Code só aparece nas páginas públicas). */}
       <footer className="border-t border-border/40 bg-muted/10 py-6 px-4 sm:px-6 print:hidden">
-        <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-3 sm:flex-row text-xs text-muted-foreground">
+        <div className="mx-auto flex w-full max-w-7xl flex-col items-center justify-between gap-3 sm:flex-row text-xs text-muted-foreground">
           <div className="flex items-center gap-2">
             <SalusLogo variant="symbol" size="xs" />
             <span>Salus • Gestão de Saúde</span>
@@ -213,7 +201,13 @@ export default async function PainelLayout({ children }: LayoutProps<"/painel">)
           </div>
         </div>
       </footer>
-    </div>
+        </SidebarInset>
+        <PaletaComandos
+          itens={itens.map(({ href, rotulo, grupo }) => ({ href, rotulo, grupo: ROTULOS_GRUPO[grupo] }))}
+          acoes={acoesRapidas}
+          buscarPacientes={pode(ctx.role, "pacientes.ver") ? buscarPacientesAcao : undefined}
+        />
+      </SidebarProvider>
     </ProvedorAvisos>
   );
 }

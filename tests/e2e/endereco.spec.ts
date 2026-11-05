@@ -12,10 +12,10 @@ test("recepção cadastra paciente com endereço preenchido pelo CEP", async ({ 
   await page.getByText("Responsável, convênio e endereço").click();
 
   // CEP inexistente: avisa e deixa preencher à mão.
-  await page.getByLabel("CEP").fill("99999-999");
+  await page.getByLabel("CEP", { exact: true }).fill("99999-999");
   await expect(page.getByText("CEP não encontrado. Preencha o endereço manualmente.")).toBeVisible();
 
-  await page.getByLabel("CEP").fill("01310-100");
+  await page.getByLabel("CEP", { exact: true }).fill("01310-100");
   await expect(page.getByLabel("Rua / logradouro")).toHaveValue("Avenida Paulista");
   await expect(page.getByLabel("Bairro")).toHaveValue("Bela Vista");
   await expect(page.getByLabel("Cidade")).toHaveValue("São Paulo");
@@ -31,5 +31,5 @@ test("recepção cadastra paciente com endereço preenchido pelo CEP", async ({ 
   await expect(page.getByLabel("Rua / logradouro")).toHaveValue("Avenida Paulista");
   await expect(page.getByLabel("Número")).toHaveValue("1000");
   await expect(page.getByLabel("Complemento (opcional)")).toHaveValue("Apto 12");
-  await expect(page.getByLabel("CEP")).toHaveValue("01310-100");
+  await expect(page.getByLabel("CEP", { exact: true })).toHaveValue("01310-100");
 });

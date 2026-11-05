@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import { headers } from "next/headers";
-import { ProvedorTema } from "@/components/provedor-tema";
+import { ProvedoresUi } from "@/components/provedor-tema";
+import { SCRIPT_TEMA } from "@/components/tema-script";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -37,15 +38,18 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   // requisição, e o Next.js só o aplica aos scripts de páginas renderizadas na hora.
   const nonce = (await headers()).get("x-nonce") ?? undefined;
   return (
-    // suppressHydrationWarning: next-themes põe a classe do tema no <html> antes de hidratar.
+    // suppressHydrationWarning: o script do tema põe a classe .dark no <html> antes de hidratar.
     <html
       lang="pt-BR"
       data-scroll-behavior="smooth"
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} ${titulos.variable} h-full antialiased`}
     >
+      <head>
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: SCRIPT_TEMA }} />
+      </head>
       <body className="flex min-h-full flex-col bg-background font-sans text-foreground">
-        <ProvedorTema nonce={nonce}>{children}</ProvedorTema>
+        <ProvedoresUi>{children}</ProvedoresUi>
       </body>
     </html>
   );

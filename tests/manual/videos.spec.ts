@@ -152,7 +152,7 @@ test("remarcar arrastando na grade", async ({ browser, baseURL }) => {
     const b = await centro(destino);
     await page.mouse.move(b.x, b.y, { steps: 30 });
     await page.mouse.up();
-    await expect(page.getByRole("status").getByText(/Remarcado para/)).toBeVisible();
+    await expect(page.locator("[data-sonner-toast]").getByText(/Remarcado para/)).toBeVisible();
   });
 });
 
@@ -221,7 +221,7 @@ test("trocar de plano", async ({ browser, baseURL }) => {
     await poster(page, "trocar-plano");
     await clicar(page, botao);
     await clicar(page, page.getByRole("dialog", { name: "Confirmar ação" }).getByRole("button", { name: "Confirmar" }));
-    await expect(page.getByRole("status").getByText(/os limites já valem/)).toBeVisible();
+    await expect(page.locator("[data-sonner-toast]").getByText(/os limites já valem/)).toBeVisible();
   });
 });
 

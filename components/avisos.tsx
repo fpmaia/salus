@@ -38,10 +38,8 @@ export function ProvedorAvisos({ children }: { children: React.ReactNode }) {
   return (
     <Contexto.Provider value={avisar}>
       {children}
-      {/* role=status: leitores de tela (e os testes) acham o aviso como antes. */}
-      <div role="status" aria-live="polite">
-        <Toaster position="bottom-right" closeButton visibleToasts={3} containerAriaLabel="Avisos" />
-      </div>
+      {/* A região do Sonner já é aria-live: leitores de tela anunciam cada aviso. */}
+      <Toaster position="bottom-right" closeButton visibleToasts={3} containerAriaLabel="Avisos" />
     </Contexto.Provider>
   );
 }
