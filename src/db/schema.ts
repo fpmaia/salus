@@ -396,6 +396,15 @@ export const unidades = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     tenantId: tenantIdDoContexto(),
     nome: text("nome").notNull(),
+    // Endereço estruturado (preenchido pela busca de CEP). `endereco` é a linha formatada,
+    // derivada ao salvar: é o que notificações, recibo, agendamento online e mapa leem.
+    cep: text("cep"),
+    logradouro: text("logradouro"),
+    numero: text("numero"),
+    complemento: text("complemento"),
+    bairro: text("bairro"),
+    cidade: text("cidade"),
+    uf: text("uf"),
     endereco: text("endereco"),
     timezone: text("timezone").notNull().default("America/Sao_Paulo"),
     // Início e fim das reservas são múltiplos do slot, a partir da meia-noite local.
@@ -740,7 +749,10 @@ export const pacientes = pgTable(
     convenioCarteirinha: text("convenio_carteirinha"),
     // Endereço (recibo e cadastro). CEP só dígitos.
     cep: text("cep"),
+    // Logradouro (rua). Cadastros anteriores à busca por CEP podem ter número e complemento aqui.
     endereco: text("endereco"),
+    numero: text("numero"),
+    complemento: text("complemento"),
     bairro: text("bairro"),
     cidade: text("cidade"),
     uf: text("uf"),

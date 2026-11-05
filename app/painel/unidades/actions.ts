@@ -18,7 +18,13 @@ import {
 function dadosUnidade(formData: FormData) {
   return {
     nome: texto(formData, "nome"),
-    endereco: texto(formData, "endereco"),
+    cep: texto(formData, "cep"),
+    logradouro: texto(formData, "logradouro"),
+    numero: texto(formData, "numero"),
+    complemento: texto(formData, "complemento"),
+    bairro: texto(formData, "bairro"),
+    cidade: texto(formData, "cidade"),
+    uf: texto(formData, "uf"),
     timezone: texto(formData, "timezone") || "America/Sao_Paulo",
     slotMinutos: Number(texto(formData, "slotMinutos") || 30),
   };

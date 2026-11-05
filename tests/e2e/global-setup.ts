@@ -91,7 +91,7 @@ export default async function setup() {
       db,
     );
 
-    const { id: unidadeId } = await criarUnidade(admin, { nome: "Unidade E2E", endereco: "Rua dos Testes, 1" }, db);
+    const { id: unidadeId } = await criarUnidade(admin, { nome: "Unidade E2E", logradouro: "Rua dos Testes, 1" }, db);
     await definirHorarios(admin, unidadeId, [0, 1, 2, 3, 4, 5, 6].map((diaSemana) => ({ diaSemana, abre: "06:00", fecha: "22:00" })), db);
     const { id: sala1 } = await criarSala(admin, unidadeId, { nome: "Sala 1" }, db);
     const { id: sala2 } = await criarSala(admin, unidadeId, { nome: "Sala 2" }, db);

@@ -52,6 +52,8 @@ export default defineConfig({
       LINKS_SECRET,
       SECRETS_KEY,
       WHATSAPP_PROVIDER: "console",
+      // Busca de CEP sem internet: só os CEPs de exemplo (src/server/cep.ts).
+      CEP_PROVIDER: "simulado",
       // E-mails só no log: o boot de produção aceita "console" em ambiente de demonstração.
       EMAIL_PROVIDER: "console",
       SALUS_DEMO: "true",

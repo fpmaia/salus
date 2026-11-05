@@ -12,6 +12,7 @@ export const LIMITES = {
   agendarPorIp: { janelaSegundos: 3600, max: 10 },
   agendarPorPagina: { janelaSegundos: 3600, max: 40 },
   linkPacientePorIp: { janelaSegundos: 600, max: 30 },
+  cepPorUsuario: { janelaSegundos: 600, max: 120 },
 } satisfies Record<string, RegraLimite>;
 
 /** Conta mais uma tentativa e devolve se ainda está dentro do limite. */

@@ -111,7 +111,7 @@ async function main() {
       // Unidade com horário comercial e três salas.
       const existentes = await withTenant(ctxAdmin, (tx) => tx.select({ id: unidades.id }).from(unidades), db);
       if (existentes.length === 0) {
-        const { id: unidadeId } = await criarUnidade(ctxAdmin, { nome: "Unidade Centro", endereco: "Av. Paulista, 1000 — São Paulo" }, db);
+        const { id: unidadeId } = await criarUnidade(ctxAdmin, { nome: "Unidade Centro", cep: "01310100", logradouro: "Avenida Paulista", numero: "1000", bairro: "Bela Vista", cidade: "São Paulo", uf: "SP" }, db);
         await definirHorarios(
           ctxAdmin,
           unidadeId,

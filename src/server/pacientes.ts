@@ -6,6 +6,7 @@ import { erroPostgres, PG } from "../db/erros";
 import { agendamentos, pacientes, pacientesProfissionais, profissionais, reservasSala, salas, unidades } from "../db/schema";
 import { type ContextoTenant, withTenant } from "../db/tenant";
 import { cpfValido, somenteDigitos } from "../domain/documentos";
+import { UFS } from "../domain/endereco";
 import { exigirPermissao, pode } from "../domain/rbac";
 import { dataValida, partesLocais } from "../domain/tempo";
 import { ErroNegocio } from "./erros";
@@ -54,6 +55,8 @@ export const pacienteSchema = z.object({
     .transform((v) => (v ? somenteDigitos(v) : null))
     .refine((v) => v === null || v.length === 8, "CEP inválido"),
   endereco: textoOpcional(200),
+  numero: textoOpcional(20),
+  complemento: textoOpcional(80),
   bairro: textoOpcional(80),
   cidade: textoOpcional(80),
   uf: z
@@ -65,7 +68,6 @@ export const pacienteSchema = z.object({
     .refine((v) => v === null || UFS.includes(v), "UF inválida"),
 });
 
-const UFS = "AC AL AP AM BA CE DF ES GO MA MT MS MG PA PB PR PE PI RJ RN RS RO RR SC SP SE TO".split(" ");
 
 /** Idade completa em `hoje` (datas AAAA-MM-DD). */
 export function idadeEm(nascimento: string, hoje: string): number {

@@ -111,7 +111,7 @@ export default async function setup() {
     const { id: camila } = await criarProfissional(admin, { nome: "Dra. Camila Rocha", email: "camila.rocha@vidasaude.com.br", conselho: "CRN", registro: "3/45678", especialidade: "Nutrição", telefone: "(11) 97777-3400" }, db);
     const { token: tokenConvite } = await gerarConvite(admin, camila, new Date(), db);
 
-    const { id: unidade } = await criarUnidade(admin, { nome: "Unidade Paulista", endereco: "Av. Paulista, 1000 – Bela Vista, São Paulo/SP" }, db);
+    const { id: unidade } = await criarUnidade(admin, { nome: "Unidade Paulista", cep: "01310100", logradouro: "Avenida Paulista", numero: "1000", bairro: "Bela Vista", cidade: "São Paulo", uf: "SP" }, db);
     await definirHorarios(admin, unidade, [0, 1, 2, 3, 4, 5, 6].map((diaSemana) => ({ diaSemana, abre: "07:00", fecha: "21:00" })), db);
     const { id: c1 } = await criarSala(admin, unidade, { nome: "Consultório 1" }, db);
     const { id: c2 } = await criarSala(admin, unidade, { nome: "Consultório 2" }, db);

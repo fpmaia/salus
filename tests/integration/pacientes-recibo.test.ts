@@ -46,7 +46,7 @@ beforeAll(async () => {
     db,
   );
   beto = { tenantId, userId: betoUser, role: "profissional" };
-  const { id: unidadeId } = await criarUnidade(admin, { nome: "Centro", endereco: "Rua das Flores, 100" }, db);
+  const { id: unidadeId } = await criarUnidade(admin, { nome: "Centro", logradouro: "Rua das Flores, 100" }, db);
   ({ id: sala } = await criarSala(admin, unidadeId, { nome: "Sala 1" }, db));
 });
 

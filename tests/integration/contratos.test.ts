@@ -56,7 +56,7 @@ beforeAll(async () => {
   const { tenantId: t2 } = await criarTenantComAdmin(outroId, { nomeTenant: "Outro Espaço", documento: "529.982.247-25" }, db);
   outroEspaco = { tenantId: t2, userId: outroId, role: "admin" };
 
-  const { id: unidade } = await criarUnidade(admin, { nome: "Centro", endereco: "Rua A, 1" }, db);
+  const { id: unidade } = await criarUnidade(admin, { nome: "Centro", logradouro: "Rua A, 1" }, db);
   await definirHorarios(admin, unidade, [0, 1, 2, 3, 4, 5, 6].map((diaSemana) => ({ diaSemana, abre: "06:00", fecha: "22:00" })), db);
   ({ id: sala } = await criarSala(admin, unidade, { nome: "Sala 1" }, db));
   ({ id: sala2 } = await criarSala(admin, unidade, { nome: "Sala 2" }, db));

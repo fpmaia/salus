@@ -58,7 +58,7 @@ beforeAll(async () => {
   const adminId = await criarUsuario(db, "Admin Notificacoes");
   const { tenantId } = await criarTenantComAdmin(adminId, { nomeTenant: "Coworking Avisos", documento: "11.222.333/0001-81" }, db);
   admin = { tenantId, userId: adminId, role: "admin" };
-  ({ id: unidadeId } = await criarUnidade(admin, { nome: "Centro", endereco: "Rua A, 10" }, db));
+  ({ id: unidadeId } = await criarUnidade(admin, { nome: "Centro", logradouro: "Rua A, 10" }, db));
   ({ id: sala } = await criarSala(admin, unidadeId, { nome: "Sala 1" }, db));
   ({ id: profissional } = await criarProfissional(admin, { nome: "Dra. Ana Lima", email: `ana.${randomUUID()}@teste.dev`, telefone: "(11) 98888-7777" }, db));
   await criarAcordo(

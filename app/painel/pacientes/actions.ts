@@ -22,6 +22,8 @@ function dadosPaciente(formData: FormData) {
     convenioCarteirinha: texto(formData, "convenioCarteirinha"),
     cep: texto(formData, "cep"),
     endereco: texto(formData, "endereco"),
+    numero: texto(formData, "numero"),
+    complemento: texto(formData, "complemento"),
     bairro: texto(formData, "bairro"),
     cidade: texto(formData, "cidade"),
     uf: texto(formData, "uf"),

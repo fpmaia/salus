@@ -1,3 +1,4 @@
+import { CamposEndereco } from "@/components/campos-endereco";
 import { InputMascara } from "@/components/input-mascara";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,6 +17,8 @@ type Valores = {
   convenioCarteirinha?: string | null;
   cep?: string | null;
   endereco?: string | null;
+  numero?: string | null;
+  complemento?: string | null;
   bairro?: string | null;
   cidade?: string | null;
   uf?: string | null;
@@ -24,11 +27,6 @@ type Valores = {
 export function formatarCpf(cpf: string | null): string {
   if (!cpf) return "";
   return cpf.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, "$1.$2.$3-$4");
-}
-
-export function formatarCep(cep: string | null): string {
-  if (!cep) return "";
-  return cep.replace(/^(\d{5})(\d{3})$/, "$1-$2");
 }
 
 export function CamposPaciente({ valores = {}, prefixo }: { valores?: Valores; prefixo: string }) {
@@ -86,28 +84,21 @@ export function CamposPaciente({ valores = {}, prefixo }: { valores?: Valores; p
               <Input id={campo("convenioCarteirinha")} name="convenioCarteirinha" defaultValue={valores.convenioCarteirinha ?? ""} />
             </div>
           </fieldset>
-          <fieldset className="grid gap-3 sm:grid-cols-6">
-            <legend className="mb-1 text-xs font-medium text-muted-foreground">Endereço</legend>
-            <div className="flex flex-col gap-2 sm:col-span-2">
-              <Label htmlFor={campo("cep")}>CEP</Label>
-              <InputMascara mascara="cep" id={campo("cep")} name="cep" defaultValue={formatarCep(valores.cep ?? null)} />
-            </div>
-            <div className="flex flex-col gap-2 sm:col-span-4">
-              <Label htmlFor={campo("endereco")}>Rua, número e complemento</Label>
-              <Input id={campo("endereco")} name="endereco" defaultValue={valores.endereco ?? ""} />
-            </div>
-            <div className="flex flex-col gap-2 sm:col-span-2">
-              <Label htmlFor={campo("bairro")}>Bairro</Label>
-              <Input id={campo("bairro")} name="bairro" defaultValue={valores.bairro ?? ""} />
-            </div>
-            <div className="flex flex-col gap-2 sm:col-span-3">
-              <Label htmlFor={campo("cidade")}>Cidade</Label>
-              <Input id={campo("cidade")} name="cidade" defaultValue={valores.cidade ?? ""} />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor={campo("uf")}>UF</Label>
-              <Input id={campo("uf")} name="uf" maxLength={2} defaultValue={valores.uf ?? ""} className="uppercase" />
-            </div>
+          <fieldset>
+            <legend className="mb-2 text-xs font-medium text-muted-foreground">Endereço</legend>
+            <CamposEndereco
+              prefixo={campo("end")}
+              nomes={{ logradouro: "endereco" }}
+              valores={{
+                cep: valores.cep,
+                logradouro: valores.endereco,
+                numero: valores.numero,
+                complemento: valores.complemento,
+                bairro: valores.bairro,
+                cidade: valores.cidade,
+                uf: valores.uf,
+              }}
+            />
           </fieldset>
         </div>
       </details>

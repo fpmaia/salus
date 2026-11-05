@@ -49,7 +49,7 @@ beforeAll(async () => {
   admin = { tenantId, userId: adminId, role: "admin" };
   // Módulo opcional: o espaço liga o agendamento online.
   await definirModulos(admin, { fiscal: false, agendaOnline: true, prontuario: false }, db);
-  const { id: unidade } = await criarUnidade(admin, { nome: "Centro", endereco: "Rua A, 10" }, db); // seg–sex 08–18, slot 30
+  const { id: unidade } = await criarUnidade(admin, { nome: "Centro", logradouro: "Rua A, 10" }, db); // seg–sex 08–18, slot 30
   ({ id: sala } = await criarSala(admin, unidade, { nome: "Sala 1" }, db));
   ({ id: ana } = await criarProfissional(admin, { nome: "Dra. Ana Lima", email: `ana.${randomUUID()}@teste.dev`, especialidade: "Psicologia" }, db));
   const anaUser = await criarUsuario(db, "Ana Online");

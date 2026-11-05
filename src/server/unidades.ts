@@ -5,6 +5,7 @@ import type { Database, Transaction } from "../db/client";
 import { erroPostgres, PG } from "../db/erros";
 import { feriados, horariosFuncionamento, recursosSala, salas, unidades } from "../db/schema";
 import { type ContextoTenant, withTenant } from "../db/tenant";
+import { formatarEndereco, UFS } from "../domain/endereco";
 import { exigirPermissao } from "../domain/rbac";
 import { SLOTS_PERMITIDOS, type ConfigUnidade } from "../domain/reservas";
 import { dataValida, horaValida, minutosDoDia, timezoneValido } from "../domain/tempo";
@@ -20,15 +21,34 @@ const textoOpcional = (max: number) =>
     .optional()
     .transform((v) => (v ? v : null));
 
-export const unidadeSchema = z.object({
-  nome: z.string().trim().min(2, "Informe o nome da unidade").max(120),
-  endereco: textoOpcional(300),
-  timezone: z.string().refine(timezoneValido, "Fuso horário inválido").default("America/Sao_Paulo"),
-  slotMinutos: z.coerce
-    .number()
-    .refine((v) => (SLOTS_PERMITIDOS as readonly number[]).includes(v), "Slot deve ser 15, 30 ou 60 minutos")
-    .default(30),
-});
+export const unidadeSchema = z
+  .object({
+    nome: z.string().trim().min(2, "Informe o nome da unidade").max(120),
+    cep: z
+      .string()
+      .optional()
+      .transform((v) => (v ? v.replace(/\D/g, "") : null))
+      .refine((v) => v === null || v.length === 8, "CEP inválido"),
+    logradouro: textoOpcional(200),
+    numero: textoOpcional(20),
+    complemento: textoOpcional(80),
+    bairro: textoOpcional(80),
+    cidade: textoOpcional(80),
+    uf: z
+      .string()
+      .trim()
+      .toUpperCase()
+      .optional()
+      .transform((v) => (v ? v : null))
+      .refine((v) => v === null || UFS.includes(v), "UF inválida"),
+    timezone: z.string().refine(timezoneValido, "Fuso horário inválido").default("America/Sao_Paulo"),
+    slotMinutos: z.coerce
+      .number()
+      .refine((v) => (SLOTS_PERMITIDOS as readonly number[]).includes(v), "Slot deve ser 15, 30 ou 60 minutos")
+      .default(30),
+  })
+  // A linha formatada é o que os avisos, o recibo e o mapa usam.
+  .transform((v) => ({ ...v, endereco: formatarEndereco(v) }));
 
 const horaSchema = z.string().refine((v) => horaValida(v) || v === "24:00", "Horário inválido");
 

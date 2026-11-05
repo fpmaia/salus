@@ -358,6 +358,13 @@
       "when": 1793237451565,
       "tag": "0050_gestao_conta_clinica",
       "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1793914067987,
+      "tag": "0051_endereco_estruturado",
+      "breakpoints": true
     }
   ]
 }
